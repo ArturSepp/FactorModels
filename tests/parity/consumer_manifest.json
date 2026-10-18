@@ -2,6 +2,7 @@
   "schema_version": 1,
   "reference_manifest": "manifest.json",
   "reference_manifest_sha256": "fd64f309c58002bca7e70ad2392d58ccc0be64c825d7c062a663f4f542930dda",
+  "reference_manifest_lf_sha256": "932221cb43d77edcf13f91ff5aabfaab8dc825e2d0ef93a16cac986a7cb28f95",
   "selection_basis": "Stage-0-confirmed files classified by current numerical contract versus historical snapshot, exact-source or manuscript receipt. Mixed files retain explicit current test nodes; no expected values, hashes or tolerances are changed.",
   "consumer_entry_points": {
     "faj_q3": "papers/achievable_sharpe_faj_2026/replication/paper_inputs.py:load_production_inputs",

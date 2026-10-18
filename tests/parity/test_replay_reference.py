@@ -160,6 +160,41 @@ def test_operational_inventory_accounts_for_every_frozen_test_file():
     assert set(inventory["consumer_entry_points"]) == {"faj_q3", "matf_current", "rosaa"}
 
 
+@pytest.mark.parametrize("newline", [b"\n", b"\r\n"], ids=["git-lf", "frozen-crlf"])
+def test_operational_inventory_accepts_git_line_endings(tmp_path, newline):
+    """A Git checkout preserves the frozen content while changing text line endings."""
+    directory = Path(__file__).parent
+    manifest = tmp_path / "manifest.json"
+    original = (directory / "manifest.json").read_bytes().replace(b"\r\n", b"\n")
+    manifest.write_bytes(original.replace(b"\n", newline))
+    inventory = replay.load_consumer_inventory(directory / "consumer_manifest.json", manifest)
+    assert inventory["reference_manifest_sha256"] == (
+        "fd64f309c58002bca7e70ad2392d58ccc0be64c825d7c062a663f4f542930dda")
+
+
+@pytest.mark.parametrize("newline", [b"\n", b"\r\n"], ids=["git-lf", "frozen-crlf"])
+@pytest.mark.parametrize("changed", ["content", "frozen_digest", "lf_digest"])
+def test_operational_inventory_rejects_changed_manifest_identity(tmp_path, newline, changed):
+    """Line-ending portability cannot permit changed tolerances or unbound identity fields."""
+    directory = Path(__file__).parent
+    inventory = json.loads((directory / "consumer_manifest.json").read_text(encoding="utf-8-sig"))
+    original = (directory / "manifest.json").read_bytes().replace(b"\r\n", b"\n")
+    if changed == "content":
+        reference = json.loads(original)
+        reference["tolerances"]["atol"] *= 10
+        original = json.dumps(reference, indent=2).encode("utf-8")
+    elif changed == "frozen_digest":
+        inventory["reference_manifest_sha256"] = "0" * 64
+    else:
+        inventory["reference_manifest_lf_sha256"] = "0" * 64
+    manifest = tmp_path / "manifest.json"
+    manifest.write_bytes(original.replace(b"\n", newline))
+    path = tmp_path / "consumer_manifest.json"
+    path.write_text(json.dumps(inventory), encoding="utf-8")
+    with pytest.raises(ValueError, match="immutable reference manifest"):
+        replay.load_consumer_inventory(path, manifest)
+
+
 def test_dropping_a_historical_contract_without_classification_is_rejected(tmp_path):
     """An unavailable old fixture cannot silently disappear from the migration inventory."""
     directory = Path(__file__).parent

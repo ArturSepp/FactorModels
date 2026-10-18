@@ -27,7 +27,17 @@ def load_consumer_inventory(path, reference_manifest):
     """Validate operational test classification without rewriting the frozen contract."""
     inventory = json.loads(Path(path).read_text(encoding="utf-8-sig"))
     reference = json.loads(Path(reference_manifest).read_text(encoding="utf-8-sig"))
-    if inventory["schema_version"] != 1 or inventory["reference_manifest_sha256"] != digest(reference_manifest):
+    # Git stores the public manifest with LF; the frozen local receipt used CRLF.
+    # Bind both recorded identities to those exact text forms, without normalising
+    # other artifacts, JSON formatting, content, or the immutable baseline itself.
+    reference_bytes = Path(reference_manifest).read_bytes()
+    reference_lf = reference_bytes.replace(b"\r\n", b"\n")
+    lf_digest = hashlib.sha256(reference_lf).hexdigest()
+    text_digests = {lf_digest, hashlib.sha256(reference_lf.replace(b"\n", b"\r\n")).hexdigest()}
+    if (inventory["schema_version"] != 1
+            or inventory["reference_manifest_lf_sha256"] != lf_digest
+            or inventory["reference_manifest_sha256"] not in text_digests
+            or hashlib.sha256(reference_bytes).hexdigest() not in text_digests):
         raise ValueError("Consumer inventory does not identify the immutable reference manifest")
     if set(inventory["active_paper_tests"]) != set(reference["active_paper_tests"]):
         raise ValueError("Consumer inventory must classify both recorded papers")

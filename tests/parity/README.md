@@ -49,10 +49,18 @@ IO seams. This is a consumer construction regression, not a claim that a current
 production data refresh or full production shadow run occurred. Consumer mode
 rejects an active source location inside the frozen reference tree.
 
-`manifest.json` remains byte-identical to the frozen reference. Operational
-current/historical paper-test classification belongs in `consumer_manifest.json`,
-which refers to that immutable digest. Historical reference data, labels,
-metadata, source hashes and tolerances are not rewritten for the migration.
+The local frozen `manifest.json` remains byte-identical to the reference.
+Git checks out its text with LF line endings; the original local receipt used
+CRLF. Operational current/historical paper-test classification belongs in
+`consumer_manifest.json`, which retains `reference_manifest_sha256` for the
+original bytes and records `reference_manifest_lf_sha256` for the Git text.
+Inventory validation binds both digests to the same content in those two exact
+line-ending forms. Changed tolerances, labels or JSON formatting fail validation,
+as do identity fields that do not match those forms. All other artifact hashes
+remain raw byte hashes; the numerical baseline and frozen receipt identities
+are unchanged.
+Historical reference data, labels, metadata, source hashes and tolerances are
+not rewritten for the migration.
 Consumer replay validates that this inventory accounts for every originally
 recorded paper test file. `--consumer-manifest PATH` can select an explicit
 inventory; by default it is resolved beside `--manifest`.
