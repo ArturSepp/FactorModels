@@ -1,0 +1,97 @@
+{
+  "schema_version": 1,
+  "reference_id": "tf-reference-20261018-op7.22.1",
+  "source_revisions": {
+    "OptimalPortfolios": "c7ae72f58bb00cd4c05a4c99ff2b3442f0a90d27",
+    "FactorLasso": "66aba40c931b249dfac82c197a4b839e7d4eca12",
+    "QuantInvestStrats": "e3775c6c0de80fab6553acbc0f8f7839659e9376",
+    "Rosaa": "cc291956e7d5d6df9d17143bfce8273be0270b74"
+  },
+  "source_manifest_sha256": "638c33f22cf64801b87d121564799bcecb916d81b18a6370c6d1c722f1a1c7f4",
+  "source_state": "revisions plus private frozen dirty-diff/source manifest; private mapping in local stage0 record",
+  "tolerances": {
+    "atol": 1e-10,
+    "rtol": 1e-08
+  },
+  "expected_artifacts": [
+    "estimation.current",
+    "estimation.aligned_cutoff",
+    "estimation.rolling",
+    "diagnostics",
+    "downstream.optimisation_weights",
+    "downstream.stress_summaries",
+    "downstream.stress_grid_summaries",
+    "papers.faj_q3",
+    "papers.matf_current",
+    "construction.nav"
+  ],
+  "input_ids": [
+    "synthetic-fcgl-72026",
+    "private-faj-q3-20261015",
+    "private-matf-current-20260930",
+    "synthetic-qis-stress-market",
+    "synthetic-rosaa-quarterly-basket"
+  ],
+  "active_paper_tests": {
+    "achievable_sharpe_faj_2026": [
+      "papers/achievable_sharpe_faj_2026/replication/tests/alpha_span_sensitivity_test.py",
+      "papers/achievable_sharpe_faj_2026/replication/tests/alpha_uncertainty_replication_test.py",
+      "papers/achievable_sharpe_faj_2026/replication/tests/asset_class_capacity_test.py",
+      "papers/achievable_sharpe_faj_2026/replication/tests/capped_frontier_replication_test.py",
+      "papers/achievable_sharpe_faj_2026/replication/tests/covariance_correction_test.py",
+      "papers/achievable_sharpe_faj_2026/replication/tests/coverage_pilot_test.py",
+      "papers/achievable_sharpe_faj_2026/replication/tests/expansion_design_test.py",
+      "papers/achievable_sharpe_faj_2026/replication/tests/expansion_portfolio_test.py",
+      "papers/achievable_sharpe_faj_2026/replication/tests/independent_alpha_sensitivity_test.py",
+      "papers/achievable_sharpe_faj_2026/replication/tests/joint_region_bounds_test.py",
+      "papers/achievable_sharpe_faj_2026/replication/tests/matched_capacity_test.py",
+      "papers/achievable_sharpe_faj_2026/replication/tests/native_hac_calibration_test.py",
+      "papers/achievable_sharpe_faj_2026/replication/tests/opportunity_replication_test.py",
+      "papers/achievable_sharpe_faj_2026/replication/tests/pooled_capacity_test.py",
+      "papers/achievable_sharpe_faj_2026/replication/tests/pooling_robustness_test.py",
+      "papers/achievable_sharpe_faj_2026/replication/tests/production_refresh_test.py",
+      "papers/achievable_sharpe_faj_2026/replication/tests/q1_illustrations_test.py",
+      "papers/achievable_sharpe_faj_2026/replication/tests/q3_illustrations_test.py",
+      "papers/achievable_sharpe_faj_2026/replication/tests/q5_illustrations_test.py",
+      "papers/achievable_sharpe_faj_2026/replication/tests/robust_opportunity_test.py",
+      "papers/achievable_sharpe_faj_2026/replication/tests/scalar_capacity_ci_test.py",
+      "papers/achievable_sharpe_faj_2026/replication/tests/shortlist_diagnostics_test.py",
+      "papers/achievable_sharpe_faj_2026/replication/tests/test_fcgl_fixes.py",
+      "papers/achievable_sharpe_faj_2026/replication/tests/test_implied_premia_audit.py",
+      "papers/achievable_sharpe_faj_2026/replication/tests/test_publication_manuscript.py",
+      "papers/achievable_sharpe_faj_2026/replication/tests/test_reference_values.py",
+      "papers/achievable_sharpe_faj_2026/replication/tests/test_reproducibility.py",
+      "papers/achievable_sharpe_faj_2026/replication/tests/test_residual_sensitivity.py",
+      "papers/achievable_sharpe_faj_2026/replication/tests/test_v4_exhibits.py",
+      "papers/achievable_sharpe_faj_2026/replication/tests/test_vector_accounting.py",
+      "papers/achievable_sharpe_faj_2026/replication/tests/universe_capacity_spans_test.py",
+      "papers/achievable_sharpe_faj_2026/replication/tests/universe_diagnostics_replication_test.py"
+    ],
+    "matf_cma_jpm_2026": [
+      "papers/matf_cma_jpm_2026/replication/tests/gls_cache_export_test.py",
+      "papers/matf_cma_jpm_2026/replication/tests/test_audit_corrections.py",
+      "papers/matf_cma_jpm_2026/replication/tests/test_bootstrap_common_horizon.py",
+      "papers/matf_cma_jpm_2026/replication/tests/test_bootstrap_estimators.py",
+      "papers/matf_cma_jpm_2026/replication/tests/test_bootstrap_frontier.py",
+      "papers/matf_cma_jpm_2026/replication/tests/test_bootstrap_policy_precision.py",
+      "papers/matf_cma_jpm_2026/replication/tests/test_compliant_policy.py",
+      "papers/matf_cma_jpm_2026/replication/tests/test_current_gls_diagnostics.py",
+      "papers/matf_cma_jpm_2026/replication/tests/test_custom_ig_hy.py",
+      "papers/matf_cma_jpm_2026/replication/tests/test_custom_ig_prior.py",
+      "papers/matf_cma_jpm_2026/replication/tests/test_horizon_2026.py",
+      "papers/matf_cma_jpm_2026/replication/tests/test_literal_snapshot.py",
+      "papers/matf_cma_jpm_2026/replication/tests/test_native_prior_snapshot.py",
+      "papers/matf_cma_jpm_2026/replication/tests/test_publication_manuscript.py",
+      "papers/matf_cma_jpm_2026/replication/tests/test_publication_prior.py",
+      "papers/matf_cma_jpm_2026/replication/tests/test_publication_snapshot.py",
+      "papers/matf_cma_jpm_2026/replication/tests/test_revised_snapshot.py",
+      "papers/matf_cma_jpm_2026/replication/tests/test_snapshot_parity.py"
+    ]
+  },
+  "independent_references": [
+    "scalar-sum BFB plus diagonal residual",
+    "whitened QR GLS and direct asset covariance solve",
+    "explicit lagged held-unit NAV accounting"
+  ],
+  "historical_receipts": "Exact-code-hash publication receipt tests use frozen source; no expected receipt hashes rewritten."
+}

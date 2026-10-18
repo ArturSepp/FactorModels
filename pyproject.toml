@@ -1,0 +1,87 @@
+[build-system]
+requires = ["setuptools>=77", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "tradablefactors"
+version = "0.1.0.dev0"
+description = "Tradable factor models, GLS premia, capital market assumptions and factor covariance estimation"
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{name = "Artur Sepp", email = "artursepp@gmail.com"}]
+dependencies = [
+    "numpy>=2.0",
+    "pandas>=2.2",
+    "scipy>=1.12",
+    "matplotlib>=3.8",
+    "qis>=5.38.1",
+    "factorlasso>=1.0.4",
+]
+
+[project.optional-dependencies]
+docs = ["sphinx>=7.2", "myst-parser>=2.0", "furo>=2024.1.29"]
+
+[project.urls]
+Homepage = "https://github.com/ArturSepp/tradablefactors"
+Documentation = "https://tradablefactors.readthedocs.io"
+Repository = "https://github.com/ArturSepp/tradablefactors"
+Issues = "https://github.com/ArturSepp/tradablefactors/issues"
+Changelog = "https://github.com/ArturSepp/tradablefactors/blob/main/CHANGELOG.md"
+
+[dependency-groups]
+test = ["pytest>=8", "pytest-cov>=4", "build>=1.2"]
+lint = ["ruff==0.16.9", "interrogate==1.7.0", "deptry==0.25.1"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["tradablefactors*"]
+exclude = ["*.run_local", "*.run_local.*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests", "src/tradablefactors"]
+python_files = ["test_*.py", "*_test.py"]
+addopts = "-ra"
+
+[tool.ruff]
+target-version = "py310"
+line-length = 120
+
+[tool.ruff.lint]
+select = ["F", "TID251", "TID253", "ICN"]
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401", "F403"]
+# The frozen cross-package replay harness is development tooling, not TF library code.
+"tools/replay_reference.py" = ["TID251"]
+
+[tool.ruff.lint.flake8-tidy-imports.banned-api]
+"optimalportfolios" = {msg = "TradableFactors supplies risk inputs to optimisers; it does not import them."}
+"ramen" = {msg = "Private Rosaa bindings remain in Rosaa."}
+"privateassets" = {msg = "PrivateAssets consumes statistical outputs independently."}
+"bbg_fetch" = {msg = "Market-data acquisition is outside the core factor-model package."}
+"trendfollowing" = {msg = "Use the declared QIS/FactorLasso numerical interfaces."}
+"stochvolmodels" = {msg = "Option pricing is outside factor-model ownership."}
+"vanilla_option_pricers" = {msg = "Option pricing is outside factor-model ownership."}
+"option_chain_analytics" = {msg = "Option-chain analytics is outside factor-model ownership."}
+"goal_based_allocation" = {msg = "Goal-based allocation consumes supplied models."}
+
+[tool.ruff.lint.flake8-import-conventions.aliases]
+numpy = "np"
+pandas = "pd"
+"matplotlib.pyplot" = "plt"
+
+[tool.interrogate]
+fail-under = 100
+ignore-init-method = true
+ignore-init-module = true
+ignore-private = true
+ignore-semiprivate = true
+exclude = ["agents", "tests", "tools", "docs", "build"]
+
+[tool.deptry]
+known_first_party = ["tradablefactors"]
+
+[tool.deptry.per_rule_ignores]
+DEP002 = ["matplotlib"]

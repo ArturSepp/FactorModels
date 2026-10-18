@@ -1,0 +1,9 @@
+include AGENTS.md CLAUDE.md CONTRIBUTING.md CITATION.cff CHANGELOG.md uv.lock
+recursive-include docs *.md *.py
+recursive-include examples *.py
+recursive-include tests *.py *.json
+recursive-include tools *.py
+recursive-include src *.md
+prune agents
+global-exclude *.pyc
+global-exclude *.pyo

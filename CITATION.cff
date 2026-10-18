@@ -1,0 +1,18 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it using this metadata."
+type: software
+repository-code: "https://github.com/ArturSepp/tradablefactors"
+url: "https://github.com/ArturSepp/tradablefactors"
+title: "tradablefactors: Tradable factor models and GLS analytics"
+authors:
+  - family-names: Sepp
+    given-names: Artur
+    orcid: "https://orcid.org/0000-0002-7038-1748"
+license: MIT
+version: 0.1.0.dev0
+date-released: "2026-10-18"
+keywords:
+  - factor-models
+  - generalized-least-squares
+  - covariance-estimation
+  - capital-market-assumptions
