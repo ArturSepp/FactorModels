@@ -221,7 +221,7 @@ def _forecast_page(result: CmaDiagnosticResult, title: str) -> Figure:
     stability = 'max_abs_25bp_shift' in factors
     if stability:
         rows = [row + _stability_cells(factors.iloc[i]) for i, row in enumerate(rows)]
-        columns += ['Max |25bp|\nshift bp', 'LOO premia\nlow / high']
+        columns += ['Max |25bp|\nshift bp', 'LOO premia\nlow / high %']
         widths = [.27, .11, .11, .10, .12, .12, .17]
     _table(fig, rows, columns, 0.390, 0.242, widths, 7.4 if stability else 8.)
     assets = result.assets
@@ -427,7 +427,7 @@ def _alpha_comparison_page(result: CmaDiagnosticResult, zero: CmaDiagnosticResul
     stability = 'max_abs_25bp_shift' in result.factors
     if stability:
         rows = [row + _stability_cells(result.factors.iloc[i]) for i, row in enumerate(rows)]
-        columns += ['Max |25bp|\nshift bp', 'LOO specified\nlow / high']
+        columns += ['Max |25bp|\nshift bp', 'LOO specified\nlow / high %']
         widths = [.24, .12, .12, .12, .12, .12, .16]
     _table(fig, rows, columns, .215, .304, widths, 7.4 if stability else 7.9)
     omitted = max(0, len(result.factors)-_FACTOR_ROWS)
@@ -505,7 +505,7 @@ def _compact_alpha_contributors_page(result: CmaDiagnosticResult, title: str,
     widths = [.135, .075, .1975, .1975, .1975, .1975]
     stability = 'max_abs_25bp_shift' in result.factors
     if stability:
-        columns += ['Max |25bp|\nshift bp', 'LOO premia\nlow / high']
+        columns += ['Max |25bp|\nshift bp', 'LOO premia\nlow / high %']
         widths = [.14, .07, .145, .145, .145, .145, .085, .125]
     _table(fig, _factor_contributor_rows(result), columns,
            .083 if stability else .075, .292 if stability else .300, widths,

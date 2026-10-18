@@ -93,11 +93,29 @@ The [construction guide](construction.md) states the completed definition/panel/
 - `FactorModelSnapshot`
 - `RollingFactorModel`
 
+## `tradablefactors.bundle`
+
+- `BUNDLE_SCHEMA_VERSION`
+- `BundleSettings`
+- `FactorBundle`
+- `load_bundle`
+- `fit_bundle`
+- `save_bundle`
+
+The [six-file contract](rolling_factor_covar_from_csv.md) defines schema version 1,
+units and configuration. Loading produces validated inputs only. Fitting returns
+a snapshot or rolling result; saving inputs creates a new directory. There is no
+implicit acquisition, fitted-result checkpoint or historical-format adapter.
+
 ## `tradablefactors.risk`
 
 - `build_risk_model`
 
 ## Completed model contract
+
+The [completed-output guide](completed_model.md) describes actual fields, mutable
+pandas contents, supported inspection/export and the exact point at which fitting
+is finished. [Reference workflows](reference_workflows.md) run without providers.
 
 `FactorCovarEstimator.fit_current` requires `cutoff` and returns a `FactorModelSnapshot`; `fit_rolling` returns `RollingFactorModel`. Fitted FL diagnostics remain in `.data`. The selected total/residual covariance and native-factor metadata travel with the result. Export through `.to_risk_model()` or `build_risk_model` for existing QIS consumers. The risk view does not replace the complete fit.
 

@@ -6,7 +6,7 @@ TradableFactors constructs factor NAVs from supplied prices and definitions, fit
 
 ## Development status
 
-This is the implementation checkpoint for migration stages 0–5 (`0.1.0.dev2`). It contains generic factor construction, numerical analytics and the in-memory factor-estimation pipeline. The installed bundle loader and full downstream migration have separate stage gates. It is not a production cutover or PyPI release.
+This is the implementation checkpoint for migration stages 0–6 (`0.1.0.dev3`). It contains factor construction, numerical analytics, the complete in-memory estimation pipeline and a versioned six-file bundle API. Active paper and Rosaa consumer cutover remains Stage 7. This checkpoint is not a PyPI release.
 
 ## Package boundary
 
@@ -23,7 +23,20 @@ python -m pip install -e .
 python -m pytest
 ```
 
-The [contributor instructions](CONTRIBUTING.md) describe the registered Windows environment and external output locations. Start with the [construction workflow](docs/construction.md) and its [offline runnable example](examples/construct_factors.py). The canonical numerical API is documented in [docs/api.md](docs/api.md); the direct migration contract is in [docs/migration.md](docs/migration.md).
+The [contributor instructions](CONTRIBUTING.md) describe the registered Windows environment and external output locations. Start with the [completed-output contract](docs/completed_model.md), [three reference paths](docs/reference_workflows.md), and [construction workflow](docs/construction.md). The canonical numerical API is documented in [docs/api.md](docs/api.md); the direct migration contract is in [docs/migration.md](docs/migration.md).
+
+The [canonical example](examples/reference_workflows.py) defaults to loading only:
+
+```console
+python examples/reference_workflows.py
+python examples/reference_workflows.py --fit
+python examples/reference_workflows.py --bundle /path/to/supplied_bundle --fit
+```
+
+Add `--output /path/to/new_directory` explicitly to export tables, input CSVs and a
+method-specific PDF. No fitting, acquisition or output replacement happens on load.
+The completed model can be inspected without an alpha forecast or portfolio solve;
+[downstream usage](docs/integration.md) is a separate step.
 
 ## Licensing
 
@@ -35,7 +48,7 @@ First-party source is MIT; original notices are retained. Dependencies have thei
 @software{sepp_tradablefactors,
   author = {Artur Sepp},
   title = {tradablefactors: Tradable factor models and GLS analytics},
-  version = {0.1.0.dev2},
+  version = {0.1.0.dev3},
   url = {https://github.com/ArturSepp/tradablefactors},
   year = {2026}
 }

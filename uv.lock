@@ -3761,7 +3761,7 @@ wheels = [
 
 [[package]]
 name = "tradablefactors"
-version = "0.1.0.dev2"
+version = "0.1.0.dev3"
 source = { editable = "." }
 dependencies = [
     { name = "factorlasso" },

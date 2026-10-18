@@ -8,8 +8,19 @@ TradableFactors provides completed factor-model and GLS/CMA diagnostic results. 
 :maxdepth: 2
 
 api
+completed_model
+reference_workflows
+rolling_factor_covar_from_csv
+integration
 construction
+factor_covariance_hcgl
+gls_factor_premia
+cma_diagnostics
 migration
 ```
 
-This development checkpoint covers factor construction, numerical analytics and in-memory estimation. Installed bundle workflows and the final consumer cutover remain later migration stages.
+Start with the completed model: definitions and histories, fitted loadings, selected
+covariance, diagnostics and provenance. Loading supplied inputs, fitting them,
+exporting tables and consuming risk in another package are explicit separate steps.
+The installed bundle workflows are available; the active paper/Rosaa cutover remains
+a later migration stage.

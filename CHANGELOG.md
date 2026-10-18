@@ -2,6 +2,16 @@
 
 TradableFactors owns factor construction, estimation, GLS/CMA diagnostics and their method-specific reports. Extracted consumer APIs are removed in the coordinated migration; callers use the canonical TradableFactors API directly.
 
+## 0.1.0.dev3 — development (2026-10-18)
+
+- Add the installed, versioned six-file bundle API with explicit loading,
+  in-memory fitting and new-directory persistence. Unsupported or unversioned
+  settings are rejected; historical bundles remain in their recorded environments.
+- Provide offline synthetic, supplied-bundle and public-proxy reference workflows
+  with inspectable results and separate downstream QIS/OP use.
+- Document completed model fields, units, cutoffs and mutability; move factor
+  estimation and GLS/CMA method documentation to its owning package.
+
 ## 0.1.0.dev2 — development (2026-10-18)
 
 - Own opportunity GLS diagnostics, alpha-uncertainty inference and universe

@@ -117,8 +117,17 @@ from tradablefactors.analytics import (
 )
 from tradablefactors.portfolio_context import prepare_portfolio_context
 from tradablefactors.signals import extract_rolling_clusters, prepare_cluster_scores
+from tradablefactors.bundle import (
+    BUNDLE_SCHEMA_VERSION, BundleSettings, FactorBundle, load_bundle, fit_bundle, save_bundle,
+)
 
 __all__ = [
+    "BUNDLE_SCHEMA_VERSION",
+    "BundleSettings",
+    "FactorBundle",
+    "load_bundle",
+    "fit_bundle",
+    "save_bundle",
     "FactorOpportunityModel",
     "alpha_dispersion",
     "factor_access_metrics",

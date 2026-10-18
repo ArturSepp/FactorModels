@@ -8,4 +8,15 @@ The Windows interpreter is `C:\Python\TradableFactors312\Scripts\python.exe`. En
 
 Keep tests deterministic and offline. Every numerical change needs an independent reference calculation, and a new regression check must detect its controlled counterexample. Preserve input units, dates, labels and selected residual policy. Compare changed APIs through their numerical outputs; do not restore removed OP interfaces.
 
+The registered `Invoke-Repo.ps1 -Repo TradableFactors -Task docs` task builds HTML
+with Sphinx warnings treated as errors using `.github/oss-checks.json` and the
+shared checker. It validates the staged selection by default. For current
+unstaged edits, run `.github/oss_checks.py docs --working-tree --python <external-python>`
+after selecting the repository. Keep its output outside the checkout.
+
+Stage-6 acceptance cases are `tests/test_bundle_load.py`, `tests/test_examples.py`
+and `tests/test_documented_contracts.py`. The wheel lane runs them against the
+installed package outside the checkout. Optional public acquisition and the
+OP-composed example are explicit separate actions; offline examples need neither.
+
 Commit source, tests and documentation. Do not commit local `agents/` records, production bundles, market-data snapshots, generated reports or manuscript artifacts. Public distribution waits for the documented rights and MIT dependency gates.

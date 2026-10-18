@@ -14,6 +14,7 @@ Use the [TradableFactors package](https://github.com/ArturSepp/tradablefactors) 
 | `optimalportfolios.reports.cma_diagnostics` | `tradablefactors.reports.cma_diagnostics` |
 | `optimalportfolios.reports.cma_inference` | `tradablefactors.reports.cma_inference` |
 | OP factor covariance estimation/reporting | TF estimator, fitted results and covariance reporting |
+| OP CSV factor-pipeline example and its local parser | Installed `tradablefactors.load_bundle`, `fit_bundle`, `save_bundle`; schema-v1 inputs and explicit actions |
 | Rosaa generic factor specifications and assembly | `tradablefactors.spec` with an injected catalogue |
 | Rosaa basket/NAV construction | `tradablefactors.construction` |
 | Rosaa generic loading-sign constraints | `tradablefactors.constraints` |

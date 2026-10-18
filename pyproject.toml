@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "tradablefactors"
-version = "0.1.0.dev2"
+version = "0.1.0.dev3"
 description = "Tradable factor construction, GLS premia, capital market assumptions and factor covariance estimation"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -55,6 +55,7 @@ select = ["F", "TID251", "TID253", "ICN"]
 "__init__.py" = ["F401", "F403"]
 # The frozen cross-package replay harness is development tooling, not TF library code.
 "tools/replay_reference.py" = ["TID251"]
+"examples/downstream_handoff.py" = ["TID251"]
 
 [tool.ruff.lint.flake8-tidy-imports.banned-api]
 "optimalportfolios" = {msg = "TradableFactors supplies risk inputs to optimisers; it does not import them."}

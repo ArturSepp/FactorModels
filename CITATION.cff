@@ -9,7 +9,7 @@ authors:
     given-names: Artur
     orcid: "https://orcid.org/0000-0002-7038-1748"
 license: MIT
-version: 0.1.0.dev2
+version: 0.1.0.dev3
 date-released: "2026-10-18"
 keywords:
   - factor-models

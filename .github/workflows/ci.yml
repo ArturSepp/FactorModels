@@ -39,3 +39,13 @@ jobs:
           uv pip install --python "$RUNNER_TEMP/tf-wheel/bin/python" dist/*.whl pytest
           cd "$RUNNER_TEMP"
           "$RUNNER_TEMP/tf-wheel/bin/python" -m pytest --pyargs tradablefactors
+          "$RUNNER_TEMP/tf-wheel/bin/python" -m pytest "$GITHUB_WORKSPACE/tests/test_bundle_load.py" "$GITHUB_WORKSPACE/tests/test_examples.py" "$GITHUB_WORKSPACE/tests/test_documented_contracts.py"
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d
+        with:
+          python-version: '3.12'
+      - run: uv sync --locked --extra docs
+      - run: uv run --no-sync python -m sphinx -E -W --keep-going -b html docs "$RUNNER_TEMP/tf-docs/html"
