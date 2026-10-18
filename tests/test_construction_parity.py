@@ -28,13 +28,13 @@ __all__ = [
 ]
 
 
-@pytest.mark.parametrize("case", ["all", "rosaa"])
-def test_consumer_replay_cannot_claim_a_rosaa_cutover_without_a_binding(case):
-    """Direct TF execution is not accepted as evidence that the Rosaa pipeline migrated."""
+@pytest.mark.parametrize("case", ["all", "papers"])
+def test_consumer_replay_requires_an_explicit_active_research_checkout(case):
+    """Installed TF or frozen paper source cannot silently stand in for active consumers."""
     runner = Path(__file__).resolve().parents[1] / "tools/replay_reference.py"
     completed = subprocess.run(
         [sys.executable, str(runner), "--mode", "verify", "--implementation", "consumer",
          "--case", case, "--manifest", "unused.json", "--directory", "unused"],
         check=False, capture_output=True, text=True)
     assert completed.returncode == 2
-    assert "no Rosaa pipeline binding" in completed.stderr
+    assert "requires --consumer-op-root" in completed.stderr

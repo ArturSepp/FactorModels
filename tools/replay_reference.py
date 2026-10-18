@@ -6,6 +6,7 @@ The manifest is public; numerical data and source exports remain local.
 from __future__ import annotations
 
 import argparse
+from contextlib import contextmanager
 import hashlib
 import importlib
 import importlib.metadata
@@ -14,11 +15,39 @@ import json
 import os
 from pathlib import Path
 import sys
+from unittest.mock import patch
 
 
 def digest(path):
     """Return a file's SHA-256 identity."""
     return hashlib.sha256(Path(path).read_bytes()).hexdigest()
+
+
+def load_consumer_inventory(path, reference_manifest):
+    """Validate operational test classification without rewriting the frozen contract."""
+    inventory = json.loads(Path(path).read_text(encoding="utf-8-sig"))
+    reference = json.loads(Path(reference_manifest).read_text(encoding="utf-8-sig"))
+    if inventory["schema_version"] != 1 or inventory["reference_manifest_sha256"] != digest(reference_manifest):
+        raise ValueError("Consumer inventory does not identify the immutable reference manifest")
+    if set(inventory["active_paper_tests"]) != set(reference["active_paper_tests"]):
+        raise ValueError("Consumer inventory must classify both recorded papers")
+    active = [item for group in inventory["active_paper_tests"].values() for item in group]
+    historical = [item["path"] for item in inventory["historical_tests"]]
+    if not active or any(not group for group in inventory["active_paper_tests"].values()):
+        raise ValueError("Consumer inventory must retain nonempty active paper tests")
+    if len(active) != len(set(active)) or len(historical) != len(set(historical)) or set(active) & set(historical):
+        raise ValueError("Consumer inventory repeats a current/historical selection")
+    if any(not item["reason"].strip() for item in inventory["historical_tests"]):
+        raise ValueError("Every historical selection requires an explicit reason")
+    for selector in active + historical:
+        source = Path(selector.split("::")[0])
+        if source.is_absolute() or ".." in source.parts or source.parts[0] != "papers":
+            raise ValueError("Paper selectors must be OP-relative paths inside papers")
+    original = {item for group in reference["active_paper_tests"].values() for item in group}
+    classified = {item.split("::")[0] for item in active + historical}
+    if original != classified:
+        raise ValueError("Consumer inventory must account for every original paper test file")
+    return inventory
 
 
 def load_file(name, path):
@@ -171,8 +200,12 @@ def diagnose(implementation, b=None, d=None, f=None, lam=None, m=None):
              "factor_sensitivity","factor_leave_one_out"]}
 
 
-def paper_results(implementation, mapping):
+def paper_results(implementation, mapping, *, consumer_root=None, receipt=None):
     """Replay both preserved saved-fit cuts; no new fit or substitute input is used."""
+    if implementation == "consumer":
+        if consumer_root is None:
+            raise ValueError("Consumer paper replay requires an explicit active OP checkout")
+        return consumer_paper_results(mapping, consumer_root, receipt)
     import pandas as pd
     results = {}
     for name, value in mapping.items():
@@ -188,12 +221,142 @@ def paper_results(implementation, mapping):
     return results
 
 
-def construction(implementation):
+@contextmanager
+def paper_module(consumer_root, paper, module_name):
+    """Import one actual research runner without leaking its legacy sibling names."""
+    root = Path(consumer_root).resolve()
+    directory = root / "papers" / paper / "replication"
+    entry = directory / f"{module_name}.py"
+    if not entry.is_file():
+        raise FileNotFoundError(f"Missing active paper runner: {entry}")
+    sibling_names = {path.stem for path in directory.glob("*.py")} | {"cma_data"}
+    previous = {name: value for name, value in sys.modules.items()
+                if name.split(".")[0] in sibling_names}
+    for name in previous:
+        del sys.modules[name]
+    previous_path = sys.path.copy()
+    sys.path.insert(0, str(directory))
+    try:
+        yield load_file(module_name, entry)
+    finally:
+        sys.path[:] = previous_path
+        for name in list(sys.modules):
+            if name.split(".")[0] in sibling_names:
+                del sys.modules[name]
+        sys.modules.update(previous)
+
+
+def consumer_source_identity(root):
+    """Identify the active research sources actually imported for this replay."""
+    root = Path(root).resolve()
+    sources = {}
+    for module in tuple(sys.modules.values()):
+        value = getattr(module, "__file__", None)
+        if value is None:
+            continue
+        path = Path(value).resolve()
+        if path.is_relative_to(root) and path.is_file():
+            sources[path.relative_to(root).as_posix()] = digest(path)
+    return dict(sorted(sources.items()))
+
+
+def check_paper_report_core(report, core):
+    """Check the real richer report against the unchanged minimal reference projection.
+
+    Admission, channels and scenarios were absent from the original reference.
+    They remain in the separate receipt rather than being invented in its baseline.
+    """
+    summary_fields = set(core["summary"]) - {
+        "admission_score", "admission_residual_score", "admission_in_span_share",
+        "admission_budget", "admission_budget_ratio", "policy_name", "availability"}
+    check(labelled({key: report.summary[key] for key in summary_fields}),
+          labelled({key: core["summary"][key] for key in summary_fields}),
+          atol=1e-10, rtol=1e-8, path="consumer_report.summary")
+    asset_columns = ["excess_cma", "fitted_excess_cma", "residual", "residual_vol",
+                     "standardized_residual", "residual_score", "residual_share"]
+    check(labelled(report.assets.loc[:, asset_columns]),
+          labelled(core["assets"].loc[:, asset_columns]),
+          atol=1e-10, rtol=1e-8, path="consumer_report.assets")
+    for name in ("factors", "factor_contributions", "factor_sensitivity", "factor_leave_one_out"):
+        check(labelled(getattr(report, name)), labelled(core[name]),
+              atol=1e-10, rtol=1e-8, path=f"consumer_report.{name}")
+
+
+def consumer_paper_results(mapping, consumer_root, receipt=None):
+    """Execute the manifest's two real saved-fit adapters on explicit frozen cuts."""
+    import pandas as pd
+    required = {"faj_q3", "matf_current"}
+    if set(mapping) != required:
+        raise ValueError(f"Consumer replay requires both recorded paper cuts: {sorted(required)}")
+    evidence = {} if receipt is None else receipt
+    results = {}
+    with paper_module(consumer_root, "achievable_sharpe_faj_2026", "paper_inputs") as module:
+        supplied = module.load_production_inputs(snapshot=str(Path(mapping["faj_q3"]).resolve()))
+        ids, factors = supplied["tickers"], supplied["factors"]
+        results["faj_q3"] = diagnose(
+            "tradablefactors", pd.DataFrame(supplied["beta"], index=ids, columns=factors),
+            pd.Series(supplied["D"], index=ids),
+            pd.DataFrame(supplied["Sig_F"], index=factors, columns=factors),
+            pd.Series(supplied["lam"], index=factors),
+            pd.Series(supplied["mu_excess_full"], index=ids))
+        evidence["faj_q3"] = {"entry_point": "paper_inputs.load_production_inputs",
+                              "sources": consumer_source_identity(consumer_root),
+                              "snapshot_manifest": supplied["inputs"].manifest,
+                              "result": labelled(results["faj_q3"])}
+    with paper_module(consumer_root, "matf_cma_jpm_2026", "cma_diagnostics_adapter") as module:
+        # Observe the genuine adapter call, preserving all its preparation and analytics.
+        with patch.object(module, "compute_cma_diagnostics", wraps=module.compute_cma_diagnostics) as observed:
+            report = module.diagnose_paper_snapshot(snapshot=str(Path(mapping["matf_current"]).resolve()))
+            if observed.call_count != 1:
+                raise AssertionError("MATF consumer did not execute its canonical diagnostic call once")
+            inputs = observed.call_args.args[0]
+        core = diagnose("tradablefactors", inputs.betas, inputs.residual_variances,
+                        inputs.factor_covariance, inputs.factor_premia, inputs.excess_cma)
+        check_paper_report_core(report, core)
+        results["matf_current"] = core
+        evidence["matf_current"] = {"entry_point": "cma_diagnostics_adapter.diagnose_paper_snapshot",
+                                    "sources": consumer_source_identity(consumer_root),
+                                    "provenance": labelled(report.provenance),
+                                    "result": labelled({name: value for name, value in vars(report).items()})}
+    return results
+
+
+def consumer_construction(prices, receipt=None):
+    """Exercise Rosaa's production panel boundary with explicit synthetic input/output seams."""
+    from tradablefactors.spec import Factor, FactorFamily, FactorModelSpec, RiskFactors, VolTargetPolicy
+    from ramen.quant_model_mvp.rosaa.data.factors import panel_io
+
+    class ReplayFactors(RiskFactors):
+        FACTOR = "factor"
+
+    factor = Factor(name="factor", family=FactorFamily("replay", vol_target=None),
+                    long_side_tickers=("a", "b"), long_side_weights=(.6, .4),
+                    vol_target_policy=VolTargetPolicy.NONE)
+    spec = FactorModelSpec(name="Frozen quarterly basket", factors=ReplayFactors,
+                           baskets={ReplayFactors.FACTOR: factor}, file_name="replay_factor")
+    with patch.object(panel_io, "load_base_futures_prices", return_value=prices.copy()) as load:
+        with patch.object(panel_io, "save_factor_panel") as save:
+            panel_io.update_factor_panel(local_path="supplied-replay-inputs", factor_model=spec,
+                                         rebalancing_freq="QE", vol_span=None)
+            load.assert_called_once_with(local_path="supplied-replay-inputs")
+            save.assert_called_once()
+            result = save.call_args.kwargs["factors"]
+    if list(result.columns) != ["factor"]:
+        raise AssertionError("Rosaa panel output changed the recorded factor identity")
+    if receipt is not None:
+        receipt["construction"] = {"entry_point": "panel_io.update_factor_panel",
+                                   "source": str(Path(panel_io.__file__).resolve()),
+                                   "source_sha256": digest(panel_io.__file__),
+                                   "inputs": "synthetic-rosaa-quarterly-basket",
+                                   "io_seams": ["load_base_futures_prices", "save_factor_panel"]}
+    return result["factor"]
+
+
+def construction(implementation, receipt=None):
     """Replay the selected construction owner against independent held-unit accounting.
 
     Reference mode imports only the frozen Rosaa tree configured by ``main``.
-    Candidate mode deliberately imports TF directly; allowing frozen Rosaa here
-    would make a construction migration pass without executing its new owner.
+    TF mode checks the library; consumer mode executes Rosaa's actual panel path.
     """
     import numpy as np
     import pandas as pd
@@ -201,14 +364,14 @@ def construction(implementation):
         from ramen.quant_model_mvp.rosaa.data.factors.construction import compute_risk_factor_portfolio
     elif implementation == "tradablefactors":
         from tradablefactors.construction import compute_risk_factor_portfolio
-    else:
-        raise NotImplementedError(
-            "Consumer construction replay requires a real Rosaa pipeline binding; "
-            "direct TF construction is not evidence of consumer cutover")
     dates = pd.bdate_range("2025-01-01", periods=95)
     prices = pd.DataFrame({"a":100*np.exp(np.arange(95)*.001),
                            "b":80*np.exp(np.arange(95)*-.0003)}, index=dates)
-    result = compute_risk_factor_portfolio(prices, np.array([.6,.4]), rebalancing_freq="QE")
+    if implementation == "consumer":
+        actual = consumer_construction(prices, receipt)
+    else:
+        result = compute_risk_factor_portfolio(prices, np.array([.6,.4]), rebalancing_freq="QE")
+        actual = result.nav.squeeze()
     # Explicit dollar holdings between QIS calendar decisions; units are lagged.
     import qis
     schedule = qis.generate_rebalancing_indicators(prices, freq="QE", include_start_date=True)
@@ -219,7 +382,6 @@ def construction(implementation):
         values.append(wealth)
         if schedule.iloc[i]:
             units = wealth*np.array([.6,.4])/row.to_numpy()
-    actual = result.nav.squeeze()
     np.testing.assert_allclose(actual/actual.iloc[0], values, rtol=1e-10, atol=1e-12)
     return {"nav": actual, "prices": prices}
 
@@ -254,10 +416,17 @@ def main():
     parser.add_argument("--case", required=True, choices=["all","papers","rosaa"])
     parser.add_argument("--manifest", required=True, type=Path)
     parser.add_argument("--directory", required=True, type=Path)
+    parser.add_argument("--consumer-op-root", type=Path,
+                        help="Explicit active OP research checkout, required for consumer papers/all")
+    parser.add_argument("--consumer-manifest", type=Path,
+                        help="Operational test inventory; defaults to consumer_manifest.json beside --manifest")
+    parser.add_argument("--receipt", type=Path,
+                        help="New external JSON path for the executed consumer sources and full report data")
     args = parser.parse_args()
-    if args.implementation == "consumer" and args.case in ("all", "rosaa"):
-        parser.error("consumer construction replay has no Rosaa pipeline binding yet; "
-                     "use tradablefactors for the library comparison and run Rosaa's integration gates separately")
+    if args.implementation == "consumer" and args.case in ("all", "papers") and args.consumer_op_root is None:
+        parser.error("consumer papers/all requires --consumer-op-root naming the active research checkout")
+    if args.receipt is not None and args.receipt.exists():
+        raise FileExistsError(f"Refusing to overwrite existing replay receipt: {args.receipt}")
     target = args.directory/f"{args.case}.json"
     if args.mode == "verify" and not target.exists() and args.case != "all":
         target = args.directory/"all.json"
@@ -268,7 +437,13 @@ def main():
     stage_path = Path(os.environ.get("TRADABLEFACTORS_STAGE0", Path(__file__).resolve().parents[1]/"agents/stage0.json"))
     stage = json.loads(stage_path.read_text(encoding="utf-8-sig"))
     manifest = json.loads(args.manifest.read_text(encoding="utf-8-sig"))
+    consumer_manifest = None
+    if args.implementation == "consumer":
+        consumer_manifest = args.consumer_manifest or args.manifest.with_name("consumer_manifest.json")
+        load_consumer_inventory(consumer_manifest, args.manifest)
     root = Path(stage["baseline_inputs"]["reference_root"])
+    if args.consumer_op_root is not None and args.consumer_op_root.resolve().is_relative_to(root.resolve()):
+        raise ValueError("Consumer replay cannot select the frozen reference as its active source")
     if digest(root/"sources.json") != manifest["source_manifest_sha256"]:
         raise ValueError("Frozen source manifest identity changed")
     if args.implementation == "reference":
@@ -297,6 +472,10 @@ def main():
                   "inputs":{key:{p.name:digest(p) for p in Path(value).iterdir() if p.is_file()}
                             for key,value in stage["baseline_inputs"]["paper_snapshots"].items()}}
     data = {}
+    receipt = {"implementation": args.implementation, "case": args.case,
+               "frozen_manifest_sha256": digest(args.manifest), "consumer": {}}
+    if consumer_manifest is not None:
+        receipt["consumer_manifest_sha256"] = digest(consumer_manifest)
     if args.case == "all":
         print("Replaying current/rolling estimates and aligned cutoff", flush=True)
         data["estimation"], fitted = estimate(args.implementation)
@@ -305,10 +484,15 @@ def main():
         data["downstream"] = downstream(root, fitted)
     if args.case in ("all","papers"):
         print("Replaying both preserved paper cuts", flush=True)
-        data["papers"] = paper_results(args.implementation, stage["baseline_inputs"]["paper_snapshots"])
+        data["papers"] = paper_results(args.implementation, stage["baseline_inputs"]["paper_snapshots"],
+                                       consumer_root=args.consumer_op_root, receipt=receipt["consumer"])
     if args.case in ("all","rosaa"):
         print(f"Replaying {args.implementation} construction and held-unit reference", flush=True)
-        data["construction"] = construction(args.implementation)
+        if args.implementation == "consumer":
+            module = importlib.import_module("ramen.quant_model_mvp.rosaa.data.factors.panel_io")
+            if Path(module.__file__).resolve().is_relative_to(root.resolve()):
+                raise ValueError("Consumer Rosaa resolved to the frozen reference source")
+        data["construction"] = construction(args.implementation, receipt["consumer"])
     contents = {"identity":identities, "case":args.case, "data":labelled(data)}
     if args.case == "all":
         for artifact in manifest["expected_artifacts"]:
@@ -332,6 +516,13 @@ def main():
             expected["data"] = {key: expected["data"][key]}
         check(contents, expected, **manifest["tolerances"])
         print(f"BASELINE PASS case={args.case} implementation={args.implementation} artifacts={len(data)}")
+    if args.receipt is not None:
+        receipt["baseline_sha256"] = digest(target)
+        receipt["result"] = "pass"
+        receipt["compared_data"] = labelled(data)
+        with args.receipt.open("x", encoding="utf-8") as stream:
+            json.dump(receipt, stream, indent=2, allow_nan=False)
+        print(f"REPLAY RECEIPT {args.receipt}")
 
 
 if __name__ == "__main__":

@@ -1,0 +1,172 @@
+{
+  "schema_version": 1,
+  "reference_manifest": "manifest.json",
+  "reference_manifest_sha256": "fd64f309c58002bca7e70ad2392d58ccc0be64c825d7c062a663f4f542930dda",
+  "selection_basis": "Stage-0-confirmed files classified by current numerical contract versus historical snapshot, exact-source or manuscript receipt. Mixed files retain explicit current test nodes; no expected values, hashes or tolerances are changed.",
+  "consumer_entry_points": {
+    "faj_q3": "papers/achievable_sharpe_faj_2026/replication/paper_inputs.py:load_production_inputs",
+    "matf_current": "papers/matf_cma_jpm_2026/replication/cma_diagnostics_adapter.py:diagnose_paper_snapshot",
+    "rosaa": "ramen.quant_model_mvp.rosaa.data.factors.panel_io:update_factor_panel"
+  },
+  "active_paper_tests": {
+    "achievable_sharpe_faj_2026": [
+      "papers/achievable_sharpe_faj_2026/replication/tests/alpha_span_sensitivity_test.py",
+      "papers/achievable_sharpe_faj_2026/replication/tests/alpha_uncertainty_replication_test.py",
+      "papers/achievable_sharpe_faj_2026/replication/tests/asset_class_capacity_test.py",
+      "papers/achievable_sharpe_faj_2026/replication/tests/capped_frontier_replication_test.py",
+      "papers/achievable_sharpe_faj_2026/replication/tests/covariance_correction_test.py",
+      "papers/achievable_sharpe_faj_2026/replication/tests/coverage_pilot_test.py",
+      "papers/achievable_sharpe_faj_2026/replication/tests/expansion_design_test.py",
+      "papers/achievable_sharpe_faj_2026/replication/tests/expansion_portfolio_test.py",
+      "papers/achievable_sharpe_faj_2026/replication/tests/independent_alpha_sensitivity_test.py",
+      "papers/achievable_sharpe_faj_2026/replication/tests/joint_region_bounds_test.py",
+      "papers/achievable_sharpe_faj_2026/replication/tests/matched_capacity_test.py",
+      "papers/achievable_sharpe_faj_2026/replication/tests/native_hac_calibration_test.py",
+      "papers/achievable_sharpe_faj_2026/replication/tests/opportunity_replication_test.py",
+      "papers/achievable_sharpe_faj_2026/replication/tests/pooled_capacity_test.py",
+      "papers/achievable_sharpe_faj_2026/replication/tests/pooling_robustness_test.py",
+      "papers/achievable_sharpe_faj_2026/replication/tests/production_refresh_test.py",
+      "papers/achievable_sharpe_faj_2026/replication/tests/q1_illustrations_test.py",
+      "papers/achievable_sharpe_faj_2026/replication/tests/q3_illustrations_test.py",
+      "papers/achievable_sharpe_faj_2026/replication/tests/q5_illustrations_test.py",
+      "papers/achievable_sharpe_faj_2026/replication/tests/robust_opportunity_test.py",
+      "papers/achievable_sharpe_faj_2026/replication/tests/scalar_capacity_ci_test.py",
+      "papers/achievable_sharpe_faj_2026/replication/tests/shortlist_diagnostics_test.py",
+      "papers/achievable_sharpe_faj_2026/replication/tests/test_fcgl_fixes.py",
+      "papers/achievable_sharpe_faj_2026/replication/tests/test_implied_premia_audit.py",
+      "papers/achievable_sharpe_faj_2026/replication/tests/test_vector_accounting.py::test_published_optimizer_is_evaluated_under_the_stated_structural_forecast",
+      "papers/achievable_sharpe_faj_2026/replication/tests/test_vector_accounting.py::test_vector_ledger_reconstructs_the_forecast_and_preserves_tangency",
+      "papers/achievable_sharpe_faj_2026/replication/tests/test_vector_accounting.py::test_unchanged_audit_and_structural_forecast_have_their_own_tangencies",
+      "papers/achievable_sharpe_faj_2026/replication/tests/test_vector_accounting.py::test_candidate_rank_one_gain_matches_direct_augmented_asset_covariance",
+      "papers/achievable_sharpe_faj_2026/replication/tests/universe_capacity_spans_test.py",
+      "papers/achievable_sharpe_faj_2026/replication/tests/universe_diagnostics_replication_test.py"
+    ],
+    "matf_cma_jpm_2026": [
+      "papers/matf_cma_jpm_2026/replication/tests/gls_cache_export_test.py",
+      "papers/matf_cma_jpm_2026/replication/tests/test_audit_corrections.py",
+      "papers/matf_cma_jpm_2026/replication/tests/test_bootstrap_common_horizon.py::test_duplicate_monthly_and_quarterly_processes_match_exactly",
+      "papers/matf_cma_jpm_2026/replication/tests/test_bootstrap_common_horizon.py::test_quarter_sums_match_independent_nav_endpoint_differences",
+      "papers/matf_cma_jpm_2026/replication/tests/test_bootstrap_common_horizon.py::test_incomplete_boundary_quarters_are_excluded_and_counted",
+      "papers/matf_cma_jpm_2026/replication/tests/test_bootstrap_common_horizon.py::test_internal_missing_quarter_is_rejected_not_compressed",
+      "papers/matf_cma_jpm_2026/replication/tests/test_bootstrap_common_horizon.py::test_missing_factor_endpoint_is_not_forward_filled_or_skipped",
+      "papers/matf_cma_jpm_2026/replication/tests/test_bootstrap_common_horizon.py::test_quarterly_asset_rejects_synthetic_monthly_observations",
+      "papers/matf_cma_jpm_2026/replication/tests/test_bootstrap_common_horizon.py::test_monthly_design_excludes_native_quarterly_assets",
+      "papers/matf_cma_jpm_2026/replication/tests/test_bootstrap_common_horizon.py::test_unknown_frequency_rejected",
+      "papers/matf_cma_jpm_2026/replication/tests/test_bootstrap_common_horizon.py::test_moments_match_independent_pair_difference_covariance",
+      "papers/matf_cma_jpm_2026/replication/tests/test_bootstrap_common_horizon.py::test_jensen_bridge_requires_asset_loading_and_cross_covariance_terms",
+      "papers/matf_cma_jpm_2026/replication/tests/test_bootstrap_common_horizon.py::test_serial_dependence_does_not_make_four_times_quarter_variance_annual_holding_risk",
+      "papers/matf_cma_jpm_2026/replication/tests/test_bootstrap_common_horizon.py::test_moments_reject_missing_values_instead_of_zero_covariance",
+      "papers/matf_cma_jpm_2026/replication/tests/test_bootstrap_common_horizon.py::test_stationary_indices_are_paired_reproducible_and_wrap_circularly",
+      "papers/matf_cma_jpm_2026/replication/tests/test_bootstrap_estimators.py",
+      "papers/matf_cma_jpm_2026/replication/tests/test_bootstrap_frontier.py",
+      "papers/matf_cma_jpm_2026/replication/tests/test_bootstrap_policy_precision.py",
+      "papers/matf_cma_jpm_2026/replication/tests/test_current_gls_diagnostics.py",
+      "papers/matf_cma_jpm_2026/replication/tests/test_custom_ig_prior.py::test_active_snapshot_selects_publication_cut",
+      "papers/matf_cma_jpm_2026/replication/tests/test_horizon_2026.py::test_2026_source_values_and_distribution_basis",
+      "papers/matf_cma_jpm_2026/replication/tests/test_horizon_2026.py::test_2026_mapping_preserves_2025_shared_default_and_held_sleeve",
+      "papers/matf_cma_jpm_2026/replication/tests/test_horizon_2026.py::test_provider_optimization_routes_2026_without_changing_matf",
+      "papers/matf_cma_jpm_2026/replication/tests/test_horizon_2026.py::test_changed_source_is_rejected",
+      "papers/matf_cma_jpm_2026/replication/tests/test_literal_snapshot.py",
+      "papers/matf_cma_jpm_2026/replication/tests/test_native_prior_snapshot.py",
+      "papers/matf_cma_jpm_2026/replication/tests/test_publication_prior.py",
+      "papers/matf_cma_jpm_2026/replication/tests/test_revised_snapshot.py::test_active_factor_exhibit_keeps_components_and_monthly_volatility",
+      "papers/matf_cma_jpm_2026/replication/tests/test_revised_snapshot.py::test_factor_construction_exhibit_matches_manifest"
+    ]
+  },
+  "historical_tests": [
+    {
+      "path": "papers/achievable_sharpe_faj_2026/replication/tests/test_publication_manuscript.py",
+      "reason": "Historical manuscript/table receipt and twelve-factor prose; manuscript edits outside Stage7."
+    },
+    {
+      "path": "papers/achievable_sharpe_faj_2026/replication/tests/test_reference_values.py",
+      "reason": "Historical twelve-factor September reference constants; active FAJ default now Q3 Carry FX (11 factors). Frozen references and tests unchanged."
+    },
+    {
+      "path": "papers/achievable_sharpe_faj_2026/replication/tests/test_reproducibility.py",
+      "reason": "Historical twelve-factor headline and 500-draw bootstrap contracts; use frozen environment and explicitly selected historical cut."
+    },
+    {
+      "path": "papers/achievable_sharpe_faj_2026/replication/tests/test_residual_sensitivity.py",
+      "reason": "Historical twelve-factor monthly sensitivity support/rank/window constants, not active eleven-factor Q3 input."
+    },
+    {
+      "path": "papers/achievable_sharpe_faj_2026/replication/tests/test_v4_exhibits.py",
+      "reason": "Exact historical v4/v4.1 source/output/manuscript receipts and experiment tables; no receipt hashes rewritten."
+    },
+    {
+      "path": "papers/achievable_sharpe_faj_2026/replication/tests/test_vector_accounting.py::test_full_forecast_residual_and_admission_projection_are_distinct",
+      "reason": "Pins historical twelve-factor numerical constants; other independent identities retained."
+    },
+    {
+      "path": "papers/matf_cma_jpm_2026/replication/tests/test_bootstrap_common_horizon.py::test_frozen_local_panels_counts_dates_provenance_and_hashes_unchanged",
+      "reason": "Requires unavailable archived 2026q2_custom/ig_hy/ig_prior return panels; independent synthetic/common-horizon nodes retained."
+    },
+    {
+      "path": "papers/matf_cma_jpm_2026/replication/tests/test_bootstrap_common_horizon.py::test_mean_retention_audit_does_not_certify_modified_memory_from_manifest_alone",
+      "reason": "Requires unavailable archived 2026q2_custom/ig_hy/ig_prior return panels; independent synthetic/common-horizon nodes retained."
+    },
+    {
+      "path": "papers/matf_cma_jpm_2026/replication/tests/test_bootstrap_common_horizon.py::test_split_credit_snapshot_has_independently_audited_economic_panel",
+      "reason": "Requires unavailable archived 2026q2_custom/ig_hy/ig_prior return panels; independent synthetic/common-horizon nodes retained."
+    },
+    {
+      "path": "papers/matf_cma_jpm_2026/replication/tests/test_bootstrap_common_horizon.py::test_dm_ig_prior_snapshot_changes_policy_without_changing_bootstrap_observations",
+      "reason": "Requires unavailable archived 2026q2_custom/ig_hy/ig_prior return panels; independent synthetic/common-horizon nodes retained."
+    },
+    {
+      "path": "papers/matf_cma_jpm_2026/replication/tests/test_compliant_policy.py",
+      "reason": "Requires archived 2026q2_custom snapshot absent from retained current input set."
+    },
+    {
+      "path": "papers/matf_cma_jpm_2026/replication/tests/test_custom_ig_hy.py",
+      "reason": "Requires archived 2026q2_custom_ig_hy snapshot absent from retained current input set."
+    },
+    {
+      "path": "papers/matf_cma_jpm_2026/replication/tests/test_custom_ig_prior.py::test_declared_prior_policy_and_unchanged_observation_inputs",
+      "reason": "Requires unavailable archived custom-IG-prior snapshots; current default selection assertion retained."
+    },
+    {
+      "path": "papers/matf_cma_jpm_2026/replication/tests/test_custom_ig_prior.py::test_ig_loading_remains_estimated_around_the_soft_target",
+      "reason": "Requires unavailable archived custom-IG-prior snapshots; current default selection assertion retained."
+    },
+    {
+      "path": "papers/matf_cma_jpm_2026/replication/tests/test_custom_ig_prior.py::test_accounting_against_independent_asset_space_and_svd",
+      "reason": "Requires unavailable archived custom-IG-prior snapshots; current default selection assertion retained."
+    },
+    {
+      "path": "papers/matf_cma_jpm_2026/replication/tests/test_custom_ig_prior.py::test_headline_and_compliant_policy_references",
+      "reason": "Requires unavailable archived custom-IG-prior snapshots; current default selection assertion retained."
+    },
+    {
+      "path": "papers/matf_cma_jpm_2026/replication/tests/test_custom_ig_prior.py::test_cap3_recut_retains_sleeve_cap_failures",
+      "reason": "Requires unavailable archived custom-IG-prior snapshots; current default selection assertion retained."
+    },
+    {
+      "path": "papers/matf_cma_jpm_2026/replication/tests/test_horizon_2026.py::test_standalone_decomposition_routes_2026",
+      "reason": "Explicit 2026q2_custom console output historical constant; current provider routing and source-integrity nodes retained."
+    },
+    {
+      "path": "papers/matf_cma_jpm_2026/replication/tests/test_publication_manuscript.py",
+      "reason": "Exact historical generation source hashes, canonical-receipt hashes and manuscript/bootstrap output receipts; preserved unchanged."
+    },
+    {
+      "path": "papers/matf_cma_jpm_2026/replication/tests/test_publication_snapshot.py",
+      "reason": "Requires archived 2026q2_custom_ig_hy_publication snapshot absent from retained current input set."
+    },
+    {
+      "path": "papers/matf_cma_jpm_2026/replication/tests/test_revised_snapshot.py::test_publication_premium_units_and_policy",
+      "reason": "Requires unavailable archived 2026_matf_cma_equity_priors_20260925 snapshot; current factor exhibits retained."
+    },
+    {
+      "path": "papers/matf_cma_jpm_2026/replication/tests/test_revised_snapshot.py::test_publication_accounting_in_asset_space",
+      "reason": "Requires unavailable archived 2026_matf_cma_equity_priors_20260925 snapshot; current factor exhibits retained."
+    },
+    {
+      "path": "papers/matf_cma_jpm_2026/replication/tests/test_snapshot_parity.py",
+      "reason": "Original eleven-factor 2026q2_custom parity contract (and associated benchmark checks); archived snapshot absent, not current-cut gate."
+    }
+  ],
+  "historical_execution": "Run retained historical contracts against their frozen source, interpreter and explicit snapshot. Missing archived input panels remain unresolved evidence, not passing tests or regenerated substitutes.",
+  "source_identity": "Each consumer replay receipt records hashes of actual imported active sources; the immutable reference manifest and numerical baseline retain their original identities."
+}

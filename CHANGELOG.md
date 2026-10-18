@@ -4,6 +4,9 @@ TradableFactors owns factor construction, estimation, GLS/CMA diagnostics and th
 
 ## 0.1.0.dev3 — development (2026-10-18)
 
+- Document direct consumer replacements for removed estimator calls, FL aliases
+  and OP result context; distinguish saved-fit reproduction, consumer validation
+  and production environment adoption.
 - Add the installed, versioned six-file bundle API with explicit loading,
   in-memory fitting and new-directory persistence. Unsupported or unversioned
   settings are rejected; historical bundles remain in their recorded environments.
