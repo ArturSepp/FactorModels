@@ -72,6 +72,33 @@ from tradablefactors.risk import (
     build_risk_model,
 )
 
+from tradablefactors.spec import (
+    DEFAULT_VOL_WARMUP_PERIOD,
+    RiskFactors,
+    FactorFamily,
+    VolTargetPolicy,
+    Factor,
+    FactorModelSpec,
+    assemble_factor_model,
+    normalise_factor_labels,
+)
+
+from tradablefactors.construction import (
+    DEFAULT_RETURNS_FREQ,
+    INHERIT,
+    build_factor_panel,
+    build_factor_catalogue_panel,
+    select_factor_prices,
+    compute_factor_nav,
+    compute_risk_factor_portfolio,
+    compute_live_strategic_weights,
+    compute_volatility_targeted_portfolio,
+)
+
+from tradablefactors.constraints import (
+    compute_beta_loading_signs,
+)
+
 __all__ = [
     "GlsGeometry",
     "GlsPremiaResult",
@@ -122,4 +149,22 @@ __all__ = [
     "FactorModelSnapshot",
     "RollingFactorModel",
     "build_risk_model",
+    "DEFAULT_VOL_WARMUP_PERIOD",
+    "RiskFactors",
+    "FactorFamily",
+    "VolTargetPolicy",
+    "Factor",
+    "FactorModelSpec",
+    "assemble_factor_model",
+    "normalise_factor_labels",
+    "DEFAULT_RETURNS_FREQ",
+    "INHERIT",
+    "build_factor_panel",
+    "build_factor_catalogue_panel",
+    "select_factor_prices",
+    "compute_factor_nav",
+    "compute_risk_factor_portfolio",
+    "compute_live_strategic_weights",
+    "compute_volatility_targeted_portfolio",
+    "compute_beta_loading_signs",
 ]

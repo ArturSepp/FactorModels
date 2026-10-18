@@ -188,11 +188,23 @@ def paper_results(implementation, mapping):
     return results
 
 
-def construction(reference_root):
-    """Exercise the real unlevered Rosaa basket and independent held-unit accounting."""
+def construction(implementation):
+    """Replay the selected construction owner against independent held-unit accounting.
+
+    Reference mode imports only the frozen Rosaa tree configured by ``main``.
+    Candidate mode deliberately imports TF directly; allowing frozen Rosaa here
+    would make a construction migration pass without executing its new owner.
+    """
     import numpy as np
     import pandas as pd
-    from ramen.quant_model_mvp.rosaa.data.factors.construction import compute_risk_factor_portfolio
+    if implementation == "reference":
+        from ramen.quant_model_mvp.rosaa.data.factors.construction import compute_risk_factor_portfolio
+    elif implementation == "tradablefactors":
+        from tradablefactors.construction import compute_risk_factor_portfolio
+    else:
+        raise NotImplementedError(
+            "Consumer construction replay requires a real Rosaa pipeline binding; "
+            "direct TF construction is not evidence of consumer cutover")
     dates = pd.bdate_range("2025-01-01", periods=95)
     prices = pd.DataFrame({"a":100*np.exp(np.arange(95)*.001),
                            "b":80*np.exp(np.arange(95)*-.0003)}, index=dates)
@@ -243,6 +255,9 @@ def main():
     parser.add_argument("--manifest", required=True, type=Path)
     parser.add_argument("--directory", required=True, type=Path)
     args = parser.parse_args()
+    if args.implementation == "consumer" and args.case in ("all", "rosaa"):
+        parser.error("consumer construction replay has no Rosaa pipeline binding yet; "
+                     "use tradablefactors for the library comparison and run Rosaa's integration gates separately")
     target = args.directory/f"{args.case}.json"
     if args.mode == "verify" and not target.exists() and args.case != "all":
         target = args.directory/"all.json"
@@ -272,7 +287,7 @@ def main():
     # Imports are explicit and frozen. Never use an arbitrary current checkout for reference.
     if args.implementation == "reference":
         sys.path.insert(0, str(root/"OptimalPortfolios/src"))
-    if args.implementation != "consumer":
+    if args.implementation == "reference":
         sys.path.insert(0, str(root/"Rosaa/src"))
     os.environ.setdefault("MPLBACKEND", "Agg")
     os.environ.setdefault("PYTHONDONTWRITEBYTECODE", "1")
@@ -292,8 +307,8 @@ def main():
         print("Replaying both preserved paper cuts", flush=True)
         data["papers"] = paper_results(args.implementation, stage["baseline_inputs"]["paper_snapshots"])
     if args.case in ("all","rosaa"):
-        print("Replaying Rosaa construction and held-unit reference", flush=True)
-        data["construction"] = construction(root)
+        print(f"Replaying {args.implementation} construction and held-unit reference", flush=True)
+        data["construction"] = construction(args.implementation)
     contents = {"identity":identities, "case":args.case, "data":labelled(data)}
     if args.case == "all":
         for artifact in manifest["expected_artifacts"]:

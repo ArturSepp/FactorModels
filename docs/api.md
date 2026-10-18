@@ -4,6 +4,35 @@
 
 Use the [TradableFactors package](https://github.com/ArturSepp/tradablefactors) directly. Software citation: [CITATION.cff](../CITATION.cff). The root `tradablefactors.__all__` export list is authoritative. Parameters and full mathematical contracts are in each callable’s docstring.
 
+## `tradablefactors.spec`
+
+- `RiskFactors`
+- `FactorFamily`
+- `VolTargetPolicy`
+- `Factor`
+- `FactorModelSpec`
+- `DEFAULT_VOL_WARMUP_PERIOD`
+- `assemble_factor_model`
+- `normalise_factor_labels`
+
+## `tradablefactors.construction`
+
+- `build_factor_panel`
+- `build_factor_catalogue_panel`
+- `select_factor_prices`
+- `compute_factor_nav`
+- `compute_risk_factor_portfolio`
+- `compute_live_strategic_weights`
+- `compute_volatility_targeted_portfolio`
+- `DEFAULT_RETURNS_FREQ`
+- `INHERIT`
+
+## `tradablefactors.constraints`
+
+- `compute_beta_loading_signs`
+
+The [construction guide](construction.md) states the completed definition/panel/constraint outputs and their downstream use. Catalogue and alias mappings are supplied by the caller; the library does not select a production model.
+
 ## `tradablefactors.premia`
 
 - `GlsGeometry`

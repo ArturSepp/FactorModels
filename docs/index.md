@@ -8,7 +8,8 @@ TradableFactors provides completed factor-model and GLS/CMA diagnostic results. 
 :maxdepth: 2
 
 api
+construction
 migration
 ```
 
-This development checkpoint covers numerical analytics and in-memory estimation. Construction and installed bundle workflows are completed in subsequent migration stages.
+This development checkpoint covers factor construction, numerical analytics and in-memory estimation. Installed bundle workflows and the final consumer cutover remain later migration stages.
