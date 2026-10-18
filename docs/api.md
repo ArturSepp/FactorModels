@@ -104,3 +104,41 @@ The [construction guide](construction.md) states the completed definition/panel/
 Current fitting clips all historical inputs before estimation and does not mutate the caller’s FL configuration. `DatedFactorCovariance` declares upstream observation/availability dates; it is rejected when unavailable at the cutoff. Supplied dates are provenance declarations, not independently verified publication evidence.
 
 GLS/CMA results condition on their supplied loadings/error model. Their intervals do not automatically include estimated-loading uncertainty or future-return risk. Correlated residual covariance is preserved in total risk; a diagonal-reference decomposition must be explicitly requested and labelled.
+
+## `tradablefactors.portfolio_context`
+
+- `prepare_portfolio_context`
+
+The returned dictionary completes the risk/table handoff for a downstream portfolio
+result. It contains no optimiser object and performs no portfolio solve.
+
+## `tradablefactors.signals`
+
+- `extract_rolling_clusters`
+- `prepare_cluster_scores`
+
+Completed mappings and pooled score panels can be consumed independently of the
+fitted model. Scoring preserves the supplied point-in-time cluster schedule.
+
+## `tradablefactors.analytics`
+
+- `FactorOpportunityModel`
+- `alpha_dispersion`
+- `factor_access_metrics`
+- `candidate_access_gain`
+- `portfolio_opportunity_metrics`
+- `alpha_uncertainty_metrics`
+- `removal_uncertainty`
+- `fixed_portfolio_alpha_interval`
+- `subset_dispersion`
+- `dispersion_concentration`
+- `removal_diagnostics`
+- `bundle_removal_diagnostics`
+- `compare_universe_dispersion`
+- `sample_universe_dispersion`
+
+`FactorOpportunityModel.optimisation_inputs()` produces copied labelled arrays;
+`prepare_alpha_covariance` prepares the chosen objective's estimation covariance.
+Statistical result tables remain TF outputs. Constrained portfolio solving is a
+separate OP call. GLS diagnostics retain the stated diagonal-residual reference
+geometry even when the selected full covariance includes residual correlation.

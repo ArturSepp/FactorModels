@@ -99,7 +99,44 @@ from tradablefactors.constraints import (
     compute_beta_loading_signs,
 )
 
+from tradablefactors.analytics import (
+    FactorOpportunityModel,
+    alpha_dispersion,
+    factor_access_metrics,
+    candidate_access_gain,
+    portfolio_opportunity_metrics,
+    alpha_uncertainty_metrics,
+    removal_uncertainty,
+    fixed_portfolio_alpha_interval,
+    subset_dispersion,
+    dispersion_concentration,
+    removal_diagnostics,
+    bundle_removal_diagnostics,
+    compare_universe_dispersion,
+    sample_universe_dispersion,
+)
+from tradablefactors.portfolio_context import prepare_portfolio_context
+from tradablefactors.signals import extract_rolling_clusters, prepare_cluster_scores
+
 __all__ = [
+    "FactorOpportunityModel",
+    "alpha_dispersion",
+    "factor_access_metrics",
+    "candidate_access_gain",
+    "portfolio_opportunity_metrics",
+    "alpha_uncertainty_metrics",
+    "removal_uncertainty",
+    "fixed_portfolio_alpha_interval",
+    "subset_dispersion",
+    "dispersion_concentration",
+    "removal_diagnostics",
+    "bundle_removal_diagnostics",
+    "compare_universe_dispersion",
+    "sample_universe_dispersion",
+    "prepare_portfolio_context",
+    "extract_rolling_clusters",
+    "prepare_cluster_scores",
+
     "GlsGeometry",
     "GlsPremiaResult",
     "GlsResolutionResult",

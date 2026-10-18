@@ -25,4 +25,18 @@ The former Rosaa generic specification, construction and constraint modules are 
 
 Current estimation requires an explicit cutoff. All supplied histories are truncated before fitting. A supplied factor covariance needs observation and availability provenance. Compare strict-cutoff results to the old reference on the same pre-truncated inputs, and record any effect on an original experiment separately.
 
-Constrained opportunity solving remains in OP. At the stages 0–4 checkpoint, retained OP opportunity code still calls canonical TF numerical methods directly; stage 5 completes the supplied-input boundary and removes that coupling. No OP base-independence or production-cutover claim is made at this checkpoint.
+Constrained opportunity solving remains in OP and now consumes prepared arrays.
+`FactorOpportunityModel.optimisation_inputs()` supplies the constructor inputs for
+`optimalportfolios.matf.OpportunityModel`. Statistical alpha covariance, including
+any orthogonal projection, is prepared upstream. The solver performs no inference.
+
+`prepare_portfolio_context(snapshot)` returns QIS RiskModel context and optional
+asset diagnostic tables for `PortfolioOptimisationResult`. Full selected covariance
+remains authoritative; a requested diagonal-reference decomposition is explicitly
+labelled. OP accepts manually supplied covariance/RiskModel context equivalently.
+
+`extract_rolling_clusters` and `prepare_cluster_scores` live in `tradablefactors.signals`.
+OP retains generic scoring of supplied cluster mappings. Pass precomputed pooled
+scores to downstream alpha/optimisation workflows. OP has no TF/FL runtime dependency,
+factor extra, root FactorLasso aliases or legacy `covar_data` constructor.
+Rosaa and active paper production cutover remains a separate stage-7 gate.

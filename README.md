@@ -6,7 +6,7 @@ TradableFactors constructs factor NAVs from supplied prices and definitions, fit
 
 ## Development status
 
-This is the implementation checkpoint for migration stages 0–4 (`0.1.0.dev1`). It contains generic factor construction, numerical analytics and the in-memory factor-estimation pipeline. The installed bundle loader and full downstream migration have separate stage gates. It is not a production cutover or PyPI release.
+This is the implementation checkpoint for migration stages 0–5 (`0.1.0.dev2`). It contains generic factor construction, numerical analytics and the in-memory factor-estimation pipeline. The installed bundle loader and full downstream migration have separate stage gates. It is not a production cutover or PyPI release.
 
 ## Package boundary
 
@@ -35,7 +35,7 @@ First-party source is MIT; original notices are retained. Dependencies have thei
 @software{sepp_tradablefactors,
   author = {Artur Sepp},
   title = {tradablefactors: Tradable factor models and GLS analytics},
-  version = {0.1.0.dev1},
+  version = {0.1.0.dev2},
   url = {https://github.com/ArturSepp/tradablefactors},
   year = {2026}
 }

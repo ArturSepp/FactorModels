@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "tradablefactors"
-version = "0.1.0.dev1"
+version = "0.1.0.dev2"
 description = "Tradable factor construction, GLS premia, capital market assumptions and factor covariance estimation"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -84,4 +84,7 @@ exclude = ["agents", "tests", "tools", "docs", "build"]
 known_first_party = ["tradablefactors"]
 
 [tool.deptry.per_rule_ignores]
-DEP002 = ["matplotlib"]
+# Rendering is delegated to QIS; Sphinx and its extensions are build-time tools.
+DEP002 = ["matplotlib", "sphinx", "myst-parser", "furo"]
+# Source-adjacent tests are shipped for the explicit installed-wheel test command.
+DEP004 = ["pytest"]

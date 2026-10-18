@@ -2,6 +2,17 @@
 
 TradableFactors owns factor construction, estimation, GLS/CMA diagnostics and their method-specific reports. Extracted consumer APIs are removed in the coordinated migration; callers use the canonical TradableFactors API directly.
 
+## 0.1.0.dev2 — development (2026-10-18)
+
+- Own opportunity GLS diagnostics, alpha-uncertainty inference and universe
+  diagnostics extracted from OP. Return prepared arrays for downstream solving.
+- Add `prepare_portfolio_context` for QIS risk and optional diagnostic-table
+  handoff, preserving full residual covariance and native factor coordinates.
+- Own rolling cluster extraction and stability-pooled score preparation. OP
+  consumes the resulting mappings/panels without importing TF or FL.
+- Keep statistical estimation in FactorLasso, optimisation in OP, and general
+  stress/reporting in QIS. No optimiser dependency is introduced into TF.
+
 ## 0.1.0.dev1 — development
 
 - Add factor families, basket/model specifications and assembly from an explicitly supplied catalogue.
