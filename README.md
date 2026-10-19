@@ -6,7 +6,7 @@ TradableFactors constructs factor NAVs from supplied prices and definitions, fit
 
 ## Development status
 
-This is the implementation checkpoint for migration stages 0–6 (`0.1.0.dev3`). It contains factor construction, numerical analytics, the complete in-memory estimation pipeline and a versioned six-file bundle API. Active paper and Rosaa consumer cutover remains Stage 7. This checkpoint is not a PyPI release.
+This is the development checkpoint for migration stages 0–7 (`0.1.0.dev3`). It contains factor construction, numerical analytics, the complete in-memory estimation pipeline and a versioned six-file bundle API. Active paper and Rosaa consumer implementation has been validated; publication and production environment adoption remain separate. This checkpoint is not a PyPI release.
 
 ## Package boundary
 
@@ -40,7 +40,19 @@ The completed model can be inspected without an alpha forecast or portfolio solv
 
 ## Licensing
 
-First-party source is MIT; original notices are retained. Dependencies have their own licences. The current development dependency floor is not a claim of a fully permissive resolved installation: the verified MIT FactorLasso release and dependency-floor check remain public-release gates.
+First-party source is MIT; original notices are retained. The base installation requires
+`factorlasso>=1.0.4.post1`, the verified MIT release following FactorLasso's GPL
+release series. Earlier GPL releases are excluded by this requirement and retain
+their original terms. Dependencies and any bundled libraries keep their own
+licences; this floor does not make every installed component MIT.
+
+The reviewed Windows Python 3.12 installation includes GCC compiler-runtime
+exceptions, Microsoft runtime redistributables and NVIDIA headers shipped by
+Numba. See the scoped
+[dependency licensing notes](docs/licensing.md) and retained
+[supplemental notices](THIRD_PARTY_NOTICES.md) for the bundled OpenBLAS/LAPACK
+libraries. Other versions, platforms and optional consumer installations require
+their own review.
 
 ## Citation
 

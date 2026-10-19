@@ -1003,7 +1003,7 @@ wheels = [
 
 [[package]]
 name = "factorlasso"
-version = "1.0.4"
+version = "1.0.4.post1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "cvxpy", version = "1.7.5", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
@@ -1018,9 +1018,9 @@ dependencies = [
     { name = "scipy", version = "1.17.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.11.*'" },
     { name = "scipy", version = "1.18.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/8f/9e/468038c567ac9441bcdf3913f7b27277b002052c3f8e67059776ac8bc948/factorlasso-1.0.4.tar.gz", hash = "sha256:41ca5b8878fff2fdcf070a25c6e0b2ea6c07dffd1896e982681e52f6e7c3fe89", size = 448311, upload-time = "2026-10-14T22:34:06.386Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/8b/99/1b22e779ca7aae0f914b568118b888dedc6e31d005bd5c766712a0db0b76/factorlasso-1.0.4.post1.tar.gz", hash = "sha256:caf0394b7b3f37ef47b809e669a67db5c4eb75700a792390cd65b005181f4147", size = 439289, upload-time = "2026-10-18T22:30:56.931Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/c5/17/e109635d1d7d058ddc63d8d383b77e0e9df4e481659a37e300c0f4e86999/factorlasso-1.0.4-py3-none-any.whl", hash = "sha256:e798d79b28d64ea801c4947384d9c7fd8c506a90e41ff3fcd5ab10c6155fb54e", size = 273522, upload-time = "2026-10-14T22:34:04.74Z" },
+    { url = "https://files.pythonhosted.org/packages/80/bc/75dd2b73d6a0ef63f0fdc4c644ec0afc85b69cb7a3873014db00012980fb/factorlasso-1.0.4.post1-py3-none-any.whl", hash = "sha256:14201d7e7bd4593201dfb1d858032a1fe6c9dc1f74f6fb9ac1261450d6c99922", size = 264306, upload-time = "2026-10-18T22:30:55.046Z" },
 ]
 
 [[package]]
@@ -3796,13 +3796,14 @@ lint = [
 ]
 test = [
     { name = "build" },
+    { name = "packaging" },
     { name = "pytest" },
     { name = "pytest-cov" },
 ]
 
 [package.metadata]
 requires-dist = [
-    { name = "factorlasso", specifier = ">=1.0.4" },
+    { name = "factorlasso", specifier = ">=1.0.4.post1" },
     { name = "furo", marker = "extra == 'docs'", specifier = ">=2024.1.29" },
     { name = "matplotlib", specifier = ">=3.8" },
     { name = "myst-parser", marker = "extra == 'docs'", specifier = ">=2.0" },
@@ -3822,6 +3823,7 @@ lint = [
 ]
 test = [
     { name = "build", specifier = ">=1.2" },
+    { name = "packaging", specifier = ">=24" },
     { name = "pytest", specifier = ">=8" },
     { name = "pytest-cov", specifier = ">=4" },
 ]

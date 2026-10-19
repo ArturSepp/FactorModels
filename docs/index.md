@@ -17,10 +17,11 @@ factor_covariance_hcgl
 gls_factor_premia
 cma_diagnostics
 migration
+licensing
 ```
 
 Start with the completed model: definitions and histories, fitted loadings, selected
 covariance, diagnostics and provenance. Loading supplied inputs, fitting them,
 exporting tables and consuming risk in another package are explicit separate steps.
-The installed bundle workflows are available; the active paper/Rosaa cutover remains
-a later migration stage.
+The installed bundle workflows and active paper/Rosaa consumer implementation
+are available; public release and production environment adoption remain separate.

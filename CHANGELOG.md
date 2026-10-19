@@ -4,6 +4,11 @@ TradableFactors owns factor construction, estimation, GLS/CMA diagnostics and th
 
 ## 0.1.0.dev3 — development (2026-10-18)
 
+- Require the verified MIT FactorLasso release `>=1.0.4.post1` in base installs
+  and the lock, excluding earlier GPL releases without changing estimation or
+  covariance behaviour. Keep optimiser installation a separate consumer step.
+- Ship supplemental OpenBLAS/LAPACK notices and document the reviewed Windows
+  compiler-runtime exceptions and vendor redistributables separately from MIT source.
 - Document direct consumer replacements for removed estimator calls, FL aliases
   and OP result context; distinguish saved-fit reproduction, consumer validation
   and production environment adoption.
