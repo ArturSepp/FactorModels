@@ -16,7 +16,7 @@ permissions:
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
   MPLBACKEND: Agg
-  OP_SOURCE_SHA: 21f7581737d50a51a6afeff98f498b9bfd7c6e8d
+  OP_SOURCE_SHA: ffdcdf10465ad6fd0f316bb697b66002d122a2d9
   TF_SOURCE_SHA: 396aba7a391ed8f6c22ea2e9c88f2909645e81a5
   PRIVATE_REPOSITORY: ${{ github.event.repository.private }}
 
@@ -137,10 +137,12 @@ jobs:
         run: uv pip install --python "$UV_PROJECT_ENVIRONMENT/bin/python" .integration/tradablefactors
       - name: Check every human-authored source
         run: uv run --no-sync python tools/check_docs.py --source-all
-      - name: Test source-checker regressions
+      - name: Test documentation, examples and installation contracts
         run: >-
           uv run --no-sync python -m pytest
           src/optimalportfolios/tests/documentation_standard_test.py
+          src/optimalportfolios/tests/examples_documentation_test.py
+          src/optimalportfolios/tests/installation_documentation_test.py
           -o cache_dir="$AGENT_LOCAL_ROOT/cache/pytest"
           --basetemp="$AGENT_LOCAL_ROOT/tests"
           --junitxml="$RUNNER_TEMP/documentation-regressions.xml"
