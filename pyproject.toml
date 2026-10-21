@@ -7,7 +7,7 @@ name = "factormodels"
 version = "0.1.0rc4"
 description = "Factor construction, GLS premia, capital market assumptions and factor covariance estimation"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 license = "MIT"
 license-files = ["LICENSE", "THIRD_PARTY_NOTICES.md"]
 authors = [{name = "Artur Sepp", email = "artursepp@gmail.com"}]
@@ -20,7 +20,7 @@ classifiers = [
     "Intended Audience :: Science/Research",
     "Intended Audience :: Financial and Insurance Industry",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.14",
     "Topic :: Office/Business :: Financial :: Investment",
@@ -31,6 +31,8 @@ dependencies = [
     "pandas>=2.2",
     "scipy>=1.12",
     "matplotlib>=3.8",
+    # Pillow 13 fixes the image-processing advisories affecting earlier releases.
+    "pillow>=13.0.0",
     "qis>=5.38.1",
     "factorlasso>=1.0.4.post1",
 ]
@@ -60,7 +62,7 @@ python_files = ["test_*.py", "*_test.py"]
 addopts = "-ra"
 
 [tool.ruff]
-target-version = "py310"
+target-version = "py311"
 line-length = 120
 
 [tool.ruff.lint]
@@ -101,6 +103,7 @@ known_first_party = ["factormodels"]
 
 [tool.deptry.per_rule_ignores]
 # Rendering is delegated to QIS; Sphinx and its extensions are build-time tools.
-DEP002 = ["matplotlib", "sphinx", "myst-parser", "furo"]
+# Pillow is an explicit security floor for the transitive rendering dependency.
+DEP002 = ["matplotlib", "pillow", "sphinx", "myst-parser", "furo"]
 # Source-adjacent tests are shipped for the explicit installed-wheel test command.
 DEP004 = ["pytest"]

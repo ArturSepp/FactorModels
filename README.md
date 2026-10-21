@@ -161,7 +161,7 @@ to overwrite. See [six-file bundles](docs/rolling_factor_covar_from_csv.md).
 python -m pip install .
 ```
 
-Requires Python ≥ 3.10, `factorlasso` ≥ 1.0.4.post1 (MIT), `qis` ≥ 5.38.1, and
+Requires Python ≥ 3.11, `factorlasso` ≥ 1.0.4.post1 (MIT), `qis` ≥ 5.38.1, and
 numpy / pandas / scipy / matplotlib. Run the command above from a source checkout.
 After the first index release, `pip install factormodels` installs from PyPI. Dependency
 licences are listed in [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md) and the

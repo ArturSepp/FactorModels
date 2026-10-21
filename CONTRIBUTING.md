@@ -10,7 +10,7 @@ reviewed source checkout and the dependency versions in `uv.lock`. See
 ## Prepare an external checkout
 
 Use Python 3.12 and `uv` for the reference contributor commands below. The package
-supports Python 3.10 and later; continuous integration (CI) checks its declared
+supports Python 3.11 and later; continuous integration (CI) checks its declared
 platform/interpreter matrix separately. Obtain an authorised checkout of the
 revision you intend to test, and run these commands from its root. A source
 archive also works for the direct checks below; Git-based shared checkers require
