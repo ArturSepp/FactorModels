@@ -65,9 +65,8 @@ result for a revised model. Freezing a dataclass does not make its DataFrames im
 The `loadings` and `factor_covariance` accessors return independent copies for
 analysis. Their backing tables remain available as `data.y_betas` and
 `data.x_covar` for advanced FL use. Inspection and `to_risk_model()` do not rerun
-the estimator. These accessors and the installed `synthetic_bundle()` input
-factory were introduced in `0.1.0rc2` and are retained in the unpublished
-`0.1.0rc3` candidate.
+the estimator. The installed `synthetic_bundle()` input factory provides
+deterministic offline inputs for these inspection workflows.
 
 `save_bundle` persists **inputs** to six CSVs in a new directory, refusing replacement.
 `load_bundle` restores those inputs without fitting. There is no promised fitted

@@ -14,14 +14,12 @@ return preparation and risk export to [qis](https://github.com/ArturSepp/QuantIn
 [OptimalPortfolios](https://github.com/ArturSepp/OptimalPortfolios) consumes the
 fitted covariance and is not required to complete a fit.
 
-**Install (checkout):** `python -m pip install .` · **Import:** `factormodels` · **Status:** Release candidate
+**Install:** `python -m pip install factormodels` · **Import:** `factormodels` · **Status:** Released
 
-<!-- Enable at publication:
 [![PyPI](https://img.shields.io/pypi/v/factormodels?style=flat-square)](https://pypi.org/project/factormodels/)
 [![Python](https://img.shields.io/pypi/pyversions/factormodels?style=flat-square)](https://pypi.org/project/factormodels/)
-[![Docs](https://readthedocs.org/projects/factormodels/badge/?version=latest)](https://factormodels.readthedocs.io/en/latest/)
+[![Docs](https://img.shields.io/badge/docs-GitHub-blue?style=flat-square)](https://github.com/ArturSepp/FactorModels/blob/main/docs/index.md)
 [![Downloads](https://static.pepy.tech/badge/factormodels)](https://pepy.tech/project/factormodels)
--->
 [![CI](https://github.com/ArturSepp/FactorModels/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/ArturSepp/FactorModels/actions/workflows/ci.yml)
 [![License](https://img.shields.io/github/license/ArturSepp/FactorModels.svg?style=flat-square)](LICENSE)
 
@@ -158,13 +156,12 @@ to overwrite. See [six-file bundles](docs/rolling_factor_covar_from_csv.md).
 ## Installation
 
 ```bash
-python -m pip install .
+python -m pip install factormodels
 ```
 
 Requires Python ≥ 3.11, `factorlasso` ≥ 1.0.4.post1 (MIT), `qis` ≥ 5.38.1, and
-numpy / pandas / scipy / matplotlib. Run the command above from a source checkout.
-After the first index release, `pip install factormodels` installs from PyPI. Dependency
-licences are listed in [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md) and the
+numpy / pandas / scipy / matplotlib. For a source checkout, use `python -m pip install .`.
+Dependency licences are listed in [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md) and the
 [dependency licensing notes](docs/licensing.md).
 
 ## Table of contents
@@ -489,7 +486,7 @@ the model and its applications, and the estimator it builds on:
   author  = {Sepp, Artur},
   title   = {factormodels: Multi-Asset Factor Models in {Python}},
   year    = {2026},
-  version = {0.1.0rc4},
+  version = {0.1.0},
   url     = {https://github.com/ArturSepp/FactorModels},
 }
 

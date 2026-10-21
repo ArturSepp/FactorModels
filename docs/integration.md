@@ -11,12 +11,13 @@ then uses QIS to inspect the accepted portfolio's annual tracking error. It inst
 OP explicitly; the FM library has no optimiser dependency.
 
 ```console
-python -m pip install factormodels optimalportfolios
+python -m pip install factormodels "optimalportfolios @ git+https://github.com/ArturSepp/OptimalPortfolios.git@42f38ef9eeb27156b2f8997b701677ed4c1836e4"
 python examples/downstream_handoff.py
 ```
 
-During the unpublished migration, install the matching local candidate wheels
-instead of expecting the public index to contain these APIs.
+The example uses OP's supplied-input API at the reviewed public revision pinned
+above. FactorModels itself installs from PyPI and does not require OP. Run the
+example from a FactorModels source checkout.
 
 | Package boundary | Completed object passed onward |
 |---|---|

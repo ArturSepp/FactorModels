@@ -2,9 +2,15 @@
 
 FactorModels constructs multi-asset tradable factor models and provides
 generalized least squares (GLS) and capital market assumption (CMA) diagnostics.
-The versions below record pre-release development; none has been published.
+The first public release is 0.1.0; earlier entries record unpublished development.
 
-## Unreleased — Python 3.11 minimum (2026-10-21)
+## 0.1.0 — first public release (2026-10-21)
+
+- Publish the canonical `factormodels` distribution and public FactorModels source.
+- Provide factor construction, fitted asset loadings and covariance, rolling models,
+  GLS/CMA analytics and explicit QIS/OptimalPortfolios handoffs.
+- Retain the verified candidate algorithms, estimator outputs and numerical defaults.
+- Use public OSS consumer verification and PyPI installation instructions.
 
 - Require Python 3.11 or later and Pillow 13 or later to exclude the known
   Pillow vulnerabilities whose fixed release no longer supports Python 3.10.

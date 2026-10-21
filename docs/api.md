@@ -98,8 +98,8 @@ The [construction guide](construction.md) states the completed definition/panel/
 - `CmaConditionalGlsResult`
 - `compute_conditional_gls_intervals`
 
-`annual_arithmetic_from_log(mean, variance, annualization_factor=1.0)` is added in
-the unpublished `0.1.0rc3` candidate. It returns the labelled second-order mean
+`annual_arithmetic_from_log(mean, variance, annualization_factor=1.0)` returns the
+labelled second-order mean
 approximation A × (mean + variance / 2). Inputs are finite, identically labelled
 log-moment Series at the same cadence; variance is nonnegative. Use A=1 for moments
 already annualised. It does not transform covariance or convert a regression
@@ -118,17 +118,16 @@ intercept in isolation. See the [complete mean bridge](gls_factor_premia.md).
 `FactorModelSnapshot.loadings` and `.factor_covariance` return independent labelled
 copies of the fitted tables. The existing `.asset_covariance` and
 `.residual_covariance` retain the selected residual policy. These accessors perform
-no estimation. They were introduced in `0.1.0rc2` and remain in the unpublished
-`0.1.0rc3` candidate.
+no estimation.
 
 ## `factormodels.examples`
 
 - `synthetic_bundle`
 
-Also exported from the package root in `0.1.0rc2`. It returns fresh deterministic
+Also exported from the package root. It returns fresh deterministic
 synthetic `FactorBundle` inputs without fitting, downloading or saving anything.
 Use `fit_bundle(synthetic_bundle())` from any directory after installing the
-candidate. The [reference workflow](reference_workflows.md) reuses the same inputs.
+package. The [reference workflow](reference_workflows.md) reuses the same inputs.
 
 ## `factormodels.bundle`
 

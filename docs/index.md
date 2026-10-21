@@ -12,10 +12,9 @@ assumption (CMA) diagnostics. See the
 Start with the [synthetic reference workflow](reference_workflows.md), then
 inspect the [completed model](completed_model.md). The
 [GLS/CMA guide](gls_factor_premia.md) connects the fitted model to annual arithmetic
-forecasts using an explicit mean bridge and log-risk approximation. These guides
-describe the unpublished release candidate in this checkout. GitHub source is
-the current documentation route. Committed-source links identify their stated
-revision; the local guides describe the current candidate changes.
+forecasts using an explicit mean bridge and log-risk approximation. GitHub source
+is the current documentation route. Committed-source links identify their stated
+revision; the local guides describe the checked-out source.
 
 ```{toctree}
 :maxdepth: 2

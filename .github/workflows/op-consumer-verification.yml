@@ -1,14 +1,13 @@
 name: OP consumer verification
 
-# Verify the reviewed consumer pair from the private dependency's repository.
+# Verify the reviewed public OSS consumer pair from FactorModels.
 # This workflow does not publish packages or replace OP's existing required checks.
 on:
   push:
     branches:
       - main
       - migration/tradablefactors-stage-4
-    paths:
-      - .github/workflows/op-consumer-verification.yml
+  pull_request:
   workflow_dispatch:
 
 permissions:
@@ -18,8 +17,7 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
   MPLBACKEND: Agg
   OP_SOURCE_SHA: 42f38ef9eeb27156b2f8997b701677ed4c1836e4
-  TF_SOURCE_SHA: ${{ github.sha }}
-  PRIVATE_REPOSITORY: ${{ github.event.repository.private }}
+  FM_SOURCE_SHA: ${{ github.sha }}
 
 jobs:
   composed:
@@ -33,22 +31,21 @@ jobs:
           repository: ArturSepp/OptimalPortfolios
           ref: ${{ env.OP_SOURCE_SHA }}
           persist-credentials: false
-      - name: Check out the reviewed TF source
+      - name: Check out the reviewed FM source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: ArturSepp/FactorModels
-          ref: ${{ env.TF_SOURCE_SHA }}
-          path: .integration/tradablefactors
+          ref: ${{ env.FM_SOURCE_SHA }}
+          path: .integration/factormodels
           token: ${{ github.token }}
           persist-credentials: false
-      - name: Assert the private host and exact source identities
+      - name: Assert the repository and exact source identities
         shell: bash
         run: |
           test "$GITHUB_REPOSITORY" = "ArturSepp/FactorModels"
-          test "$PRIVATE_REPOSITORY" = "true"
           test "$(git rev-parse HEAD)" = "$OP_SOURCE_SHA"
-          test "$(git -C .integration/tradablefactors rev-parse HEAD)" = "$TF_SOURCE_SHA"
-          printf 'OP=%s\nTF=%s\nWORKFLOW=%s\n' "$OP_SOURCE_SHA" "$TF_SOURCE_SHA" "$GITHUB_SHA" | tee "$RUNNER_TEMP/source-identities.txt"
+          test "$(git -C .integration/factormodels rev-parse HEAD)" = "$FM_SOURCE_SHA"
+          printf 'OP=%s\nFM=%s\nWORKFLOW=%s\n' "$OP_SOURCE_SHA" "$FM_SOURCE_SHA" "$GITHUB_SHA" | tee "$RUNNER_TEMP/source-identities.txt"
       - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
         with:
           python-version: "3.12"
@@ -56,7 +53,7 @@ jobs:
         shell: bash
         run: |
           uv build --out-dir "$RUNNER_TEMP/op-dist"
-          uv build .integration/tradablefactors --out-dir "$RUNNER_TEMP/tf-dist"
+          uv build .integration/factormodels --out-dir "$RUNNER_TEMP/tf-dist"
           uv venv "$RUNNER_TEMP/composed-source"
           uv pip install --python "$RUNNER_TEMP/composed-source/bin/python" -e ".[riskbudget]" \
             "$(ls "$RUNNER_TEMP"/tf-dist/*.whl)" pytest
@@ -81,8 +78,8 @@ jobs:
           "$RUNNER_TEMP/composed-wheel/bin/python" -m pytest \
             --pyargs optimalportfolios.tests.factor_integration_test --junitxml=handoff.xml
           "$RUNNER_TEMP/composed-wheel/bin/python" -c "import xml.etree.ElementTree as E; s=E.parse('handoff.xml').getroot(); cases=list(s.iter('testcase')); assert cases; assert not list(s.iter('skipped')); assert not list(s.iter('failure')); assert not list(s.iter('error'))"
-      - name: Retain private composed verification evidence
-        if: always() && github.repository == 'ArturSepp/FactorModels' && github.event.repository.private
+      - name: Retain composed verification evidence
+        if: always() && github.repository == 'ArturSepp/FactorModels'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: op-composed-evidence
@@ -104,22 +101,21 @@ jobs:
           repository: ArturSepp/OptimalPortfolios
           ref: ${{ env.OP_SOURCE_SHA }}
           persist-credentials: false
-      - name: Check out the reviewed TF source
+      - name: Check out the reviewed FM source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: ArturSepp/FactorModels
-          ref: ${{ env.TF_SOURCE_SHA }}
-          path: .integration/tradablefactors
+          ref: ${{ env.FM_SOURCE_SHA }}
+          path: .integration/factormodels
           token: ${{ github.token }}
           persist-credentials: false
-      - name: Assert the private host and exact source identities
+      - name: Assert the repository and exact source identities
         shell: bash
         run: |
           test "$GITHUB_REPOSITORY" = "ArturSepp/FactorModels"
-          test "$PRIVATE_REPOSITORY" = "true"
           test "$(git rev-parse HEAD)" = "$OP_SOURCE_SHA"
-          test "$(git -C .integration/tradablefactors rev-parse HEAD)" = "$TF_SOURCE_SHA"
-          printf 'OP=%s\nTF=%s\nWORKFLOW=%s\n' "$OP_SOURCE_SHA" "$TF_SOURCE_SHA" "$GITHUB_SHA" | tee "$RUNNER_TEMP/source-identities.txt"
+          test "$(git -C .integration/factormodels rev-parse HEAD)" = "$FM_SOURCE_SHA"
+          printf 'OP=%s\nFM=%s\nWORKFLOW=%s\n' "$OP_SOURCE_SHA" "$FM_SOURCE_SHA" "$GITHUB_SHA" | tee "$RUNNER_TEMP/source-identities.txt"
       - name: Keep documentation state outside the checkout
         run: |
           echo "AGENT_LOCAL_ROOT=$RUNNER_TEMP/documentation" >> "$GITHUB_ENV"
@@ -134,8 +130,8 @@ jobs:
           version: "0.12.23"
       - name: Sync documentation environment
         run: uv sync --locked --extra docs --extra riskbudget --group test
-      - name: Install the selected TF candidate for the complete analytical bundle
-        run: uv pip install --python "$UV_PROJECT_ENVIRONMENT/bin/python" .integration/tradablefactors
+      - name: Install the selected FM candidate for the complete analytical bundle
+        run: uv pip install --python "$UV_PROJECT_ENVIRONMENT/bin/python" .integration/factormodels
       - name: Check every human-authored source
         run: uv run --no-sync python tools/check_docs.py --source-all
       - name: Test documentation, examples and installation contracts
@@ -166,15 +162,15 @@ jobs:
       - name: Confirm the reviewed lockfile was preserved
         run: git diff --exit-code -- pyproject.toml uv.lock
       - name: Retain external-link health evidence
-        if: always() && github.repository == 'ArturSepp/FactorModels' && github.event.repository.private
+        if: always() && github.repository == 'ArturSepp/FactorModels'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: external-link-health
           path: ${{ runner.temp }}/documentation/linkcheck/*.json
           if-no-files-found: error
           retention-days: 7
-      - name: Retain private documentation verification evidence
-        if: always() && github.repository == 'ArturSepp/FactorModels' && github.event.repository.private
+      - name: Retain documentation verification evidence
+        if: always() && github.repository == 'ArturSepp/FactorModels'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: op-documentation-evidence
@@ -200,30 +196,29 @@ jobs:
           repository: ArturSepp/OptimalPortfolios
           ref: ${{ env.OP_SOURCE_SHA }}
           persist-credentials: false
-      - name: Check out the reviewed TF source
+      - name: Check out the reviewed FM source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: ArturSepp/FactorModels
-          ref: ${{ env.TF_SOURCE_SHA }}
-          path: .integration/tradablefactors
+          ref: ${{ env.FM_SOURCE_SHA }}
+          path: .integration/factormodels
           token: ${{ github.token }}
           persist-credentials: false
-      - name: Assert the private host and exact source identities
+      - name: Assert the repository and exact source identities
         shell: bash
         run: |
           test "$GITHUB_REPOSITORY" = "ArturSepp/FactorModels"
-          test "$PRIVATE_REPOSITORY" = "true"
           test "$(git rev-parse HEAD)" = "$OP_SOURCE_SHA"
-          test "$(git -C .integration/tradablefactors rev-parse HEAD)" = "$TF_SOURCE_SHA"
-          printf 'OP=%s\nTF=%s\nWORKFLOW=%s\n' "$OP_SOURCE_SHA" "$TF_SOURCE_SHA" "$GITHUB_SHA" | tee "$RUNNER_TEMP/source-identities.txt"
+          test "$(git -C .integration/factormodels rev-parse HEAD)" = "$FM_SOURCE_SHA"
+          printf 'OP=%s\nFM=%s\nWORKFLOW=%s\n' "$OP_SOURCE_SHA" "$FM_SOURCE_SHA" "$GITHUB_SHA" | tee "$RUNNER_TEMP/source-identities.txt"
       - name: Install uv and Python
         uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
         with:
           python-version: "3.12"
       - name: Sync with the data extra
         run: uv sync --locked --extra data --extra riskbudget
-      - name: Install TF explicitly for network examples that compose the factor pipeline
-        run: uv pip install --python .venv/bin/python .integration/tradablefactors
+      - name: Install FM explicitly for network examples that compose the factor pipeline
+        run: uv pip install --python .venv/bin/python .integration/factormodels
       - name: Run the network examples
         id: run
         shell: bash
@@ -251,8 +246,8 @@ jobs:
             grep -E "^  (PASS|FAIL)|[0-9]+/[0-9]+ passed" "$RUNNER_TEMP/network.log" || echo "no results parsed"
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
-      - name: Retain private network evidence
-        if: always() && github.repository == 'ArturSepp/FactorModels' && github.event.repository.private
+      - name: Retain network evidence
+        if: always() && github.repository == 'ArturSepp/FactorModels'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: op-network-evidence
@@ -277,15 +272,14 @@ jobs:
           NETWORK_EXECUTION: ${{ needs.network.outputs.execution }}
         run: |
           test "$GITHUB_REPOSITORY" = "ArturSepp/FactorModels"
-          test "$PRIVATE_REPOSITORY" = "true"
           {
             echo "## OP consumer verification"
             echo "OP source: $OP_SOURCE_SHA"
-            echo "TF source: $TF_SOURCE_SHA"
+            echo "FM source: $FM_SOURCE_SHA"
             echo "Required composed source/wheels: $COMPOSED_RESULT"
             echo "Required documentation: $DOCS_RESULT"
             echo "Advisory network job: $NETWORK_RESULT; execution: ${NETWORK_EXECUTION:-unavailable}"
-            echo "This private TF run supplies additional evidence; OP's original run is unchanged."
+            echo "This public FM/OP check verifies the composed OSS source and installed wheels."
           } | tee -a "$GITHUB_STEP_SUMMARY"
           test "$COMPOSED_RESULT" = "success"
           test "$DOCS_RESULT" = "success"

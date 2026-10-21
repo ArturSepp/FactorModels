@@ -4,8 +4,6 @@
 
 [FactorModels](https://github.com/ArturSepp/FactorModels) constructs ordered factor NAVs from supplied price histories and explicit basket definitions. The completed construction outputs are the model specification, the NAV/level panel and, when requested, the asset-by-factor loading constraints. Each can be inspected and used downstream without Rosaa. Software citation: [CITATION.cff](https://github.com/ArturSepp/FactorModels/blob/main/CITATION.cff).
 
-This workflow is available in the unpublished `0.1.0.dev1` development checkpoint.
-
 ## Inputs and outputs
 
 | Object | Required information | Completed output and downstream use |
@@ -15,7 +13,7 @@ This workflow is available in the unpublished `0.1.0.dev1` development checkpoin
 | `build_factor_panel` | Specification, supplied price panel and explicit construction overrides | Ordered date-by-factor NAV/level `DataFrame` for estimation, inspection and scenario inputs |
 | `compute_beta_loading_signs` | Specification and per-asset sign/eligibility flags | Asset-by-factor `DataFrame` supplied to the estimator; it does not estimate loadings |
 
-The construction panel is a complete result of this step. It does not contain fitted asset loadings, estimated asset covariance or a portable bundle manifest. Those are separate outputs: `FactorCovarEstimator` produces the fitted model; installed bundle persistence remains a later migration stage. Retain the specification and actual construction overrides beside a saved panel because a plain `DataFrame` does not record them automatically.
+The construction panel is a complete result of this step. It does not contain fitted asset loadings, estimated asset covariance or a portable bundle manifest. Those are separate outputs: `FactorCovarEstimator` produces the fitted model; `save_bundle` persists explicitly assembled bundle inputs separately. Retain the specification and actual construction overrides beside a saved panel because a plain `DataFrame` does not record them automatically.
 
 ## Construction and timing
 
