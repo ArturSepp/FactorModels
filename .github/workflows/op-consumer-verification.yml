@@ -17,7 +17,7 @@ permissions:
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
   MPLBACKEND: Agg
-  OP_SOURCE_SHA: 03fb88c4c7a4d1e35d7c8a2bf9b01496b22cb4de
+  OP_SOURCE_SHA: 34a16e7d9218765ff72da005a6a1126121bb67a1
   TF_SOURCE_SHA: ${{ github.sha }}
   PRIVATE_REPOSITORY: ${{ github.event.repository.private }}
 
