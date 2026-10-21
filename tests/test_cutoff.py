@@ -4,8 +4,8 @@ import pandas as pd
 import pytest
 import qis
 
-from tradablefactors.model import DatedFactorCovariance
-from tradablefactors.tests._estimation_fixture import estimator, panels
+from factormodels.model import DatedFactorCovariance
+from factormodels.tests._estimation_fixture import estimator, panels
 
 
 @pytest.mark.parametrize("policy", ["orthogonal", "empirical", "residual_cluster"])

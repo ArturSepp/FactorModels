@@ -6,8 +6,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-from tradablefactors.cma import CmaDiagnosticInputs, compute_cma_diagnostics
-from tradablefactors.reports.cma_diagnostics import render_cma_diagnostics
+from factormodels.cma import CmaDiagnosticInputs, compute_cma_diagnostics
+from factormodels.reports.cma_diagnostics import render_cma_diagnostics
 
 
 def test_completed_cma_result_renders_without_changing_its_tables(tmp_path):

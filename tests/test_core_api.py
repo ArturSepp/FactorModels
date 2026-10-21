@@ -3,7 +3,7 @@
 import ast
 from pathlib import Path
 
-import tradablefactors as tf
+import factormodels as tf
 
 
 def test_core_api_is_documented_and_resolves():
@@ -15,7 +15,7 @@ def test_core_api_is_documented_and_resolves():
         obj = getattr(tf, name)
         assert obj.__doc__, name
         assert f"`{name}`" in documentation, name
-    assert tf.FactorCovarEstimator.__module__ == "tradablefactors.estimation"
+    assert tf.FactorCovarEstimator.__module__ == "factormodels.estimation"
 
 
 def test_library_has_no_consumer_dependency():

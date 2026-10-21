@@ -6,7 +6,7 @@ import pandas as pd
 import pytest
 import qis
 
-from tradablefactors.tests._estimation_fixture import estimator, panels
+from factormodels.tests._estimation_fixture import estimator, panels
 
 
 def test_factor_covariance_sampling_and_annualisation_match_explicit_weights():

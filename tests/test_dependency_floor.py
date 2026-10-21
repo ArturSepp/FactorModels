@@ -8,7 +8,7 @@ from packaging.version import Version
 
 def test_base_requirement_excludes_pre_mit_factorlasso():
     """Check built metadata, including wheel installations outside the source tree."""
-    requirements = [Requirement(item) for item in metadata.requires("tradablefactors")]
+    requirements = [Requirement(item) for item in metadata.requires("factormodels")]
     factorlasso = [item for item in requirements if item.name == "factorlasso"]
     assert len(factorlasso) == 1
     requirement = factorlasso[0]

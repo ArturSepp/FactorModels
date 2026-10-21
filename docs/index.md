@@ -1,8 +1,21 @@
-# TradableFactors documentation
+# FactorModels documentation
 
-*Author: [Artur Sepp](https://github.com/ArturSepp)*
+*Author: [Artur Sepp](https://github.com/ArturSepp) / First recorded: [2026-10-18](https://github.com/ArturSepp/tradablefactors/commit/2e23f5a9334fe2c44a5acfa028e0ac3e368f93a0)*
 
-TradableFactors provides completed factor-model and GLS/CMA diagnostic results. See the [package README](https://github.com/ArturSepp/tradablefactors) and [software citation](../CITATION.cff).
+FactorModels implements multi-asset tradable factor models (MATF): construct
+factor net asset value histories, estimate asset loadings and covariance, and
+analyse forecasts with generalized least squares (GLS) and capital market
+assumption (CMA) diagnostics. See the
+[package README](https://github.com/ArturSepp/FactorModels) and
+[software citation](../CITATION.cff).
+
+Start with the [synthetic reference workflow](reference_workflows.md), then
+inspect the [completed model](completed_model.md). The
+[GLS/CMA guide](gls_factor_premia.md) connects the fitted model to annual arithmetic
+forecasts using an explicit mean bridge and log-risk approximation. These guides
+describe the unpublished release candidate in this checkout. GitHub source is
+the current documentation route. Committed-source links identify their stated
+revision; the local guides describe the current candidate changes.
 
 ```{toctree}
 :maxdepth: 2
@@ -23,5 +36,6 @@ licensing
 Start with the completed model: definitions and histories, fitted loadings, selected
 covariance, diagnostics and provenance. Loading supplied inputs, fitting them,
 exporting tables and consuming risk in another package are explicit separate steps.
-The installed bundle workflows and active paper/Rosaa consumer implementation
-are available; public release and production environment adoption remain separate.
+FactorLasso supplies statistical estimation, OptimalPortfolios consumes alphas
+and covariance for optimisation, and QIS supplies portfolio risk and stress
+reports. The [integration guide](integration.md) describes these handoffs.

@@ -1,6 +1,6 @@
-"""Optional composed example: completed TF model -> OP solve -> existing QIS risk.
+"""Optional composed example: completed FM model -> OP solve -> existing QIS risk.
 
-Install optimalportfolios explicitly alongside tradablefactors. Neither package
+Install optimalportfolios explicitly alongside factormodels. Neither package
 imports the other in its library. All data and forecasts here are synthetic.
 """
 import numpy as np

@@ -11,31 +11,46 @@ myst:
 
 *Author: [Artur Sepp](https://github.com/ArturSepp) / First recorded: [2026-10-13](https://github.com/ArturSepp/OptimalPortfolios/commit/00eadd14a0687486efba43ae9f8f575bf491e6ce)*
 
-TradableFactors audits an already computed expected-return vector against its
+FactorModels audits an already computed expected-return vector against its
 supplied factor model. [OptimalPortfolios](https://github.com/ArturSepp/OptimalPortfolios)
 uses the resulting expected returns and covariances in optimisation. The audit returns
 complete numerical tables separately from a two- or three-page PDF. The audit
 does not estimate CMAs, change an admission weight or replace published forecasts.
 
-Implemented in [TradableFactors](https://github.com/ArturSepp/tradablefactors). Software citation: [CITATION.cff](https://github.com/ArturSepp/tradablefactors/blob/main/CITATION.cff).
+Implemented in [FactorModels](https://github.com/ArturSepp/FactorModels). Software citation: [CITATION.cff](https://github.com/ArturSepp/FactorModels/blob/main/CITATION.cff).
 
 ## Inputs and computation
 
-The [canonical offline workflow](../examples/reference_workflows.py) completes the
-model and the audit in `run_local_test(1)` using synthetic inputs. Its
-`persist_example(result, new_directory)` explicitly saves inspectable tables and
-a report rendered with QIS primitives. Computing the result performs no persistence.
-The script and the [completed-model guide](completed_model.md) define the current
-input, output, units, date and mutability contract.
+The [canonical bundle workflow](reference_workflows.md) estimates a log-return
+model with `fit_bundle`, then supplies its unchanged loadings and covariance to
+GLS inference and this audit. Annual arithmetic forecasts use an explicit
+second-order mean bridge. Annual log-return covariance is retained as a declared
+risk approximation, rather than relabelled as exact arithmetic covariance.
+The [worked example](gls_factor_premia.md) defines the asset-level variance
+adjustment, arithmetic alpha and forecast reconciliation.
+
+Run `python examples/reference_workflows.py --fit` from a checkout to compute the
+model and eligible diagnostics without persistence. Add
+`--output /path/to/new_model_run` to save the model, forecasts, diagnostics and a
+PDF rendered with QIS primitives. The example report adapter requires LOG factors,
+zero domestic rates and positive diagonal selected residual covariance. Native-point
+factors, correlated or zero residual covariance and nonzero cash retain their
+complete models with an explicit unavailable-report reason. The full selected
+covariance is never diagonalized to force report eligibility.
+
+The [independent arithmetic reference](../examples/gls_factor_premia.py) remains
+available for checking GLS directly on synthetic simple excess returns. It is a
+separate calibration, not a second fit inside the canonical pipeline.
 
 Import `CmaDiagnosticInputs`, `CmaDiagnosticSpec`, `AdmissionPolicy` and
-`compute_cma_diagnostics` from `tradablefactors.cma`. The input requires labelled
+`compute_cma_diagnostics` from `factormodels.cma`. The input requires labelled
 `betas`, strictly positive `residual_variances` and `excess_cma`, all in exactly the
 same asset order. The factor columns define the order of optional
 `factor_covariance` and calibrated `factor_premia`. Expected returns are annual
-arithmetic excess decimals in one currency; covariances are annualized decimals.
-The caller supplies the cash convention and provenance. No annualization or
-currency conversion is inferred.
+arithmetic excess decimals in one currency; covariances are in annual squared
+decimal return units. The caller declares their return convention and any risk
+approximation, together with cash and provenance. No annualization, mean bridge
+or currency conversion is inferred by the audit.
 
 Optional `channels` explain the difference between calibrated factor-implied and
 published excess returns. They include admitted historical alpha and any regional,
@@ -59,10 +74,10 @@ cutoff, recorded in the result. Truncating nonzero directions is a model
 approximation; failed covariance accounting remains visible.
 
 The numerical GLS implementation belongs to
-[`tradablefactors.premia`](gls_factor_premia.md): `infer_factor_premia` accepts
+[`factormodels.premia`](gls_factor_premia.md): `infer_factor_premia` accepts
 provider total-return forecasts, cash, admitted alpha, estimated loadings and
 residual risk. It returns implied premia, conditional intervals, mimicking
-portfolios and optional forecast-box sensitivities. TradableFactors also owns
+portfolios and optional forecast-box sensitivities. FactorModels also owns
 CMA accounting, policy diagnostics, identification contrasts and PDF rendering.
 The extracted OP imports have been removed. FactorLasso supplies the
 historical estimation stage; GLS requires no additional FactorLasso API or release.
@@ -87,7 +102,24 @@ Keep a production audit of the published forecast distinct from a provider view
 whose admitted alpha has already been removed. Reconcile the construction channels
 to the target actually supplied.
 
-The TradableFactors `premia/README.md` lists public entry points, result fields
+In the canonical bundle example, the audit target is the full synthetic forecast
+at zero cash. GLS first credits the arithmetic alpha constructed from the
+historical log alpha and the asset-level variance adjustment. The audit retains
+that admitted alpha and the GLS residual as separate construction channels. Its
+calibrated premia come from the full-alpha GLS view; its implied premia project
+the full forecast. Supplying `admitted_alpha` does not subtract it again.
+
+In the independent arithmetic reference, the audit target is the full provider forecast minus
+3% cash, with historical alpha still present. The construction channels are the
+full credited alpha and the residual from the full-alpha GLS view. The calibrated
+premia come from that full-alpha view; the audit's implied premia instead equal
+the zero-alpha GLS projection of the complete cash-adjusted forecast. The saved
+`forecasts.csv` distinguishes both targets, so the report cannot silently mix
+the two interpretations. Its selected diagonal residual weight feeds inference,
+covariance assembly and audit consistently. A correlated production covariance
+cannot be substituted and silently relabelled as this diagonal example.
+
+The FactorModels `premia/README.md` lists public entry points, result fields
 and contributor commands. The
 [methodology guide](gls_factor_premia.md) gives the equations and conditional model.
 
@@ -124,14 +156,14 @@ opportunity metric and from correlated production portfolio risk.
 
 ## Rendering and persistence
 
-`tradablefactors.reports.cma_diagnostics.render_cma_diagnostics` consumes a result
+`factormodels.reports.cma_diagnostics.render_cma_diagnostics` consumes a result
 and an explicit PDF output path. It shows forecast consistency, admission and model
 quality, and a third scenario page when scenarios exist. Large universes show
 selected contributors with the remaining coverage disclosed. Save the complete
 result tables and input provenance alongside the PDF in the application's storage
 layer. Report rendering performs no fitting or portfolio optimisation.
 
-For provider studies, `tradablefactors.reports.cma_inference` exposes
+For provider studies, `factormodels.reports.cma_inference` exposes
 `CmaInferenceView`, `CmaInferenceReport` and `render_cma_inference`. The adapter
 supplies up to six completed views, a headline view, source vintage, model date,
 horizon, cash and alpha multiplier. The shared three-page PDF compares premia
@@ -227,13 +259,13 @@ their previous layout and are never recomputed during rendering.
 The renderer uses [QIS](https://github.com/ArturSepp/QuantInvestStrats) reporting
 primitives; see its [software citation](https://github.com/ArturSepp/QuantInvestStrats/blob/main/CITATION.cff).
 Rosaa supplies its completed-result and saved-cut adapters, source hashes and
-transactional report bundles. The generic TradableFactors layer has no dependency on Rosaa or
+transactional report bundles. The generic FactorModels layer has no dependency on Rosaa or
 the local paper replication workspace.
 
 ## Conditional GLS confidence intervals
 
 `compute_conditional_gls_intervals(inputs, confidence_level=0.95, spec=spec)` is
-an opt-in numerical calculation exported from `tradablefactors.cma`. Its
+an opt-in numerical calculation exported from `factormodels.cma`. Its
 `CmaConditionalGlsResult` contains `factors`, joint `covariance` and `summary`.
 It neither modifies nor extends the frozen `CmaDiagnosticResult` tables. The
 caller applies cash and admitted alpha to the forecast before calling it, using

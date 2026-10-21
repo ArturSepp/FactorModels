@@ -1,6 +1,6 @@
 """Freeze and compare labelled numerical migration evidence without overwriting it.
 
-Private paths resolve through TRADABLEFACTORS_STAGE0 or agents/stage0.json.
+Private paths resolve through FACTORMODELS_STAGE0 or agents/stage0.json.
 The manifest is public; numerical data and source exports remain local.
 """
 from __future__ import annotations
@@ -130,7 +130,7 @@ def synthetic_inputs():
 
 
 def current_content(data):
-    """Expose economic components without coupling the reference to TF classes."""
+    """Expose economic components without coupling the reference to FM classes."""
     return {"betas": data.y_betas, "factor_covariance": data.x_covar,
             "variances": data.y_variances, "asset_covariance": data.get_y_covar()}
 
@@ -144,7 +144,7 @@ def estimate(implementation):
     if implementation == "reference":
         from optimalportfolios.covar_estimation.factor_covar_estimator import FactorCovarEstimator
     else:
-        from tradablefactors import FactorCovarEstimator
+        from factormodels import FactorCovarEstimator
 
     def estimator():
         return FactorCovarEstimator(lasso_model=LassoModel(
@@ -180,7 +180,7 @@ def estimate(implementation):
 
 def diagnostic_module(implementation):
     """Resolve the canonical owner for the requested implementation."""
-    name = "optimalportfolios.matf.cma_diagnostics" if implementation == "reference" else "tradablefactors.cma.diagnostics"
+    name = "optimalportfolios.matf.cma_diagnostics" if implementation == "reference" else "factormodels.cma.diagnostics"
     return importlib.import_module(name)
 
 
@@ -304,7 +304,7 @@ def consumer_paper_results(mapping, consumer_root, receipt=None):
         supplied = module.load_production_inputs(snapshot=str(Path(mapping["faj_q3"]).resolve()))
         ids, factors = supplied["tickers"], supplied["factors"]
         results["faj_q3"] = diagnose(
-            "tradablefactors", pd.DataFrame(supplied["beta"], index=ids, columns=factors),
+            "factormodels", pd.DataFrame(supplied["beta"], index=ids, columns=factors),
             pd.Series(supplied["D"], index=ids),
             pd.DataFrame(supplied["Sig_F"], index=factors, columns=factors),
             pd.Series(supplied["lam"], index=factors),
@@ -320,7 +320,7 @@ def consumer_paper_results(mapping, consumer_root, receipt=None):
             if observed.call_count != 1:
                 raise AssertionError("MATF consumer did not execute its canonical diagnostic call once")
             inputs = observed.call_args.args[0]
-        core = diagnose("tradablefactors", inputs.betas, inputs.residual_variances,
+        core = diagnose("factormodels", inputs.betas, inputs.residual_variances,
                         inputs.factor_covariance, inputs.factor_premia, inputs.excess_cma)
         check_paper_report_core(report, core)
         results["matf_current"] = core
@@ -333,7 +333,7 @@ def consumer_paper_results(mapping, consumer_root, receipt=None):
 
 def consumer_construction(prices, receipt=None):
     """Exercise Rosaa's production panel boundary with explicit synthetic input/output seams."""
-    from tradablefactors.spec import Factor, FactorFamily, FactorModelSpec, RiskFactors, VolTargetPolicy
+    from factormodels.spec import Factor, FactorFamily, FactorModelSpec, RiskFactors, VolTargetPolicy
     from ramen.quant_model_mvp.rosaa.data.factors import panel_io
 
     class ReplayFactors(RiskFactors):
@@ -366,14 +366,14 @@ def construction(implementation, receipt=None):
     """Replay the selected construction owner against independent held-unit accounting.
 
     Reference mode imports only the frozen Rosaa tree configured by ``main``.
-    TF mode checks the library; consumer mode executes Rosaa's actual panel path.
+    FM mode checks the library; consumer mode executes Rosaa's actual panel path.
     """
     import numpy as np
     import pandas as pd
     if implementation == "reference":
         from ramen.quant_model_mvp.rosaa.data.factors.construction import compute_risk_factor_portfolio
-    elif implementation == "tradablefactors":
-        from tradablefactors.construction import compute_risk_factor_portfolio
+    elif implementation == "factormodels":
+        from factormodels.construction import compute_risk_factor_portfolio
     dates = pd.bdate_range("2025-01-01", periods=95)
     prices = pd.DataFrame({"a":100*np.exp(np.arange(95)*.001),
                            "b":80*np.exp(np.arange(95)*-.0003)}, index=dates)
@@ -422,7 +422,7 @@ def main():
     """Execute explicit capture/verify; absent evidence never counts as a pass."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--mode", required=True, choices=["capture","verify"])
-    parser.add_argument("--implementation", required=True, choices=["reference","tradablefactors","consumer"])
+    parser.add_argument("--implementation", required=True, choices=["reference","factormodels","consumer"])
     parser.add_argument("--case", required=True, choices=["all","papers","rosaa"])
     parser.add_argument("--manifest", required=True, type=Path)
     parser.add_argument("--directory", required=True, type=Path)
@@ -444,7 +444,7 @@ def main():
         raise FileExistsError(f"Refusing to overwrite established baseline: {target}")
     if args.mode == "verify" and not target.is_file():
         raise FileNotFoundError(f"Missing established baseline: {target}")
-    stage_path = Path(os.environ.get("TRADABLEFACTORS_STAGE0", Path(__file__).resolve().parents[1]/"agents/stage0.json"))
+    stage_path = Path(os.environ.get("FACTORMODELS_STAGE0", Path(__file__).resolve().parents[1]/"agents/stage0.json"))
     stage = json.loads(stage_path.read_text(encoding="utf-8-sig"))
     manifest = json.loads(args.manifest.read_text(encoding="utf-8-sig"))
     consumer_manifest = None

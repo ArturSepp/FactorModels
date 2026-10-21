@@ -1,8 +1,9 @@
 """Three explicit reference paths: synthetic, supplied bundle, public proxy.
 
-All prices in the default example are synthetic USD total-return NAVs. Values
-are monthly decimal log returns; covariance is annual. No acquisition, fitting
-on load, or persistence occurs implicitly. Run with --help for optional actions.
+All prices in the default example are synthetic USD total-return NAVs with zero
+cash. Fitted risk uses annualized log-return moments; illustrative forecasts use
+annual arithmetic excess returns through an explicit second-order bridge.
+No acquisition, fitting on load, or persistence occurs implicitly.
 """
 from __future__ import annotations
 
@@ -13,41 +14,18 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from tradablefactors import (
-    BundleSettings, FactorBundle, RiskFactors, fit_bundle, load_bundle, save_bundle,
+from factormodels import (
+    BundleSettings, CmaDiagnosticInputs, FactorBundle, FactorModelSnapshot, RiskFactors,
+    annual_arithmetic_from_log, compute_cma_diagnostics, fit_bundle,
+    infer_factor_premia, load_bundle, save_bundle, synthetic_bundle,
 )
-from tradablefactors.cma import CmaDiagnosticInputs, compute_cma_diagnostics
-from tradablefactors.reports.cma_diagnostics import render_cma_diagnostics
-
-
-def synthetic_bundle() -> FactorBundle:
-    """Return reproducible, explicitly labelled inputs; nothing is fitted or saved."""
-    rng = np.random.default_rng(6102026)
-    dates = pd.date_range("2014-01-31", periods=121, freq="ME")
-    x = rng.normal([.004, .001], [.035, .018], (120, 2))
-    b = np.array([[.9, .1], [.1, .9], [.6, .4], [.4, -.2]])
-    y = x @ b.T + rng.normal(0., .013, (120, 4))
-    levels = pd.DataFrame(100 * np.exp(np.vstack([np.zeros(2), x.cumsum(axis=0)])),
-                          index=dates, columns=["Equity", "Rates"])
-    prices = pd.DataFrame(100 * np.exp(np.vstack([np.zeros(4), y.cumsum(axis=0)])),
-                          index=dates, columns=["Asset A", "Asset B", "Asset C", "Asset D"])
-    metadata = pd.DataFrame({"currency": "USD", "hedge_ratio": 0., "return_frequency": "ME"},
-                            index=prices.columns)
-    return FactorBundle(
-        factor_levels=levels, fx_spots=pd.DataFrame({"USD": 1.}, index=dates),
-        domestic_rates=pd.DataFrame({"USD": 0.}, index=dates), asset_prices=prices,
-        asset_metadata=metadata,
-        settings=BundleSettings(reference_ccy="USD", factor_names=tuple(levels.columns),
-                                estimation_start=dates[36], estimation_end=dates[-1],
-                                recipe_id="synthetic-reference-v1"),
-        provenance={"data_kind": "synthetic", "seed": 6102026})
 
 
 def inspect_fit(bundle: FactorBundle) -> dict:
     """Fit supplied inputs and check covariance assembly independently of FL helpers."""
     snapshot = fit_bundle(bundle)
-    betas = snapshot.data.y_betas
-    factors = snapshot.data.x_covar
+    betas = snapshot.loadings
+    factors = snapshot.factor_covariance
     residual = snapshot.residual_covariance
     covariance = snapshot.asset_covariance
     # Numerical reference only: explicit component sums, independent of get_y_covar.
@@ -58,30 +36,85 @@ def inspect_fit(bundle: FactorBundle) -> dict:
     assert snapshot.data.residuals.index.max() <= snapshot.cutoff
     assert np.linalg.eigvalsh(covariance).min() >= -1e-10
 
-    # The renderer uses percentage/bp coordinates and diagonal GLS error geometry.
-    # A valid model outside that report's scope still completes without a report.
-    if (any(kind != "LOG" for kind in bundle.settings.factor_return_types.values())
-            or snapshot.residual_type != "orthogonal" or (np.diag(residual) <= 0).any()):
-        return {"bundle": bundle, "snapshot": snapshot, "audit": None,
-                "report_status": "unavailable: illustrative CMA report requires LOG factors "
-                                 "and positive orthogonal selected residual variances"}
-    # Forecasts are supplied assumptions, distinct from the historical fit.
-    premia = pd.Series(np.linspace(.05, .02, len(betas.columns)), index=betas.columns)
-    forecast = betas @ premia + pd.Series(np.linspace(.006, -.004, len(betas)), index=betas.index)
-    audit = compute_cma_diagnostics(CmaDiagnosticInputs(
-        betas=betas, factor_covariance=factors,
-        residual_variances=pd.Series(np.diag(residual), index=betas.index),
-        excess_cma=forecast, factor_premia=premia,
-        production_covariance=covariance,
-        provenance={"reference_ccy": bundle.settings.reference_ccy, "as_of": str(snapshot.cutoff.date()),
-                    "universe": f"{len(betas)} supplied assets", "model_name": bundle.settings.recipe_id,
-                    "forecast_basis": "illustrative annual decimal excess returns"}))
-    assert not audit.assets.empty and not audit.validation.empty
-    return {"bundle": bundle, "snapshot": snapshot, "audit": audit, "report_status": "available"}
+    return {"bundle": bundle, "snapshot": snapshot, **audit_snapshot(bundle, snapshot)}
+
+
+def audit_snapshot(bundle: FactorBundle, snapshot: FactorModelSnapshot) -> dict:
+    """Connect a frozen fit to illustrative arithmetic forecasts without refitting.
+
+    All factor forecasts are explicitly assumed to be 4% annual arithmetic excess
+    returns. Historical annual log alpha uses an EWMA span of 36 observations.
+    The bridge reconciles asset and factor means, including their different
+    variance corrections. These teaching assumptions are not estimated CMAs.
+    """
+    betas, factors = snapshot.loadings, snapshot.factor_covariance
+    residual, covariance = snapshot.residual_covariance, snapshot.asset_covariance
+    unavailable = None
+    if any(kind.name != "LOG" for kind in snapshot.factor_return_types.values()):
+        unavailable = "native difference factors require explicit forecast units"
+    elif not (bundle.domestic_rates.loc[:snapshot.cutoff].to_numpy() == 0.).all():
+        unavailable = "nonzero cash requires explicit total-to-excess forecast treatment"
+    elif not np.allclose(residual, np.diag(np.diag(residual)), rtol=0., atol=1e-14):
+        unavailable = "correlated residual risk is retained; this report requires a diagonal policy"
+    elif np.any(np.diag(residual) <= 0.):
+        unavailable = "GLS requires strictly positive residual variances"
+    if unavailable is not None:
+        return {"audit": None, "report_status": f"unavailable: {unavailable}"}
+
+    factor_arithmetic = pd.Series(.04, index=betas.columns, name="assumed_arithmetic_premium")
+    factor_log = factor_arithmetic-.5*pd.Series(np.diag(factors), index=betas.columns)
+    # FactorLasso estimates the EWMA from the producer's already annualized residuals.
+    alpha_log = snapshot.data.estimate_alpha(alpha_span=36)
+    asset_log = betas @ factor_log + alpha_log
+    asset_arithmetic = annual_arithmetic_from_log(
+        asset_log, pd.Series(np.diag(covariance), index=betas.index), annualization_factor=1.)
+    alpha_arithmetic = asset_arithmetic-betas @ factor_arithmetic
+    # A declared asset-forecast disagreement makes the GLS residual visible.
+    forecast_tilt = pd.Series(np.linspace(-.0025, .0025, len(betas)), index=betas.index)
+    total_forecast = asset_arithmetic+forecast_tilt
+    premia = infer_factor_premia(
+        betas, residual, total_forecast, cash_rate=0., alpha=alpha_arithmetic, alpha_weight=1.)
+    inputs = CmaDiagnosticInputs(
+        betas=betas, residual_variances=pd.Series(np.diag(residual), index=betas.index),
+        factor_covariance=factors, production_covariance=covariance,
+        excess_cma=total_forecast, factor_premia=premia.premia,
+        admitted_alpha=alpha_arithmetic,
+        channels=pd.DataFrame({"admitted_alpha": alpha_arithmetic,
+                               "forecast_residual": premia.assets.residual}),
+        provenance={"data_kind": "illustrative_forecasts_on_supplied_fit",
+                    "reference_ccy": bundle.settings.reference_ccy,
+                    "as_of": str(snapshot.cutoff.date()),
+                    "model_name": "Annual log-risk approximation",
+                    "universe": f"{len(betas)} assets / {len(betas.columns)} factors",
+                    "risk_basis": "annualized_log_return_covariance",
+                    "forecast_basis": "Annual arithmetic excess returns",
+                    "forecast_units": "annual_arithmetic_excess_decimal",
+                    "mean_risk_convention": "arithmetic forecasts with annualized log-return risk; "
+                                            "not an exact annual compounded-return distribution",
+                    "moment_bridge": "A * (log_mean + 0.5 * log_variance)",
+                    "bridge_annualization_factor": 1., "alpha_span": 36,
+                    "log_alpha_units": "already_annualized_decimal",
+                    "factor_premium_assumptions": factor_arithmetic.to_dict(),
+                    "forecast_tilt": forecast_tilt.to_dict(),
+                    "cash_rate": 0., "calibrated_alpha_weight": 1.,
+                    "residual_type": snapshot.residual_type,
+                    "residual_var_weight": snapshot.residual_var_weight,
+                    "audit_target": "full arithmetic excess forecast; admission remains a channel"})
+    audit = compute_cma_diagnostics(inputs)
+    assert audit.summary["accounting_status"] == "pass"
+    forecasts = pd.DataFrame({"model_log_mean": asset_log, "model_arithmetic_mean": asset_arithmetic,
+                              "historical_log_alpha": alpha_log, "credited_alpha": alpha_arithmetic,
+                              "forecast_tilt": forecast_tilt, "provider_total": total_forecast,
+                              "cash": 0., "gls_target": total_forecast-alpha_arithmetic,
+                              "audit_excess_target": total_forecast})
+    assumptions = pd.DataFrame({"arithmetic_premium": factor_arithmetic, "log_mean": factor_log})
+    return {"audit": audit, "inputs": inputs, "premia": premia, "forecasts": forecasts,
+            "factor_assumptions": assumptions,
+            "report_status": "available: arithmetic forecast approximation with annualized log-return risk"}
 
 
 def persist_example(result: dict, directory: Path) -> Path:
-    """Explicitly save inspectable tables and a PDF to a new caller-chosen directory.
+    """Save fitted tables and any eligible arithmetic audit on explicit request.
 
     These CSVs are table exports, not a fitted-object checkpoint or reload format.
     The six input CSVs under inputs/ can be loaded separately without refitting.
@@ -89,9 +122,9 @@ def persist_example(result: dict, directory: Path) -> Path:
     directory = Path(directory)
     directory.mkdir(parents=True, exist_ok=False)
     save_bundle(result["bundle"], directory / "inputs")
-    snapshot, audit = result["snapshot"], result["audit"]
-    snapshot.data.y_betas.to_csv(directory / "loadings.csv")
-    snapshot.data.x_covar.to_csv(directory / "factor_covariance.csv")
+    snapshot = result["snapshot"]
+    snapshot.loadings.to_csv(directory / "loadings.csv")
+    snapshot.factor_covariance.to_csv(directory / "factor_covariance.csv")
     snapshot.residual_covariance.to_csv(directory / "residual_covariance.csv")
     snapshot.asset_covariance.to_csv(directory / "asset_covariance.csv")
     (directory / "result_metadata.json").write_text(json.dumps({
@@ -101,13 +134,20 @@ def persist_example(result: dict, directory: Path) -> Path:
         "factor_units": dict(result["bundle"].settings.factor_units),
         "report_status": result["report_status"], "provenance": snapshot.provenance,
     }, indent=2, default=str) + "\n", encoding="utf-8")
-    if audit is not None:
+    if result["audit"] is not None:
+        from factormodels.reports.cma_diagnostics import render_cma_diagnostics
+        audit, inputs, premia = result["audit"], result["inputs"], result["premia"]
+        for name in ("forecasts", "factor_assumptions"):
+            result[name].to_csv(directory / f"{name}.csv")
+        inputs.channels.to_csv(directory / "construction_channels.csv")
         for name in audit.__dataclass_fields__:
             table = getattr(audit, name)
             if isinstance(table, pd.DataFrame):
                 table.to_csv(directory / f"{name}.csv")
+        for name in ("assets", "factors", "covariance", "mimicking_weights"):
+            getattr(premia, name).to_csv(directory / f"gls_alpha_1_{name}.csv")
         (directory / "audit_metadata.json").write_text(json.dumps({
-            "summary": audit.summary, "provenance": audit.provenance,
+            "summary": audit.summary, "provenance": audit.provenance, "gls_summary": premia.summary,
         }, indent=2, default=str) + "\n", encoding="utf-8")
         render_cma_diagnostics(audit, directory / "cma_report.pdf", pages=2)
     return directory
@@ -127,8 +167,8 @@ def public_proxy_bundle(prices: pd.DataFrame | None = None) -> FactorBundle:
     Equity=SPY and Rates=TLT are simple long-only proxy definitions; they do not
     reproduce the proprietary MATF universe, hedges, carry or calibration.
     """
-    from tradablefactors import Factor, FactorFamily, VolTargetPolicy, build_factor_panel
-    from tradablefactors.spec import FactorModelSpec
+    from factormodels import Factor, FactorFamily, VolTargetPolicy, build_factor_panel
+    from factormodels.spec import FactorModelSpec
 
     base = synthetic_bundle()
     synthetic_prices = prices is None

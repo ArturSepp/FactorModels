@@ -2,16 +2,16 @@
 
 *Author: [Artur Sepp](https://github.com/ArturSepp)*
 
-Implemented in [TradableFactors](https://github.com/ArturSepp/tradablefactors).
-Software citation: [CITATION.cff](https://github.com/ArturSepp/tradablefactors/blob/main/CITATION.cff).
+Implemented in [FactorModels](https://github.com/ArturSepp/FactorModels).
+Software citation: [CITATION.cff](https://github.com/ArturSepp/FactorModels/blob/main/CITATION.cff).
 
-The [composed runnable example](https://github.com/ArturSepp/tradablefactors/blob/main/examples/downstream_handoff.py)
+The [composed runnable example](https://github.com/ArturSepp/FactorModels/blob/main/examples/downstream_handoff.py)
 fits a synthetic model, supplies covariance and explicitly chosen alphas to OP,
 then uses QIS to inspect the accepted portfolio's annual tracking error. It installs
-OP explicitly; the TF library has no optimiser dependency.
+OP explicitly; the FM library has no optimiser dependency.
 
 ```console
-python -m pip install tradablefactors optimalportfolios
+python -m pip install factormodels optimalportfolios
 python examples/downstream_handoff.py
 ```
 
@@ -20,11 +20,11 @@ instead of expecting the public index to contain these APIs.
 
 | Package boundary | Completed object passed onward |
 |---|---|
-| FL → TF | Fitted statistical state and covariance containers; TF retains diagnostics and conventions |
-| TF → OP | Selected annual asset covariance, supplied alphas and optional prepared factor/uncertainty inputs |
-| TF → QIS | Existing `qis.RiskModel` from `snapshot.to_risk_model()` |
+| FL → FM | Fitted statistical state and covariance containers; FM retains diagnostics and conventions |
+| FM → OP | Selected annual asset covariance, supplied alphas and optional prepared factor/uncertainty inputs |
+| FM → QIS | Existing `qis.RiskModel` from `snapshot.to_risk_model()` |
 | OP → QIS | Accepted labelled weights, benchmark, dates and supplied risk model |
-| TF → method report | Completed GLS/CMA/covariance result; rendering does not refit |
+| FM → method report | Completed GLS/CMA/covariance result; rendering does not refit |
 
 The example checks solver acceptance, unit exposure, nonnegative weights and a
 4% annual tracking-error constraint. Failure remains an explicit solver result,
@@ -35,5 +35,5 @@ Total covariance includes the selected full residual block. Existing QIS native
 stress/decomposition limitations remain: a diagonal-reference view must be
 explicitly requested and labelled; unsupported native-point stress coordinates
 are not silently converted to percent. General stress, backtesting and portfolio
-reports belong to QIS. Method-specific factor reports remain in TF and use its
+reports belong to QIS. Method-specific factor reports remain in FM and use its
 plotting primitives. No new QIS API is introduced here.

@@ -10,11 +10,11 @@ myst:
 
 *Author: [Artur Sepp](https://github.com/ArturSepp) / First recorded: [2026-10-16](https://github.com/ArturSepp/OptimalPortfolios/commit/ccb486a6a1ab1d3949d2b6408ee85dcf9dc687a8)*
 
-TradableFactors produces completed premium estimates, forecast reconciliations and
+FactorModels produces completed premium estimates, forecast reconciliations and
 conditional diagnostics. Consumers such as
 [OptimalPortfolios](https://github.com/ArturSepp/OptimalPortfolios) use prepared expected
 returns in a separate optimisation step.
-Implemented in [TradableFactors](https://github.com/ArturSepp/tradablefactors). Software citation: [CITATION.cff](https://github.com/ArturSepp/tradablefactors/blob/main/CITATION.cff).
+Implemented in [FactorModels](https://github.com/ArturSepp/FactorModels). Software citation: [CITATION.cff](https://github.com/ArturSepp/FactorModels/blob/main/CITATION.cff).
 
 Generalized least squares (GLS) projects asset expected returns onto a fitted factor
 loading matrix. This second stage infers the premia implicit in a provider's capital
@@ -27,7 +27,7 @@ Estimate a factor model from index and factor return histories, retain its loadi
 historical residual means and residual covariance, then infer premia from the provider's
 forecasts. The inference stage does not recalibrate those forecasts or infer cash.
 Production price preparation, currency conversion, factor definitions and provider mappings
-belong to the consuming application. TradableFactors supplies CMA diagnostics and PDF rendering.
+belong to the consuming application. FactorModels supplies CMA diagnostics and PDF rendering.
 Historical regression estimation
 uses [FactorLasso](https://github.com/ArturSepp/FactorLasso), with its
 [software citation](https://github.com/ArturSepp/FactorLasso/blob/main/CITATION.cff).
@@ -36,10 +36,10 @@ uses [FactorLasso](https://github.com/ArturSepp/FactorLasso), with its
 
 | Convention | This article |
 |---|---|
-| Return basis | Arithmetic excess returns for estimation; provider total forecasts minus explicit cash and credited alpha for inference |
-| Estimation grid | Monthly synthetic histories in the example; a fixed fitted model in GLS |
+| Return basis | Canonical pipeline estimates log returns; annual arithmetic total forecasts minus explicit cash and credited arithmetic alpha enter GLS |
+| Estimation grid | Monthly synthetic histories; a fixed fitted model in GLS |
 | Rebalancing grid | None; a cross-sectional inference at one valuation date |
-| Covariance units | Annual residual-return covariance; monthly example variances multiplied by 12 |
+| Covariance units | Canonical pipeline retains annual log-return covariance as a declared risk approximation; the independent arithmetic reference uses simple-return covariance |
 | Expected returns | Annual arithmetic decimal forecasts in one currency |
 | Weight state | Factor-mimicking weights are inference portfolios, with cash completing financing |
 | Solver | CLARABEL for the example LASSO; Cholesky and rank-revealing SVD for GLS |
@@ -190,11 +190,84 @@ level and retain deterministic forecast boxes alongside both objects.
 
 ## Worked example
 
-The [offline script](../examples/methods/gls_factor_premia.py) constructs synthetic monthly
+The [canonical bundle workflow](../examples/reference_workflows.py) calls
+`fit_bundle(synthetic_bundle())`, then uses the resulting `FactorModelSnapshot`
+for GLS and CMA diagnostics. Its loadings $B$, factor covariance $F$, selected
+residual covariance $R$ and asset covariance $\Sigma=BFB^{\mathsf T}+R$ are held
+fixed throughout. There is no second historical fit or covariance reconstruction.
+
+### Annual arithmetic means from the fitted log model
+
+Appendix B of the [MATF working paper][paper] uses the second-order mean bridge
+
+$$
+m_{\mathrm{arith}} \approx p\left(m_{\log}+\tfrac12v_{\log}\right),
+$$
+
+where the mean and variance are measured on the same return grid and $p$ is the
+number of periods per year. For quarterly inputs this is
+$4m_{\log}+2v_{\log}$. The root-exported
+`annual_arithmetic_from_log(log_mean, log_variance, annualization_factor=1.0)`
+implements this formula on identically labelled Series. Use $p=1$ for inputs
+already annualised. This is a second-order approximation, not exact compounding
+or an exact lognormal transformation.
+
+The synthetic example uses zero cash and sets annual arithmetic factor assumptions
+$\lambda_0$ to 4% for each factor. With $f=\operatorname{diag}(F)$ and
+$s=\operatorname{diag}(\Sigma)$, it constructs
+
+$$
+\ell_f=\lambda_0-\tfrac12 f,\qquad
+\ell_y=B\ell_f+\alpha_{\log},\qquad
+m=\ell_y+\tfrac12 s.
+$$
+
+Here `snapshot.data.estimate_alpha(alpha_span=36)` supplies already annualised
+historical log alpha from the original residual histories. It is not
+`insample_alpha`, and is not annualised again. These model-implied log means are
+forecast construction inputs; they do not claim to reproduce sample asset means.
+The arithmetic alpha credited in GLS is therefore
+
+$$
+a=m-B\lambda_0
+ =\alpha_{\log}+\tfrac12\left(s-Bf\right).
+$$
+
+The asset-level adjustment includes the factor contribution to variance. Applying
+the bridge only to the residual mean and residual variance would not preserve
+this forecast identity.
+
+The provider-style teaching forecast is $\mu=m+\delta$, where the four asset
+perturbations range evenly from −0.25% to +0.25% per year. GLS uses zero cash and
+credits $a$ in full. The CMA audit uses the full $\mu$, calibrated premia from that
+GLS result, and separate admitted-alpha and GLS-residual construction channels.
+Its implied premia project the full forecast without subtracting alpha again.
+The initial factor assumptions $\lambda_0$ and the calibrated GLS estimate need
+not be equal after the perturbation.
+
+Risk moments remain the annualised log-return moments; expected returns are
+annual arithmetic excess returns under the stated approximation. The example
+supports LOG factors, zero domestic rates and positive diagonal selected $R$.
+Native-point factors, nonzero cash, correlated or zero residual covariance retain
+their fitted model but require additional choices before this report adapter can
+be used. The workflow never diagonalizes an existing full covariance to obtain a
+report. Run it and optionally persist its model, forecasts, diagnostics and PDF:
+
+```console
+python examples/reference_workflows.py --fit
+python examples/reference_workflows.py --fit --output /path/to/new_model_run
+```
+
+### Independent arithmetic reference
+
+The [independent script](../examples/gls_factor_premia.py) constructs synthetic monthly
 simple excess-return NAVs, recovers their returns, fits LASSO and estimates historical
 residual means. It uses 240 observations, eight assets, three factors, uniform observation
 weights, no missing data and CLARABEL. The factor design has rank three and five residual
-degrees of freedom. It is a teaching example, not a production MATF calibration.
+degrees of freedom. Its seed remains 42 and its 241 NAV observations run from
+September 2006 through September 2026. It is a teaching example, not a production
+MATF calibration. It provides a direct arithmetic reference for checking GLS,
+separate from the fitted-model pipeline above.
 
 ```python
     model = LassoModel(model_type=LassoModelType.LASSO, reg_lambda=1e-5,
@@ -215,15 +288,51 @@ degrees of freedom. It is a teaching example, not a production MATF calibration.
 
 The script independently checks estimates and intervals using weighted QR and verifies that
 the change from zero to full alpha credit equals the mimicking portfolio's exposure to alpha.
-Run `python examples/methods/gls_factor_premia.py` from a checkout.
+`run_local_test(1)` preserves the full-alpha `GlsPremiaResult` interface.
+`arithmetic_example()` additionally returns the three GLS views, their inputs,
+forecasts, annual covariance and a completed CMA audit. Nothing is saved or rendered
+while computing these objects.
 
-## Implementation in tradablefactors
+The full-alpha GLS view subtracts the annual 3% cash forecast and the annual
+historical residual mean from the provider total forecast. The complete-forecast
+audit instead subtracts cash only. It retains credited alpha as an additive
+construction channel alongside the provider residual, using full-alpha GLS premia
+as the calibrated factor premia. Its **implied** premia therefore match the
+zero-alpha GLS view, while its **calibrated** premia match the full-alpha view.
+Supplying `admitted_alpha` never subtracts it a second time.
 
-The supported inference import is now `tradablefactors.premia`; the old OP
-analytics imports have been removed. Install TradableFactors for
+Factor covariance is 12 times the population covariance of monthly simple excess
+returns; selected residual variances are 12 times population residual variances,
+multiplied by the explicit `residual_var_weight` (default 1). This example defines
+a diagonal residual model from the outset. It does not discard off-diagonal
+elements from a separately fitted full residual model. An independent Cholesky
+solve checks the audit's total squared Sharpe in asset space against the full
+cash-adjusted forecast and the selected annual covariance.
+
+Run from a checkout:
+
+```console
+python examples/gls_factor_premia.py
+python examples/gls_factor_premia.py --output /path/to/new_arithmetic_run
+```
+
+The second command explicitly saves input returns/NAVs, loadings, covariance,
+total/cash/credited-alpha/target forecast columns, all audit tables, each GLS view's
+tables and provenance, and a genuine two-page CMA PDF. It refuses an existing
+directory. The first command computes and prints only. These are table exports,
+not a fitted-object checkpoint. See [CMA report interpretation](cma_diagnostics.md).
+
+## Implementation in factormodels
+
+The supported inference import is now `factormodels.premia`; the old OP
+analytics imports have been removed. Install FactorModels for
 this offline example. Its `premia/README.md` describes module responsibilities
 and contributor checks; `_inference.py` is private. OP consumes the resulting
 expected returns and covariance for constrained optimisation.
+
+The mean bridge `annual_arithmetic_from_log` is exported from
+`factormodels.cma` and the package root. It does not estimate a model or
+transform covariance.
 
 - `infer_factor_premia` returns `GlsPremiaResult`: exact asset reconciliation, premium
   estimates, conditional covariance and intervals, mimicking weights, VIFs and optional boxes.
@@ -247,7 +356,7 @@ expected returns and covariance for constrained optimisation.
   draw status and assumptions. `compute_gls_loading_stability_contrast` takes
   paired result differences using the intersection of available draws.
 
-These are exported from `tradablefactors.premia` and the TradableFactors package
+These are exported from `factormodels.premia` and the FactorModels package
 root. There are no OP forwarding exports. The GLS calculation uses NumPy, pandas
 and SciPy and does not call
 FactorLasso. All return units are supplied by the caller;
@@ -310,8 +419,13 @@ where the supplied factor span cannot identify one.
 
 ## References
 
+- Sepp, A., Hansen, E. H. and Kastenholz, M. (2026). *Capital Market Assumptions and
+  Strategic Asset Allocation Using Multi-Asset Tradable Factors*. Working paper,
+  [SSRN 6785958][paper], Appendix B.
 - Aitken, A. C. (1935). On Least Squares and Linear Combination of Observations.
   *Proceedings of the Royal Society of Edinburgh*, 55, 42-48.
   [Publisher record](https://doi.org/10.1017/S0370164600014346).
 - [OptimalPortfolios software citation](https://github.com/ArturSepp/OptimalPortfolios/blob/main/CITATION.cff).
 - [factorlasso software citation](https://github.com/ArturSepp/FactorLasso/blob/main/CITATION.cff).
+
+[paper]: https://papers.ssrn.com/sol3/papers.cfm?abstract_id=6785958

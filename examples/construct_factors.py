@@ -8,7 +8,7 @@ QIS holds units between decisions. These are teaching recipes, not market eviden
 import numpy as np
 import pandas as pd
 
-from tradablefactors import (
+from factormodels import (
     Factor,
     FactorFamily,
     RiskFactors,

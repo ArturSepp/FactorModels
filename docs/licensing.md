@@ -2,10 +2,10 @@
 
 *Author: [Artur Sepp](https://github.com/ArturSepp)*
 
-[TradableFactors](https://github.com/ArturSepp/tradablefactors) distributes its
+[FactorModels](https://github.com/ArturSepp/FactorModels) distributes its
 first-party source under MIT, with original notices retained. See the
 [software citation](../CITATION.cff), [LICENSE](../LICENSE), and
-[supplemental third-party notices](https://github.com/ArturSepp/tradablefactors/blob/main/THIRD_PARTY_NOTICES.md).
+[supplemental third-party notices](https://github.com/ArturSepp/FactorModels/blob/main/THIRD_PARTY_NOTICES.md).
 
 ## FactorLasso minimum
 
@@ -18,7 +18,7 @@ FactorLasso's estimation code and API are unchanged by that licence-only release
 ## Reviewed Windows installation
 
 The 19 October 2026 review covers a fresh base-wheel installation on Windows x64,
-CPython 3.12: TradableFactors `0.1.0.dev3`, FactorLasso `1.0.4.post1`, QIS `5.38.1`,
+CPython 3.12: FactorModels `0.1.0.dev3`, FactorLasso `1.0.4.post1`, QIS `5.38.1`,
 and their recorded resolved dependencies. It excludes documentation/test tooling
 and explicitly installed consumer packages. Open dependency ranges do not certify
 every future version or every supported platform.
@@ -43,13 +43,13 @@ permissively licensed across all bundled components.
 
 The supplemental OpenBLAS/LAPACK notice accompanies the identified libraries
 because the inspected upstream wheel licence directories omit those bundled
-notices. It supplies attribution in TF's accompanying materials; it does not
+notices. It supplies attribution in FM's accompanying materials; it does not
 modify the upstream wheels or certify redistribution of an entire environment.
 
 ## Explicit downstream composition
 
 OptimalPortfolios is installed separately to consume prepared alphas and risk
 inputs. Its current quadprog backend has its own GPL terms and remains outside
-the TF base environment. An explicitly composed TF→OP installation must retain
+the FM base environment. An explicitly composed FM→OP installation must retain
 that distinction. Vendor data, SDKs and private consumer environments also keep
 their separate terms.

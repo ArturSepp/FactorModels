@@ -39,8 +39,8 @@ def test_missing_component_is_rejected():
 
 @pytest.mark.parametrize("corrupt", [False, True])
 def test_consumer_construction_executes_rosaa_boundary_and_rejects_corruption(monkeypatch, corrupt):
-    """A direct TF fallback would miss the deliberately corrupted Rosaa output."""
-    from tradablefactors.construction import build_factor_panel
+    """A direct FM fallback would miss the deliberately corrupted Rosaa output."""
+    from factormodels.construction import build_factor_panel
 
     module = ModuleType("ramen.quant_model_mvp.rosaa.data.factors.panel_io")
     module.__file__ = __file__
@@ -66,7 +66,7 @@ def test_consumer_construction_executes_rosaa_boundary_and_rejects_corruption(mo
     else:
         receipt = {}
         actual = replay.construction("consumer", receipt)
-        expected = replay.construction("tradablefactors")
+        expected = replay.construction("factormodels")
         replay.check(replay.labelled(actual), replay.labelled(expected), atol=1e-10, rtol=1e-8)
         assert receipt["construction"]["entry_point"] == "panel_io.update_factor_panel"
     assert calls == [("Frozen quarterly basket", "QE", None)]
@@ -74,7 +74,7 @@ def test_consumer_construction_executes_rosaa_boundary_and_rejects_corruption(mo
 
 def paper_adapters(monkeypatch, *, corrupt_faj=False, corrupt_matf=False):
     """Supply executable consumer seams without private source/data in public tests."""
-    from tradablefactors.cma.diagnostics import CmaDiagnosticInputs, compute_cma_diagnostics
+    from factormodels.cma.diagnostics import CmaDiagnosticInputs, compute_cma_diagnostics
     betas = pd.DataFrame([[1., 0.], [0., 1.], [.5, .6], [1., -.2]],
                          index=list("abcd"), columns=["equity", "rates"])
     residual = pd.Series([.01, .02, .03, .04], index=betas.index)
@@ -118,7 +118,7 @@ def test_consumer_papers_call_both_real_entry_points_with_explicit_saved_cuts(mo
     mapping = {"faj_q3": tmp_path / "faj", "matf_current": tmp_path / "matf"}
     receipt = {}
     result = replay.paper_results("consumer", mapping, consumer_root=tmp_path, receipt=receipt)
-    expected = replay.diagnose("tradablefactors")
+    expected = replay.diagnose("factormodels")
     for value in result.values():
         replay.check(replay.labelled(value), replay.labelled(expected), atol=1e-10, rtol=1e-8)
     assert calls == [("faj", str(mapping["faj_q3"].resolve())),
@@ -128,10 +128,10 @@ def test_consumer_papers_call_both_real_entry_points_with_explicit_saved_cuts(mo
 
 @pytest.mark.parametrize("consumer", ["faj", "matf"])
 def test_corrupted_consumer_cannot_pass_by_replaying_tf_directly(monkeypatch, tmp_path, consumer):
-    """Controlled input/output defects are rejected even while direct TF remains correct."""
+    """Controlled input/output defects are rejected even while direct FM remains correct."""
     calls = paper_adapters(monkeypatch, corrupt_faj=consumer == "faj", corrupt_matf=consumer == "matf")
     mapping = {"faj_q3": tmp_path / "faj", "matf_current": tmp_path / "matf"}
-    expected = replay.labelled(replay.diagnose("tradablefactors"))
+    expected = replay.labelled(replay.diagnose("factormodels"))
     with pytest.raises(AssertionError):
         actual = replay.consumer_paper_results(mapping, tmp_path)
         replay.check(replay.labelled(actual["faj_q3"]), expected, atol=1e-10, rtol=1e-8)

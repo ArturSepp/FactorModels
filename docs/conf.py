@@ -1,6 +1,6 @@
-"""Build the public TradableFactors documentation with MyST."""
+"""Build the public FactorModels documentation with MyST."""
 
-project = "TradableFactors"
+project = "FactorModels"
 author = "Artur Sepp"
 copyright = "2026, Artur Sepp"
 extensions = ["myst_parser"]

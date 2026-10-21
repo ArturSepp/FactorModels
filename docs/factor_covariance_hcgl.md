@@ -2,7 +2,7 @@
 myst:
   html_meta:
     description: >-
-      Factor covariance with HCGL in TradableFactors: sparse factor loadings fitted
+      Factor covariance with HCGL in FactorModels: sparse factor loadings fitted
       by FactorLasso on monthly and quarterly assets, the assembly of beta, factor covariance and
       residual covariance in annual units, orthogonal and empirical residuals, the residual weight,
       cadence penalties, factors as clustering references and point-in-time rolling fits, with a
@@ -13,10 +13,10 @@ myst:
 
 *Author: [Artur Sepp](https://github.com/ArturSepp) / First recorded: [2026-09-14](https://github.com/ArturSepp/OptimalPortfolios/commit/bdcbc350a2699eb6cf8769f9af7c15aba38c545a)*
 
-TradableFactors produces a completed factor model with loadings, selected covariance,
+FactorModels produces a completed factor model with loadings, selected covariance,
 diagnostics and provenance. Consumers such as
 [OptimalPortfolios](https://github.com/ArturSepp/OptimalPortfolios) use its selected covariance.
-Implemented in [TradableFactors](https://github.com/ArturSepp/tradablefactors). Software citation: [CITATION.cff](https://github.com/ArturSepp/tradablefactors/blob/main/CITATION.cff).
+Implemented in [FactorModels](https://github.com/ArturSepp/FactorModels). Software citation: [CITATION.cff](https://github.com/ArturSepp/FactorModels/blob/main/CITATION.cff).
 
 ## Overview
 
@@ -25,10 +25,10 @@ return is a combination of the factor returns, with loadings $\beta$, plus a res
 covariance splits into a systematic part $\beta \Sigma_F \beta^{\top}$ and a residual part $D$.
 The split of risk into systematic and specific parts goes back to Rosenberg and McKibben (1973).
 
-`tradablefactors.FactorCovarEstimator` builds this covariance for a multi-asset universe observed at more than one
+`factormodels.FactorCovarEstimator` builds this covariance for a multi-asset universe observed at more than one
 return frequency. [FactorLasso](https://github.com/ArturSepp/FactorLasso) fits sparse loadings on
 each frequency's assets, here with the hierarchical clustering group LASSO (HCGL);
-[qis](https://github.com/ArturSepp/QuantInvestStrats) estimates the factor covariance; TradableFactors
+[qis](https://github.com/ArturSepp/QuantInvestStrats) estimates the factor covariance; FactorModels
 aligns the inputs, annualises each component and assembles one annual covariance matrix, or one
 per rebalancing date. The output has the same form as that of the EWMA estimator, described with
 the covariance input contract on the [covariance estimators](https://github.com/ArturSepp/OptimalPortfolios/blob/main/docs/covariance_estimators.md) page. Sepp,
@@ -238,7 +238,7 @@ or earlier.
 **Proof.** Before each fit, every input is replaced by its slice through $t_k$, and the fit is a
 deterministic function of its inputs. An input after $t_k$ is not in any of these slices. $\square$
 
-Every TF current fit truncates factor prices and all response histories at its
+Every FM current fit truncates factor prices and all response histories at its
 explicit `cutoff`, including the orthogonal residual policy. Supplied factor
 covariance and external cluster assignments need availability metadata no later
 than that cutoff. Input indices represent availability: the caller must account
@@ -254,7 +254,7 @@ availability date, and an as-of query before the first fit is refused.
 
 The [offline script](../examples/methods/factor_covariance_hcgl.py) uses the original
 fixed-seed synthetic panel: four factors, five monthly assets and three quarterly
-assets. Install TradableFactors and run from its checkout:
+assets. Install FactorModels and run from its checkout:
 
 ```console
 python -m examples.methods.factor_covariance_hcgl
@@ -333,28 +333,28 @@ selected covariance dictionary ready for OP. The example compares each entry wit
 a current fit at the same cutoff. Shocking factor prices and asset returns after
 30 June 2024 leaves earlier entries unchanged and changes later ones.
 
-## Implementation in tradablefactors
+## Implementation in factormodels
 
 Factor construction, estimation and method-specific reports are supplied by
-TradableFactors. The output is complete before a separate optimizer consumes its
+FactorModels. The output is complete before a separate optimizer consumes its
 covariance or QIS prepares general risk and stress reporting. The old OP
 factor-estimator and report exports are removed.
 
-| TF entry point | Completed output and use |
+| FM entry point | Completed output and use |
 |---|---|
 | `FactorCovarEstimator.fit_current(..., cutoff=...)` | `FactorModelSnapshot`: FL diagnostics in `.data`, selected full `.asset_covariance`, `.residual_covariance`, cutoff, return coordinates, policy and provenance. |
 | `FactorCovarEstimator.fit_rolling(..., time_period=...)` | `RollingFactorModel`: dated `.snapshots`, selected `.covariances` for OP and `.data` for FL statistical diagnostics. |
 | `snapshot.to_risk_model()` / `rolling.to_risk_model()` | QIS interchange retaining selected covariance and supported factor metadata. It does not replace the complete fitted result. |
 | `DatedFactorCovariance` | Supplied annual factor covariance with observation/availability dates and coordinate types. |
-| `tradablefactors.reports.covariance.plot_covariance_snapshot` | Plots a completed snapshot using its selected covariance and existing QIS plotting primitives. |
-| `tradablefactors.reports.covariance.run_rolling_covar_report` | Fits the configured rolling model and returns figures and dated diagnostic tables. |
+| `factormodels.reports.covariance.plot_covariance_snapshot` | Plots a completed snapshot using its selected covariance and existing QIS plotting primitives. |
+| `factormodels.reports.covariance.run_rolling_covar_report` | Fits the configured rolling model and returns figures and dated diagnostic tables. |
 
 Use `dataclasses.replace` to derive another configuration. A `LassoModel` is
 required explicitly; each fit uses independent fitting state. Regression demeaning
 is configured on that FL model, while factor covariance retains the QIS EWMA
 contract. There is no unused estimator-level `demean` setting.
 
-The selected residual type and weights live in the completed TF object. Calling a
+The selected residual type and weights live in the completed FM object. Calling a
 raw FL getter with its own defaults can request a different assembly, so downstream
 risk and optimisation should use the completed object's selected covariance.
 ## Interpretation and limitations
@@ -385,7 +385,7 @@ risk and optimisation should use the completed object's selected covariance.
 ## See also
 
 - [GLS inference of factor risk premia](gls_factor_premia.md): use the historical
-  loadings and residual risk in TradableFactors' separate projection of provider forecasts.
+  loadings and residual risk in FactorModels' separate projection of provider forecasts.
 - [Covariance estimators](https://github.com/ArturSepp/OptimalPortfolios/blob/main/docs/covariance_estimators.md): the EWMA estimator and the shared contract.
 - [Mixed-frequency data](https://github.com/ArturSepp/OptimalPortfolios/blob/main/docs/mixed_frequency_data.md) and [incomplete histories](https://github.com/ArturSepp/OptimalPortfolios/blob/main/docs/incomplete_histories.md).
 - [Rolling factor covariance from CSV](rolling_factor_covar_from_csv.md): the same estimator on a
@@ -414,7 +414,7 @@ risk and optimisation should use the completed object's selected covariance.
   [Group penalties: HCGL, sparse-group and FCGL](https://factorlasso.readthedocs.io/en/latest/group_penalties_hcgl_fcgl.html),
   [Cluster discovery](https://factorlasso.readthedocs.io/en/latest/cluster_discovery.html) and
   [Empirical residual correlation](https://factorlasso.readthedocs.io/en/latest/empirical_residual_correlation.html).
-- TradableFactors: `FactorCovarEstimator`, completed model objects and covariance reports.
+- FactorModels: `FactorCovarEstimator`, completed model objects and covariance reports.
 - [OptimalPortfolios software citation](https://github.com/ArturSepp/OptimalPortfolios/blob/main/CITATION.cff).
 - [qis software citation](https://github.com/ArturSepp/QuantInvestStrats/blob/main/CITATION.cff).
 - [FactorLasso software citation](https://github.com/ArturSepp/FactorLasso/blob/main/CITATION.cff).

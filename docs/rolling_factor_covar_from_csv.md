@@ -2,11 +2,11 @@
 
 *Author: [Artur Sepp](https://github.com/ArturSepp)*
 
-Implemented in [TradableFactors](https://github.com/ArturSepp/tradablefactors).
-Software citation: [CITATION.cff](https://github.com/ArturSepp/tradablefactors/blob/main/CITATION.cff).
+Implemented in [FactorModels](https://github.com/ArturSepp/FactorModels).
+Software citation: [CITATION.cff](https://github.com/ArturSepp/FactorModels/blob/main/CITATION.cff).
 
 `load_bundle(directory)` is the installed load-only API. The
-[canonical reference script](https://github.com/ArturSepp/tradablefactors/blob/main/examples/reference_workflows.py)
+[canonical reference script](https://github.com/ArturSepp/FactorModels/blob/main/examples/reference_workflows.py)
 accepts `--bundle` and fits only when `--fit` is supplied. No market-data provider
 or OP installation is needed.
 

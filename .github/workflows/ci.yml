@@ -38,8 +38,8 @@ jobs:
           uv venv "$RUNNER_TEMP/tf-wheel"
           uv pip install --python "$RUNNER_TEMP/tf-wheel/bin/python" dist/*.whl pytest
           cd "$RUNNER_TEMP"
-          "$RUNNER_TEMP/tf-wheel/bin/python" -m pytest --pyargs tradablefactors
-          "$RUNNER_TEMP/tf-wheel/bin/python" -m pytest "$GITHUB_WORKSPACE/tests/test_bundle_load.py" "$GITHUB_WORKSPACE/tests/test_examples.py" "$GITHUB_WORKSPACE/tests/test_documented_contracts.py" "$GITHUB_WORKSPACE/tests/test_dependency_floor.py"
+          "$RUNNER_TEMP/tf-wheel/bin/python" -m pytest --pyargs factormodels
+          "$RUNNER_TEMP/tf-wheel/bin/python" -m pytest "$GITHUB_WORKSPACE/tests/test_bundle_load.py" "$GITHUB_WORKSPACE/tests/test_examples.py" "$GITHUB_WORKSPACE/tests/test_documented_contracts.py" "$GITHUB_WORKSPACE/tests/test_dependency_floor.py" "$GITHUB_WORKSPACE/tests/test_readme.py"
   docs:
     runs-on: ubuntu-latest
     steps:

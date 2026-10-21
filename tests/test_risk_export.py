@@ -9,10 +9,10 @@ from factorlasso import LassoModel, LassoModelType
 from qis.perfstats.config import ReturnTypes
 from qis.portfolio.risk.factor_groups import FactorGroupSpec
 
-from tradablefactors.estimation import FactorCovarEstimator
-from tradablefactors.model import DatedFactorCovariance
-from tradablefactors.risk import build_risk_model
-from tradablefactors.tests._estimation_fixture import estimator, panels
+from factormodels.estimation import FactorCovarEstimator
+from factormodels.model import DatedFactorCovariance
+from factormodels.risk import build_risk_model
+from factormodels.tests._estimation_fixture import estimator, panels
 
 
 @pytest.mark.parametrize("policy", ["orthogonal", "empirical", "residual_cluster"])

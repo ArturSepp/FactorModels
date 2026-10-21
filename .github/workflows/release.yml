@@ -50,6 +50,8 @@ jobs:
         run: |
           cp .github/scripts/release_guard.py "$RUNNER_TEMP/release_guard.py"
           python "$RUNNER_TEMP/release_guard.py" checkout --tag "$RELEASE_TAG"
+      - name: Verify advertised navigation against the tagged source
+        run: python tools/check_navigation_refs.py --require-current-source
       - name: Run the tagged source test suite
         run: |
           uv sync --locked --group test
@@ -68,7 +70,7 @@ jobs:
           uv venv --python 3.12 "$RUNNER_TEMP/release-wheel-env"
           uv pip install --python "$RUNNER_TEMP/release-wheel-env/bin/python" "$RUNNER_TEMP/release-dist/"*.whl
           cd "$RUNNER_TEMP"
-          "$RUNNER_TEMP/release-wheel-env/bin/python" -I -c "import tradablefactors; print(tradablefactors.__file__)"
+          "$RUNNER_TEMP/release-wheel-env/bin/python" -I -c "import factormodels; print(factormodels.__file__)"
       - name: Verify artifact metadata and immutable PyPI digests
         id: artifacts
         env:
@@ -78,7 +80,7 @@ jobs:
           args=()
           if [ "$RETRY_EXISTING" = "true" ]; then args+=(--retry-existing); fi
           python "$RUNNER_TEMP/release_guard.py" artifacts --tag "$RELEASE_TAG" \
-            --import-name tradablefactors --dist "$RUNNER_TEMP/release-dist" \
+            --import-name factormodels --dist "$RUNNER_TEMP/release-dist" \
             --pending "$RUNNER_TEMP/pending-upload" "${args[@]}"
       - name: Retain verified distributions and their manifest
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -102,7 +104,7 @@ jobs:
     timeout-minutes: 15
     environment:
       name: pypi
-      url: https://pypi.org/project/tradablefactors/
+      url: https://pypi.org/project/factormodels/
     permissions:
       id-token: write
     steps:

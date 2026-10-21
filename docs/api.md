@@ -2,9 +2,23 @@
 
 *Author: [Artur Sepp](https://github.com/ArturSepp)*
 
-Use the [TradableFactors package](https://github.com/ArturSepp/tradablefactors) directly. Software citation: [CITATION.cff](../CITATION.cff). The root `tradablefactors.__all__` export list is authoritative. Parameters and full mathematical contracts are in each callable’s docstring.
+Use the [FactorModels package](https://github.com/ArturSepp/FactorModels) directly. Software citation: [CITATION.cff](../CITATION.cff). The root `factormodels.__all__` export list is authoritative. Parameters and full mathematical contracts are in each callable’s docstring.
 
-## `tradablefactors.spec`
+## Choose an entry point
+
+Start with `synthetic_bundle`, `load_bundle`, `fit_bundle` and
+`FactorModelSnapshot` to obtain and inspect a model. `assemble_factor_model` and
+`build_factor_panel` construct factor histories, and `FactorCovarEstimator`
+exposes current and rolling estimation. `build_risk_model` exports a risk view.
+
+For forecast analysis, use `infer_factor_premia`, `CmaDiagnosticInputs` and
+`compute_cma_diagnostics` with explicit compatible units. The remaining premia,
+identification, uncertainty and opportunity functions expose advanced analyses
+with their own conditional assumptions. This grouping guides discovery within
+the same public API. It does not change exports or imply a separate stability
+guarantee for a pre-release package.
+
+## `factormodels.spec`
 
 - `RiskFactors`
 - `FactorFamily`
@@ -15,7 +29,7 @@ Use the [TradableFactors package](https://github.com/ArturSepp/tradablefactors) 
 - `assemble_factor_model`
 - `normalise_factor_labels`
 
-## `tradablefactors.construction`
+## `factormodels.construction`
 
 - `build_factor_panel`
 - `build_factor_catalogue_panel`
@@ -27,13 +41,13 @@ Use the [TradableFactors package](https://github.com/ArturSepp/tradablefactors) 
 - `DEFAULT_RETURNS_FREQ`
 - `INHERIT`
 
-## `tradablefactors.constraints`
+## `factormodels.constraints`
 
 - `compute_beta_loading_signs`
 
 The [construction guide](construction.md) states the completed definition/panel/constraint outputs and their downstream use. Catalogue and alias mappings are supplied by the caller; the library does not select a production model.
 
-## `tradablefactors.premia`
+## `factormodels.premia`
 
 - `GlsGeometry`
 - `GlsPremiaResult`
@@ -70,8 +84,9 @@ The [construction guide](construction.md) states the completed definition/panel/
 - `partial_overlay_value`
 - `tangency_access_split`
 
-## `tradablefactors.cma`
+## `factormodels.cma`
 
+- `annual_arithmetic_from_log`
 - `AdmissionPolicy`
 - `CmaDiagnosticInputs`
 - `CmaDiagnosticResult`
@@ -83,17 +98,39 @@ The [construction guide](construction.md) states the completed definition/panel/
 - `CmaConditionalGlsResult`
 - `compute_conditional_gls_intervals`
 
-## `tradablefactors.estimation`
+`annual_arithmetic_from_log(mean, variance, annualization_factor=1.0)` is added in
+the unpublished `0.1.0rc3` candidate. It returns the labelled second-order mean
+approximation A × (mean + variance / 2). Inputs are finite, identically labelled
+log-moment Series at the same cadence; variance is nonnegative. Use A=1 for moments
+already annualised. It does not transform covariance or convert a regression
+intercept in isolation. See the [complete mean bridge](gls_factor_premia.md).
+
+## `factormodels.estimation`
 
 - `FactorCovarEstimator`
 
-## `tradablefactors.model`
+## `factormodels.model`
 
 - `DatedFactorCovariance`
 - `FactorModelSnapshot`
 - `RollingFactorModel`
 
-## `tradablefactors.bundle`
+`FactorModelSnapshot.loadings` and `.factor_covariance` return independent labelled
+copies of the fitted tables. The existing `.asset_covariance` and
+`.residual_covariance` retain the selected residual policy. These accessors perform
+no estimation. They were introduced in `0.1.0rc2` and remain in the unpublished
+`0.1.0rc3` candidate.
+
+## `factormodels.examples`
+
+- `synthetic_bundle`
+
+Also exported from the package root in `0.1.0rc2`. It returns fresh deterministic
+synthetic `FactorBundle` inputs without fitting, downloading or saving anything.
+Use `fit_bundle(synthetic_bundle())` from any directory after installing the
+candidate. The [reference workflow](reference_workflows.md) reuses the same inputs.
+
+## `factormodels.bundle`
 
 - `BUNDLE_SCHEMA_VERSION`
 - `BundleSettings`
@@ -107,7 +144,7 @@ units and configuration. Loading produces validated inputs only. Fitting returns
 a snapshot or rolling result; saving inputs creates a new directory. There is no
 implicit acquisition, fitted-result checkpoint or historical-format adapter.
 
-## `tradablefactors.risk`
+## `factormodels.risk`
 
 - `build_risk_model`
 
@@ -123,14 +160,14 @@ Current fitting clips all historical inputs before estimation and does not mutat
 
 GLS/CMA results condition on their supplied loadings/error model. Their intervals do not automatically include estimated-loading uncertainty or future-return risk. Correlated residual covariance is preserved in total risk; a diagonal-reference decomposition must be explicitly requested and labelled.
 
-## `tradablefactors.portfolio_context`
+## `factormodels.portfolio_context`
 
 - `prepare_portfolio_context`
 
 The returned dictionary completes the risk/table handoff for a downstream portfolio
 result. It contains no optimiser object and performs no portfolio solve.
 
-## `tradablefactors.signals`
+## `factormodels.signals`
 
 - `extract_rolling_clusters`
 - `prepare_cluster_scores`
@@ -138,7 +175,7 @@ result. It contains no optimiser object and performs no portfolio solve.
 Completed mappings and pooled score panels can be consumed independently of the
 fitted model. Scoring preserves the supplied point-in-time cluster schedule.
 
-## `tradablefactors.analytics`
+## `factormodels.analytics`
 
 - `FactorOpportunityModel`
 - `alpha_dispersion`
@@ -157,6 +194,6 @@ fitted model. Scoring preserves the supplied point-in-time cluster schedule.
 
 `FactorOpportunityModel.optimisation_inputs()` produces copied labelled arrays;
 `prepare_alpha_covariance` prepares the chosen objective's estimation covariance.
-Statistical result tables remain TF outputs. Constrained portfolio solving is a
+Statistical result tables remain FM outputs. Constrained portfolio solving is a
 separate OP call. GLS diagnostics retain the stated diagonal-residual reference
 geometry even when the selected full covariance includes residual correlation.

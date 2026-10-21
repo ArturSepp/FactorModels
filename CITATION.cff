@@ -1,18 +1,38 @@
 cff-version: 1.2.0
-message: "If you use this software, please cite it using this metadata."
+message: "Please cite the working paper for the MATF methodology and this software metadata for the implementation."
 type: software
-repository-code: "https://github.com/ArturSepp/tradablefactors"
-url: "https://github.com/ArturSepp/tradablefactors"
-title: "tradablefactors: Tradable factor models and GLS analytics"
+repository-code: "https://github.com/ArturSepp/FactorModels"
+url: "https://github.com/ArturSepp/FactorModels"
+title: "FactorModels: Financial factor models and GLS analytics"
 authors:
   - family-names: Sepp
     given-names: Artur
     orcid: "https://orcid.org/0000-0002-7038-1748"
 license: MIT
-version: 0.1.0.dev3
-date-released: "2026-10-18"
+version: 0.1.0rc4
+date-released: "2026-10-20"
 keywords:
+  - MATF
+  - multi-asset
+  - tradable-factors
   - factor-models
   - generalized-least-squares
   - covariance-estimation
   - capital-market-assumptions
+preferred-citation:
+  type: report
+  title: "Capital Market Assumptions and Strategic Asset Allocation Using Multi-Asset Tradable Factors"
+  authors:
+    - family-names: Sepp
+      given-names: Artur
+      orcid: "https://orcid.org/0000-0002-7038-1748"
+    - family-names: Hansen
+      given-names: Emilie H.
+    - family-names: Kastenholz
+      given-names: Mika
+  year: 2026
+  publisher:
+    name: SSRN
+  doi: "10.2139/ssrn.6785958"
+  url: "https://papers.ssrn.com/sol3/papers.cfm?abstract_id=6785958"
+  notes: "Working paper. Date written: 2026-05-17."

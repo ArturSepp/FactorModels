@@ -2,21 +2,21 @@
 
 *Author: [Artur Sepp](https://github.com/ArturSepp) / First recorded: [2026-10-18](https://github.com/ArturSepp/tradablefactors/commit/2e23f5a9334fe2c44a5acfa028e0ac3e368f93a0)*
 
-Implemented in [tradablefactors](https://github.com/ArturSepp/tradablefactors).
+Implemented in [factormodels](https://github.com/ArturSepp/tradablefactors).
 
 `manifest.json` describes the fixed reference cohort, tolerances, required
 artifacts and paper test inventory. It contains safe identifiers and hashes,
 not private numerical data. `tools/replay_reference.py` captures an immutable
-reference and compares its labelled numerical content with canonical TF APIs.
+reference and compares its labelled numerical content with canonical FM APIs.
 
 The maintainer's local `agents/stage0.json` (or the file named by
-`TRADABLEFACTORS_STAGE0`) supplies the private frozen-source/input mapping and
+`FACTORMODELS_STAGE0`) supplies the private frozen-source/input mapping and
 reference interpreter identities. A missing mapping or artifact is an error;
 the runner does not fetch data or substitute synthetic data for a paper result.
 Public package regression tests use separate deterministic synthetic fixtures.
 
 The CLI accepts `--mode capture|verify`,
-`--implementation reference|tradablefactors|consumer`, `--case all|papers|rosaa`,
+`--implementation reference|factormodels|consumer`, `--case all|papers|rosaa`,
 `--manifest PATH` and `--directory PATH`. Capture is reference-only and refuses
 to overwrite its output. Verify does not change the baseline. The `papers` and
 `rosaa` checks can select their section of the established `all.json` baseline.
@@ -26,12 +26,12 @@ JSON record of imported consumer sources, their SHA-256 identities and the
 full actual report data. An existing receipt is never replaced.
 
 Run historical references in the preserved environment against the frozen old
-source. Run TF/consumer checks in an explicit composed environment if checking
-OP optimisation and private Rosaa construction as well as TF. These are
-integration checks; OP and Rosaa are not TF core dependencies. Keep generated
+source. Run FM/consumer checks in an explicit composed environment if checking
+OP optimisation and private Rosaa construction as well as FM. These are
+integration checks; OP and Rosaa are not FM core dependencies. Keep generated
 state, environments and numerical outputs outside the source checkout.
 
-`tradablefactors` mode deliberately holds the unchanged downstream reference
+`factormodels` mode deliberately holds the unchanged downstream reference
 consumers fixed while checking the extracted estimator/analytics. `consumer`
 mode executes FAJ's `paper_inputs.load_production_inputs`, MATF-CMA's
 `cma_diagnostics_adapter.diagnose_paper_snapshot`, and Rosaa's production
@@ -44,7 +44,7 @@ receipt; the old minimal baseline did not cover those fields.
 
 Rosaa's construction replay injects the original synthetic price fixture at
 `load_base_futures_prices` and captures the resulting panel at `save_factor_panel`.
-Its production assembly and TF construction execute unchanged between those two
+Its production assembly and FM construction execute unchanged between those two
 IO seams. This is a consumer construction regression, not a claim that a current
 production data refresh or full production shadow run occurred. Consumer mode
 rejects an active source location inside the frozen reference tree.

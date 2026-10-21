@@ -2,7 +2,7 @@
 
 *Author: [Artur Sepp](https://github.com/ArturSepp)*
 
-[TradableFactors](https://github.com/ArturSepp/tradablefactors) constructs ordered factor NAVs from supplied price histories and explicit basket definitions. The completed construction outputs are the model specification, the NAV/level panel and, when requested, the asset-by-factor loading constraints. Each can be inspected and used downstream without Rosaa. Software citation: [CITATION.cff](https://github.com/ArturSepp/tradablefactors/blob/main/CITATION.cff).
+[FactorModels](https://github.com/ArturSepp/FactorModels) constructs ordered factor NAVs from supplied price histories and explicit basket definitions. The completed construction outputs are the model specification, the NAV/level panel and, when requested, the asset-by-factor loading constraints. Each can be inspected and used downstream without Rosaa. Software citation: [CITATION.cff](https://github.com/ArturSepp/FactorModels/blob/main/CITATION.cff).
 
 This workflow is available in the unpublished `0.1.0.dev1` development checkpoint.
 
@@ -31,7 +31,7 @@ Missing-data behaviour is preserved from the extracted construction: jointly req
 
 ## Offline example
 
-The [canonical runnable example](https://github.com/ArturSepp/tradablefactors/blob/main/examples/construct_factors.py) defines two synthetic baskets, supplies 520 business-day observations, constructs their panel and checks the loading constraints. It needs only TF and its declared dependencies, with no provider credentials or private catalogue.
+The [canonical runnable example](https://github.com/ArturSepp/FactorModels/blob/main/examples/construct_factors.py) defines two synthetic baskets, supplies 520 business-day observations, constructs their panel and checks the loading constraints. It needs only FM and its declared dependencies, with no provider credentials or private catalogue.
 
 ```console
 python examples/construct_factors.py
@@ -41,6 +41,6 @@ The example returns `(spec, panel, signs)`. Its gated exposure flag is deliberat
 
 ## Consumer boundary
 
-Catalogues and aliases are supplied explicitly. `normalise_factor_labels(frame, aliases=...)` applies a caller-owned mapping and rejects resulting collisions. TF contains no production catalogue, provider client, private alias map or scheduling policy. Rosaa supplies those choices through its own assembly and data boundaries.
+Catalogues and aliases are supplied explicitly. `normalise_factor_labels(frame, aliases=...)` applies a caller-owned mapping and rejects resulting collisions. FM contains no production catalogue, provider client, private alias map or scheduling policy. Rosaa supplies those choices through its own assembly and data boundaries.
 
-The subsequent flow is construction → factor estimation using FactorLasso → a completed TF fitted model → supplied covariance/alphas for optimisation or a QIS risk view for risk/stress reporting. See the [canonical API](api.md) for the fitted-result contract and the [migration guide](migration.md) for the direct import changes.
+The subsequent flow is construction → factor estimation using FactorLasso → a completed FM fitted model → supplied covariance/alphas for optimisation or a QIS risk view for risk/stress reporting. See the [canonical API](api.md) for the fitted-result contract and the [migration guide](migration.md) for the direct import changes.

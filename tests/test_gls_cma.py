@@ -3,8 +3,8 @@
 import numpy as np
 import pandas as pd
 
-from tradablefactors.cma import CmaDiagnosticInputs, compute_cma_diagnostics
-from tradablefactors.premia import infer_factor_premia
+from factormodels.cma import CmaDiagnosticInputs, compute_cma_diagnostics
+from factormodels.premia import infer_factor_premia
 
 
 def test_premia_cash_and_alpha_match_independent_weighted_qr():

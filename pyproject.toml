@@ -3,14 +3,29 @@ requires = ["setuptools>=77", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "tradablefactors"
-version = "0.1.0.dev3"
-description = "Tradable factor construction, GLS premia, capital market assumptions and factor covariance estimation"
+name = "factormodels"
+version = "0.1.0rc4"
+description = "Factor construction, GLS premia, capital market assumptions and factor covariance estimation"
 readme = "README.md"
 requires-python = ">=3.10"
 license = "MIT"
 license-files = ["LICENSE", "THIRD_PARTY_NOTICES.md"]
 authors = [{name = "Artur Sepp", email = "artursepp@gmail.com"}]
+keywords = [
+    "MATF", "multi-asset", "tradable-factors", "factor-models",
+    "covariance-estimation", "capital-market-assumptions", "generalized-least-squares",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "Intended Audience :: Financial and Insurance Industry",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Office/Business :: Financial :: Investment",
+    "Topic :: Scientific/Engineering :: Mathematics",
+]
 dependencies = [
     "numpy>=2.0",
     "pandas>=2.2",
@@ -24,11 +39,11 @@ dependencies = [
 docs = ["sphinx>=7.2", "myst-parser>=2.0", "furo>=2024.1.29"]
 
 [project.urls]
-Homepage = "https://github.com/ArturSepp/tradablefactors"
-Documentation = "https://tradablefactors.readthedocs.io"
-Repository = "https://github.com/ArturSepp/tradablefactors"
-Issues = "https://github.com/ArturSepp/tradablefactors/issues"
-Changelog = "https://github.com/ArturSepp/tradablefactors/blob/main/CHANGELOG.md"
+Homepage = "https://github.com/ArturSepp/FactorModels"
+Documentation = "https://github.com/ArturSepp/FactorModels/blob/main/docs/index.md"
+Repository = "https://github.com/ArturSepp/FactorModels"
+Issues = "https://github.com/ArturSepp/FactorModels/issues"
+Changelog = "https://github.com/ArturSepp/FactorModels/blob/main/CHANGELOG.md"
 
 [dependency-groups]
 test = ["pytest>=8", "pytest-cov>=4", "build>=1.2", "packaging>=24"]
@@ -36,11 +51,11 @@ lint = ["ruff==0.16.9", "interrogate==1.7.0", "deptry==0.25.1"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
-include = ["tradablefactors*"]
+include = ["factormodels*"]
 exclude = ["*.run_local", "*.run_local.*"]
 
 [tool.pytest.ini_options]
-testpaths = ["tests", "src/tradablefactors"]
+testpaths = ["tests", "src/factormodels"]
 python_files = ["test_*.py", "*_test.py"]
 addopts = "-ra"
 
@@ -53,13 +68,13 @@ select = ["F", "TID251", "TID253", "ICN"]
 
 [tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["F401", "F403"]
-# The frozen cross-package replay harness is development tooling, not TF library code.
+# The frozen cross-package replay harness is development tooling, not FM library code.
 "tools/replay_reference.py" = ["TID251"]
 "examples/downstream_handoff.py" = ["TID251"]
 
 [tool.ruff.lint.flake8-tidy-imports.banned-api]
-"optimalportfolios" = {msg = "TradableFactors supplies risk inputs to optimisers; it does not import them."}
-"ramen" = {msg = "Private Rosaa bindings remain in Rosaa."}
+"optimalportfolios" = {msg = "FactorModels supplies risk inputs to optimisers; it does not import them."}
+"ramen" = {msg = "Application-specific bindings remain in downstream consumers."}
 "privateassets" = {msg = "PrivateAssets consumes statistical outputs independently."}
 "bbg_fetch" = {msg = "Market-data acquisition is outside the core factor-model package."}
 "trendfollowing" = {msg = "Use the declared QIS/FactorLasso numerical interfaces."}
@@ -82,7 +97,7 @@ ignore-semiprivate = true
 exclude = ["agents", "tests", "tools", "docs", "build"]
 
 [tool.deptry]
-known_first_party = ["tradablefactors"]
+known_first_party = ["factormodels"]
 
 [tool.deptry.per_rule_ignores]
 # Rendering is delegated to QIS; Sphinx and its extensions are build-time tools.

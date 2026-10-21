@@ -1,6 +1,6 @@
 # Supplemental third-party notices
 
-TradableFactors source is MIT-licensed. Dependencies and their bundled native
+FactorModels source is MIT-licensed. Dependencies and their bundled native
 libraries retain their own licences. This file supplies the complete OpenBLAS
 and LAPACK notices identified during the 19 October 2026 Windows CPython 3.12
 x64 base-install review. It does not replace dependency notices, repair an
