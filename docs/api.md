@@ -196,3 +196,9 @@ fitted model. Scoring preserves the supplied point-in-time cluster schedule.
 Statistical result tables remain FM outputs. Constrained portfolio solving is a
 separate OP call. GLS diagnostics retain the stated diagonal-residual reference
 geometry even when the selected full covariance includes residual correlation.
+
+## Local paths
+
+`get_paths` reads YAML settings. `get_resource_path` resolves input storage;
+`get_output_path` creates and resolves output storage. See the
+[local path configuration](reference_workflows.md).

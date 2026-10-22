@@ -11,6 +11,8 @@ import argparse
 import json
 from pathlib import Path
 
+from factormodels.utils.local_path import create_output_directory, resolve_resource_path
+
 import numpy as np
 import pandas as pd
 
@@ -119,8 +121,7 @@ def persist_example(result: dict, directory: Path) -> Path:
     These CSVs are table exports, not a fitted-object checkpoint or reload format.
     The six input CSVs under inputs/ can be loaded separately without refitting.
     """
-    directory = Path(directory)
-    directory.mkdir(parents=True, exist_ok=False)
+    directory = create_output_directory(directory)
     save_bundle(result["bundle"], directory / "inputs")
     snapshot = result["snapshot"]
     snapshot.loadings.to_csv(directory / "loadings.csv")
@@ -246,7 +247,7 @@ def main() -> None:
         parser.error("--output requires --fit")
     bundle = (public_proxy_bundle(acquire_proxy_prices()) if args.acquire_proxy else
         load_bundle(args.bundle) if args.bundle else public_proxy_bundle(
-        pd.read_csv(args.proxy_prices, index_col=0, parse_dates=True))
+        pd.read_csv(resolve_resource_path(args.proxy_prices), index_col=0, parse_dates=True))
         if args.proxy_prices else synthetic_bundle())
     print(f"Loaded {len(bundle.factor_levels)} factor observations; recipe={bundle.settings.recipe_id}")
     if args.fit:

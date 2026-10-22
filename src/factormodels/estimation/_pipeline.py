@@ -14,7 +14,7 @@ from qis.perfstats.returns import to_factor_returns
 from typing import Union, Optional, Dict, Any, List
 from dataclasses import dataclass, asdict, fields, replace
 
-from factormodels._preparation import estimate_factor_covariance
+from factormodels.estimation._preparation import estimate_factor_covariance
 from factorlasso import (
     ClusterSmootherType,
     CurrentFactorCovarData,

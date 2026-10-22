@@ -6,8 +6,8 @@ import pytest
 import qis
 import factorlasso as fl
 
-import factormodels._estimation as module
-from factormodels._estimation import _FactorCovarPipeline as FactorCovarEstimator
+import factormodels.estimation._pipeline as module
+from factormodels.estimation._pipeline import _FactorCovarPipeline as FactorCovarEstimator
 
 
 

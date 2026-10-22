@@ -18,7 +18,7 @@ import pytest
 
 from factorlasso import LassoModel, LassoModelType
 
-from factormodels._estimation import (
+from factormodels.estimation._pipeline import (
     _FactorCovarPipeline as FactorCovarEstimator,
 )
 

@@ -1,0 +1,7 @@
+# Optional local paths, following the OptimalPortfolios settings convention.
+# Null selects the checkout root for resources and <checkout>/outputs for output.
+# Installed wheels default to the working directory.
+# Set FACTORMODELS_SETTINGS_PATH to use your own YAML file outside the checkout.
+# Relative paths below are resolved against this settings file.
+RESOURCE_PATH:
+OUTPUT_PATH:

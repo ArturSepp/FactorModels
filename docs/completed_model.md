@@ -11,7 +11,7 @@ The [canonical offline example](https://github.com/ArturSepp/FactorModels/blob/m
 returns a bundle and fitted log-return snapshot, then connects eligible models to
 GLS/CMA reporting with an explicit second-order bridge for expected returns. The
 fitted covariance is retained as a declared risk approximation. A
-[separate arithmetic reference](../examples/gls_factor_premia.py) independently
+[separate arithmetic reference](../examples/gls_cma_workflow.py) independently
 checks GLS on simple-return inputs.
 
 ## Inputs and completion points

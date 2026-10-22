@@ -38,7 +38,7 @@ factors, correlated or zero residual covariance and nonzero cash retain their
 complete models with an explicit unavailable-report reason. The full selected
 covariance is never diagonalized to force report eligibility.
 
-The [independent arithmetic reference](../examples/gls_factor_premia.py) remains
+The [independent arithmetic reference](../examples/gls_cma_workflow.py) remains
 available for checking GLS directly on synthetic simple excess returns. It is a
 separate calibration, not a second fit inside the canonical pipeline.
 

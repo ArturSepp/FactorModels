@@ -11,7 +11,7 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 EXAMPLES = [
-    ("construct_factors.py", 1), ("gls_factor_premia.py", 1),
+    ("minimal_model.py", 1), ("construct_factors.py", 1), ("gls_cma_workflow.py", 1),
     ("reference_workflows.py", 1), ("reference_workflows.py", 2),
     ("methods/factor_covariance_hcgl.py", 1), ("methods/gls_factor_premia.py", 1),
 ]
@@ -33,7 +33,7 @@ def test_offline_reference(relative, case):
     namespace["run_local_test"](case)
 
 
-def test_supplied_bundle_round_trip_preserves_log_risk_and_arithmetic_report(tmp_path):
+def test_supplied_bundle_round_trip_preserves_log_risk_and_arithmetic_report(tmp_path, monkeypatch):
     """Load-only inputs round trip; the declared forecast bridge connects the audit."""
     import matplotlib.pyplot as plt
     from factormodels import load_bundle, save_bundle
@@ -43,7 +43,9 @@ def test_supplied_bundle_round_trip_preserves_log_risk_and_arithmetic_report(tmp
     source = save_bundle(bundle, tmp_path / "supplied")
     loaded = load_bundle(source)
     result = namespace["inspect_fit"](loaded)
-    output = namespace["persist_example"](result, tmp_path / "report")
+    monkeypatch.setenv("FACTORMODELS_OUTPUT_PATH", str(tmp_path / "configured"))
+    output = namespace["persist_example"](result, "report")
+    assert output == tmp_path / "configured/report"
     assert result["audit"] is not None
     pdf = output / "cma_report.pdf"
     assert pdf.read_bytes().startswith(b"%PDF-") and pdf.stat().st_size > 1000
@@ -81,11 +83,13 @@ def test_supplied_bundle_round_trip_preserves_log_risk_and_arithmetic_report(tmp
         namespace["persist_example"](result, output)
 
 
-def test_arithmetic_gls_cma_report_preserves_forecast_channels_and_real_pdf(tmp_path):
+def test_arithmetic_gls_cma_report_preserves_forecast_channels_and_real_pdf(tmp_path, monkeypatch):
     """A separate arithmetic calibration supplies real table/PDF report coverage."""
-    namespace = runpy.run_path(str(ROOT / "examples" / "gls_factor_premia.py"))
+    namespace = runpy.run_path(str(ROOT / "examples" / "gls_cma_workflow.py"))
     result = namespace["arithmetic_example"]()
-    output = namespace["persist_example"](result, tmp_path / "arithmetic")
+    monkeypatch.setenv("FACTORMODELS_OUTPUT_PATH", str(tmp_path / "configured"))
+    output = namespace["persist_example"](result, "arithmetic")
+    assert output == tmp_path / "configured/arithmetic"
     pdf = output / "cma_report.pdf"
     assert pdf.read_bytes().startswith(b"%PDF-") and pdf.stat().st_size > 1000
     for name in ("assets.csv", "factors.csv", "validation.csv", "audit_metadata.json",
@@ -111,12 +115,12 @@ def test_arithmetic_gls_cma_report_preserves_forecast_channels_and_real_pdf(tmp_
 
 def test_arithmetic_cli_does_not_persist_without_output(monkeypatch, capsys):
     """Computing the arithmetic demonstration alone does not render or write files."""
-    namespace = runpy.run_path(str(ROOT / "examples" / "gls_factor_premia.py"))
+    namespace = runpy.run_path(str(ROOT / "examples" / "gls_cma_workflow.py"))
     def forbidden(*args, **kwargs):
         raise AssertionError("arithmetic example persisted without an explicit output")
     main = namespace["main"]
     monkeypatch.setitem(main.__globals__, "persist_example", forbidden)
-    monkeypatch.setattr("sys.argv", ["gls_factor_premia.py"])
+    monkeypatch.setattr("sys.argv", ["gls_cma_workflow.py"])
     main()
     assert "calibrated_premium" in capsys.readouterr().out
 

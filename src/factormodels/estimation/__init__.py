@@ -9,7 +9,7 @@ import pandas as pd
 import qis
 from factorlasso import LassoModel
 
-from factormodels._estimation import _FactorCovarPipeline
+from factormodels.estimation._pipeline import _FactorCovarPipeline
 from factormodels.model import (
     DatedFactorCovariance, FactorModelSnapshot, RollingFactorModel, _return_types,
 )

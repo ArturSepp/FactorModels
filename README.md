@@ -4,6 +4,8 @@
 — multi-asset factor models in Python from tradable instruments and observed levels to
 point-in-time loadings, covariance and provider-implied factor premia.**
 
+**Start here:** [minimal model definition and rolling covariance](#minimal-model-definition-and-rolling-covariance).
+
 Its standalone output is a completed `FactorModelSnapshot` with labelled loadings,
 factor, residual and asset covariance, and provenance at a stated cutoff.
 [Inspect a completed model](docs/completed_model.md), including units, dates,
@@ -213,7 +215,7 @@ export to a `qis.RiskModel`. The [API reference](docs/api.md) lists every public
 | Volatility-targeted basket factors | $l_f(t) = \sigma^{*}_f / \hat\sigma_f(t)$, NAV through `qis.backtest_model_portfolio` | `Factor`, `FactorFamily`, `VolTargetPolicy`, `assemble_factor_model`, `build_factor_panel`, `compute_beta_loading_signs` | [construction](docs/construction.md) · [`construct_factors.py`](examples/construct_factors.py) |
 | Point-in-time loadings and covariance | $\Sigma = B F B^{\top} + R$, annual units, per-cadence regression spans | `FactorCovarEstimator.fit_current`, `.fit_rolling`, `DatedFactorCovariance`, `FactorModelSnapshot` | [factor covariance](docs/factor_covariance_hcgl.md) · [`methods/factor_covariance_hcgl.py`](examples/methods/factor_covariance_hcgl.py) |
 | Residual covariance policies | $R$ orthogonal, empirical, exposure-cluster or residual-cluster; `residual_corr_weight`, `residual_var_weight` | `FactorCovarEstimator(residual_type=...)`, `snapshot.residual_covariance`, `snapshot.to_risk_model()` | [completed model](docs/completed_model.md) · [`reference_workflows.py`](examples/reference_workflows.py) |
-| GLS factor premia | $\mu^{excess} = B \lambda + w \odot \alpha$ solved by GLS with $R$ as weight; bridge $A\,(\bar r_{\log} + \tfrac{1}{2}\operatorname{Var}(r_{\log}))$ | `infer_factor_premia` → `GlsPremiaResult`, `annual_arithmetic_from_log`, `compute_gls_uncertainty`, `compute_gls_loading_stability`, `compute_gls_provider_contrast` | [GLS factor premia](docs/gls_factor_premia.md) · [`gls_factor_premia.py`](examples/gls_factor_premia.py), [`methods/gls_factor_premia.py`](examples/methods/gls_factor_premia.py) |
+| GLS factor premia | $\mu^{excess} = B \lambda + w \odot \alpha$ solved by GLS with $R$ as weight; bridge $A\,(\bar r_{\log} + \tfrac{1}{2}\operatorname{Var}(r_{\log}))$ | `infer_factor_premia` → `GlsPremiaResult`, `annual_arithmetic_from_log`, `compute_gls_uncertainty`, `compute_gls_loading_stability`, `compute_gls_provider_contrast` | [GLS factor premia](docs/gls_factor_premia.md) · [`gls_cma_workflow.py`](examples/gls_cma_workflow.py), [`methods/gls_factor_premia.py`](examples/methods/gls_factor_premia.py) |
 | CMA audit and identification | forecast = loaded premia + admitted alpha + residual; implied squared Sharpe under $\Sigma$ | `compute_cma_diagnostics` → `CmaDiagnosticResult`, `compute_cma_identification`, `compute_conditional_gls_intervals`, `reports.cma_diagnostics` | [CMA diagnostics](docs/cma_diagnostics.md) · [`reference_workflows.py`](examples/reference_workflows.py) |
 | Six-file bundles | load, fit, save as separate actions; SHA-256 of inputs in provenance | `load_bundle`, `fit_bundle`, `save_bundle`, `BundleSettings`, `synthetic_bundle` | [six-file bundles](docs/rolling_factor_covar_from_csv.md) · [`reference_workflows.py`](examples/reference_workflows.py) |
 
@@ -229,6 +231,110 @@ export to a `qis.RiskModel`. The [API reference](docs/api.md) lists every public
 | Data contract | Six-file CSV bundles with FX conversion and hedging through `qis.FxRatesData`; export of the selected covariance as `qis.RiskModel` |
 
 ## Five-minute quickstart
+
+### Minimal model: definition and rolling covariance
+
+Start with [`minimal_model.py`](examples/minimal_model.py): define two factors,
+construct their NAVs, estimate three assets at four quarterly cutoffs, and retrieve
+an asset covariance by date. The self-contained code below uses public APIs available
+in `factormodels` 0.1.0. Inputs are synthetic monthly USD log returns and total-return
+NAVs; each factor holds one source without volatility targeting or cash/FX adjustment.
+
+```python
+import numpy as np
+import pandas as pd
+import qis
+from factorlasso import LassoModel, LassoModelType
+
+from factormodels import (
+    Factor, FactorCovarEstimator, FactorFamily, FactorModelSpec,
+    RiskFactors, VolTargetPolicy, build_factor_panel,
+)
+
+
+class MinimalFactors(RiskFactors):
+    """Ordered factor identifiers for this two-factor model."""
+
+    EQUITY = "Equity"
+    RATES = "Rates"
+
+# 1. Define each factor as a single-source basket, without volatility targeting.
+spec = FactorModelSpec(
+    name="Minimal two-factor model", factors=MinimalFactors, file_name="minimal_model",
+    baskets={
+        member: Factor(
+            name=member.value, family=FactorFamily(member.value, vol_target=None),
+            long_side_tickers=(f"{member.value} source",), long_side_weights=(1.,),
+            vol_target_policy=VolTargetPolicy.NONE,
+        )
+        for member in MinimalFactors
+    },
+)
+
+# Synthetic monthly inputs; replace these two panels with your own histories.
+dates = pd.date_range("2015-12-31", "2024-12-31", freq="ME")
+rng = np.random.default_rng(42)
+factor_log_returns = rng.normal([.005, .002], [.04, .02], (len(dates) - 1, 2))
+source_prices = pd.DataFrame(
+    100. * np.exp(np.vstack([np.zeros(2), factor_log_returns.cumsum(axis=0)])),
+    index=dates, columns=["Equity source", "Rates source"],
+)
+# These generating loadings are only for simulation; the estimator fits its own.
+loadings = np.array([[.9, .1], [.1, .8], [.5, .4]])
+asset_returns = pd.DataFrame(
+    factor_log_returns @ loadings.T + rng.normal(0., .01, (len(dates) - 1, 3)),
+    index=dates[1:], columns=["Equity asset", "Bond asset", "Balanced asset"],
+)
+factor_prices = build_factor_panel(
+    spec, source_prices, returns_freq="ME", rebalancing_freq="ME",
+)
+
+# 2. Estimate loadings and covariance at each quarter-end, using monthly inputs.
+estimator = FactorCovarEstimator(
+    lasso_model=LassoModel(
+        model_type=LassoModelType.LASSO, span=36, warmup_period=6,
+        reg_lambda=1e-5, solver="CLARABEL",
+    ),
+    factor_returns_freq="ME", factor_covar_span=36,
+    rebalancing_freq="QE", residual_type="orthogonal",
+)
+rolling = estimator.fit_rolling(
+    risk_factor_prices=factor_prices, asset_returns_dict={"ME": asset_returns},
+    time_period=qis.TimePeriod("2024-03-31", "2024-12-31"),
+    assets=list(asset_returns.columns),
+)
+
+# 3. Retrieve the full asset covariance by an exact fitted date, or the latest date.
+covariances = rolling.covariances  # dict[pd.Timestamp, pd.DataFrame]
+as_of = pd.Timestamp("2024-06-30")
+covariance = covariances[as_of]
+latest_date = max(covariances)
+latest_covariance = covariances[latest_date]
+print(spec.factor_names())
+print([str(date.date()) for date in covariances])
+print(f"Selected {as_of.date()}: {covariance.shape}")
+print(f"Latest {latest_date.date()}: {latest_covariance.shape}")
+```
+
+```text
+['Equity', 'Rates']
+['2024-03-31', '2024-06-30', '2024-09-30', '2024-12-31']
+Selected 2024-06-30: (3, 3)
+Latest 2024-12-31: (3, 3)
+```
+
+Each retrieved DataFrame is the full annualised asset log-return covariance in the
+supplied asset order, including factor risk and the selected diagonal residual block.
+The 36-observation EWMA spans weight expanding histories through each cutoff;
+they are not fixed 36-month windows. Retrieval uses an exact fitted date.
+
+From a source checkout, run the full example to print the covariance matrices:
+
+```bash
+python -m examples.minimal_model
+```
+
+### Fit a supplied bundle
 
 All inputs are synthetic. `synthetic_bundle()` supplies 121 monthly USD NAV observations for two
 factors and four assets, with a fixed seed.
@@ -425,12 +531,14 @@ observation or availability date lies after the cutoff is rejected.
 
 Runnable examples in [`examples/`](examples/), all offline:
 
+- [`minimal_model.py`](examples/minimal_model.py): start here for factor definition,
+  rolling estimation and covariance retrieval by date, using synthetic monthly inputs.
 - [`reference_workflows.py`](examples/reference_workflows.py): synthetic bundle,
   caller-supplied bundle and public-ETF proxy construction, with the fitted model
   connected to GLS premia and the CMA audit, and table export on request.
 - [`construct_factors.py`](examples/construct_factors.py): factor definitions,
   NAV construction and loading-sign constraints from synthetic daily prices.
-- [`gls_factor_premia.py`](examples/gls_factor_premia.py): a self-contained
+- [`gls_cma_workflow.py`](examples/gls_cma_workflow.py): a self-contained
   arithmetic calibration of the GLS inference with an independent QR reference.
 - [`methods/factor_covariance_hcgl.py`](examples/methods/factor_covariance_hcgl.py):
   mixed-frequency estimation with explicit EWMA reference sums and strict-cutoff

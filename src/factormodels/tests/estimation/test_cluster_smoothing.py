@@ -13,7 +13,7 @@ from factorlasso import (
     LassoModelType,
     compute_rolling_smoothed_clusters,
 )
-from factormodels._estimation import _FactorCovarPipeline as FactorCovarEstimator
+from factormodels.estimation._pipeline import _FactorCovarPipeline as FactorCovarEstimator
 
 
 def _inputs() -> tuple[pd.DataFrame, dict[str, pd.DataFrame]]:
@@ -201,7 +201,7 @@ def test_frequency_cluster_span_map_reaches_current_and_rolling_smoothers() -> N
     )
 
     with patch(
-            'factormodels._estimation.'
+            'factormodels.estimation._pipeline.'
             'compute_rolling_smoothed_clusters',
             wraps=compute_rolling_smoothed_clusters,
     ) as smoother:

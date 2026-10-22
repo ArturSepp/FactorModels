@@ -21,10 +21,10 @@ def _normalised_output(output):
 
 
 def _execute_readme(readme):
-    """Execute every Python fence in order and compare the two displayed outputs."""
+    """Execute every Python fence in order and compare the three displayed outputs."""
     blocks = re.findall(r"^```(python|text)[ \t]*\n(.*?)^```[ \t]*$", readme, re.M | re.S)
-    assert sum(kind == "python" for kind, _ in blocks) == 6, "Expected six Python fences"
-    assert sum(kind == "text" for kind, _ in blocks) == 2, "Expected two output fences"
+    assert sum(kind == "python" for kind, _ in blocks) == 7, "Expected seven Python fences"
+    assert sum(kind == "text" for kind, _ in blocks) == 3, "Expected three output fences"
     namespace = {"__name__": "__readme__"}
     output = ""
     for number, (kind, body) in enumerate(blocks, 1):

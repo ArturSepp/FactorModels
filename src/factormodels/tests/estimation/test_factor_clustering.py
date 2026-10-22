@@ -12,7 +12,7 @@ from factorlasso import (
     compute_rolling_smoothed_clusters,
     get_linkage_array,
 )
-from factormodels._estimation import _FactorCovarPipeline as FactorCovarEstimator
+from factormodels.estimation._pipeline import _FactorCovarPipeline as FactorCovarEstimator
 
 
 def _inputs():
@@ -122,7 +122,7 @@ def test_rolling_anchors_are_causal_and_match_current(smoother):
 
 def test_linkage_restriction_preserves_cophenetic_distances_and_leaf_order():
     """Compare the induced tree against an independent cophenetic submatrix."""
-    from factormodels._estimation import _restrict_linkage
+    from factormodels.estimation._pipeline import _restrict_linkage
 
     labels = pd.Index(list('abcdef'))
     tree = linkage(np.array([[0, 0], [0, 1], [2, 3], [2, 4], [5, 6], [5, 7]]), 'ward')
@@ -160,7 +160,7 @@ def test_short_history_assets_do_not_pollute_reporting_leaves(transform):
 
 def test_reference_input_guards_and_warmup_none():
     """Reject ambiguous columns while allowing an explicitly disabled warmup gate."""
-    from factormodels._estimation import _restrict_linkage
+    from factormodels.estimation._pipeline import _restrict_linkage
 
     factors, returns = _inputs()
     actual = _estimator(warmup_period=None).fit_current_factor_covars(factors, returns)

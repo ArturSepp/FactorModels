@@ -106,7 +106,7 @@ def test_fx_carry_report_does_not_present_absent_pair_tests(with_bands, carry):
             plt.close(fig)
 
 
-def test_pdf_retains_source_dates_and_inputs(tmp_path):
+def test_pdf_retains_source_dates_and_inputs(tmp_path, monkeypatch):
     """The common layout preserves vintage distinctions and all caller-owned tables."""
     report = _report()
     before = deepcopy(report)
@@ -116,7 +116,9 @@ def test_pdf_retains_source_dates_and_inputs(tmp_path):
     assert len(figures) == 3
     for fig in figures:
         plt.close(fig)
-    target = render_cma_inference(report, tmp_path/'report.pdf')
+    monkeypatch.setenv('FACTORMODELS_OUTPUT_PATH', str(tmp_path))
+    target = render_cma_inference(report, 'report.pdf')
+    assert target == tmp_path / 'report.pdf'
     assert len(re.findall(rb'/Type\s*/Page\b', target.read_bytes())) == 3
     for actual, original in zip(report.views, before.views):
         for field in actual.result.__dataclass_fields__:

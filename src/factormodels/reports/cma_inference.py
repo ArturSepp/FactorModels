@@ -8,6 +8,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
+
+from factormodels.utils.local_path import resolve_output_path
 from tempfile import NamedTemporaryFile
 from typing import Mapping
 
@@ -968,7 +970,7 @@ def render_cma_inference(report: CmaInferenceReport, output_path: str | Path) ->
     covariance scenarios and paired loading bands remain separate from default CIs;
     no uncertainty scale, scenario selection policy or refit is estimated here.
     """
-    target = Path(output_path).expanduser().resolve()
+    target = resolve_output_path(output_path)
     if target.suffix.lower() != '.pdf':
         raise ValueError('output_path must have the .pdf extension.')
     _validate(report)

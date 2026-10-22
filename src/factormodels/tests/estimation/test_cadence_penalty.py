@@ -5,7 +5,7 @@ import pytest
 import qis
 
 from factorlasso import LassoModel, LassoModelType
-from factormodels._estimation import (
+from factormodels.estimation._pipeline import (
     _FactorCovarPipeline as FactorCovarEstimator, _estimate_factor_covar_data, _fit_lasso_frequency,
 )
 
@@ -102,7 +102,7 @@ def test_rolling_fits_keep_fixed_cadence_penalties_on_each_history():
 
 def test_expert_prior_hac_bandwidth_follows_cadence_and_restores_configuration(monkeypatch):
     """HAC inference uses the selected cadence without leaking overrides after a fit."""
-    from factormodels._estimation import _model_for_frequency
+    from factormodels.estimation._pipeline import _model_for_frequency
     prices, panels = _inputs()
     model = _model().copy(dict(apply_ols_prior=True, factor_for_prior={'M':'F1','Q':'F2'},
         expert_prior_bound_n_std=1, expert_prior_hac_lags=3,
@@ -132,7 +132,7 @@ def test_expert_prior_hac_bandwidth_follows_cadence_and_restores_configuration(m
 def test_optional_prior_hac_scalar_is_forwarded_and_restored_with_older_models(monkeypatch):
     """Adapter forwarding remains testable without requiring the new dependency version."""
     from types import SimpleNamespace
-    import factormodels._estimation as module
+    import factormodels.estimation._pipeline as module
     prices, panels = _inputs()
     model = _model()
     model.expert_prior_hac_lags = 3

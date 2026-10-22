@@ -41,6 +41,37 @@ rendering. See [fields and units](completed_model.md) and the
 distinction between calibrated and implied premia. QIS may print a timing line
 during currency-adjusted return preparation; it is not a numerical result.
 
+## Local path configuration
+
+FactorModels follows OptimalPortfolios' `RESOURCE_PATH` / `OUTPUT_PATH` YAML
+convention. The portable template ships as `factormodels/settings.yaml`. To keep
+machine-specific values separate, save a local YAML file and select it with
+`FACTORMODELS_SETTINGS_PATH`:
+
+```yaml
+RESOURCE_PATH: C:/Research/FactorModels/inputs
+OUTPUT_PATH: C:/Research/FactorModels/outputs
+```
+
+`FACTORMODELS_RESOURCE_PATH` and `FACTORMODELS_OUTPUT_PATH` override the YAML
+values. Relative YAML values are resolved against the YAML file's directory.
+Null or absent values use the checkout root for resources and its `outputs/`
+folder for outputs; an installed wheel defaults to the current working directory.
+Use an external output root for a OneDrive checkout. In a running Python process,
+call `factormodels.get_paths.cache_clear()` after editing settings.
+
+Relative names passed to `load_bundle` and `--proxy-prices` use `RESOURCE_PATH`.
+Relative names passed to `save_bundle`, report renderers and `--output` use
+`OUTPUT_PATH`. Absolute paths retain their explicit location. Input lookup never
+creates folders. Output parents are created when needed; bundle and example
+exports still reject existing run directories. PDF renderers retain their atomic
+replacement behavior. Computing without `--output` still writes no results.
+
+```console
+python examples/reference_workflows.py --bundle supplied_run --fit --output fitted_run
+python examples/gls_cma_workflow.py --output arithmetic_run
+```
+
 ## Optional public acquisition
 
 Provide a dated CSV with USD adjusted-close columns `SPY` and `TLT`:
@@ -84,5 +115,5 @@ The full selected covariance is never diagonalized to obtain a report.
 tables rather than a promised checkpoint. Unsupported report cases still export
 their complete model tables and status. The [separate handoff](integration.md)
 supplies the fitted model to OptimalPortfolios and QIS. The standalone
-[arithmetic reference](../examples/gls_factor_premia.py) remains an independent
+[arithmetic reference](../examples/gls_cma_workflow.py) remains an independent
 check of GLS using simple-return inputs.

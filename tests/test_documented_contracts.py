@@ -144,7 +144,7 @@ def test_valid_model_completes_when_illustrative_report_is_unavailable(kind, rea
 
 def test_arithmetic_audit_uses_selected_residual_variance_weight():
     """The same nondefault annual residual weight feeds GLS, covariance and audit."""
-    namespace = runpy.run_path(str(ROOT / "examples" / "gls_factor_premia.py"))
+    namespace = runpy.run_path(str(ROOT / "examples" / "gls_cma_workflow.py"))
     result = namespace["arithmetic_example"](residual_var_weight=.5)
     inputs, audit = result["inputs"], result["audit"]
     expected_variances = .5*12*result["historical_residual"].var(ddof=0)

@@ -4,7 +4,7 @@ import pandas as pd
 import pytest
 from factorlasso import LassoModel, LassoModelType
 from qis.perfstats.config import ReturnTypes
-from factormodels._estimation import _FactorCovarPipeline as FactorCovarEstimator
+from factormodels.estimation._pipeline import _FactorCovarPipeline as FactorCovarEstimator
 
 
 @pytest.mark.parametrize('responses', [1, 3])

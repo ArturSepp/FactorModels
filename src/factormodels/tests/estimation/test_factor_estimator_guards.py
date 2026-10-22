@@ -20,7 +20,7 @@ import qis
 
 from factorlasso import ClusterSmootherType, LassoModel, LassoModelType
 
-from factormodels._estimation import (
+from factormodels.estimation._pipeline import (
     _FactorCovarPipeline as FactorCovarEstimator,
     _fit_lasso_frequency,
     _model_for_frequency,

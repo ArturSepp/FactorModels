@@ -94,13 +94,14 @@ def close_report_figures():
 
 @pytest.mark.parametrize(('requested', 'scenarios', 'expected'), [(3, 0, 2), (3, 4, 3), (2, 4, 2)])
 def test_pdf_page_count_and_immutable_inputs(tmp_path: Path, requested: int,
-                                           scenarios: int, expected: int) -> None:
+                                           scenarios: int, expected: int, monkeypatch) -> None:
     """Page limits are enforced, and rendering leaves every diagnostic input intact."""
     result = _result(scenarios=scenarios)
     before = deepcopy(result)
     plt.figure()
     figures_before = set(plt.get_fignums())
-    output = render_cma_diagnostics(result, tmp_path / 'report.pdf', pages=requested)
+    monkeypatch.setenv('FACTORMODELS_OUTPUT_PATH', str(tmp_path))
+    output = render_cma_diagnostics(result, 'report.pdf', pages=requested)
     content = output.read_bytes()
     assert content.startswith(b'%PDF-')
     assert len(re.findall(rb'/Type\s*/Page\b', content)) == expected

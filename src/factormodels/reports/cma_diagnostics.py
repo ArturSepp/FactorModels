@@ -8,6 +8,8 @@ tables and provenance are persisted by the caller beside this intentionally boun
 from __future__ import annotations
 
 from pathlib import Path
+
+from factormodels.utils.local_path import resolve_output_path
 from tempfile import NamedTemporaryFile
 from textwrap import wrap
 from typing import Any
@@ -620,7 +622,7 @@ def render_cma_diagnostics(result: CmaDiagnosticResult, output_path: str | Path,
     Returns:
         Absolute path of the completed PDF. Failure leaves any previous output intact.
     """
-    target = Path(output_path).expanduser().resolve()
+    target = resolve_output_path(output_path)
     if target.suffix.lower() != '.pdf':
         raise ValueError('output_path must have the .pdf extension.')
     if pages not in (2, 3):

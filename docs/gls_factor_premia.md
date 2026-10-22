@@ -260,7 +260,7 @@ python examples/reference_workflows.py --fit --output /path/to/new_model_run
 
 ### Independent arithmetic reference
 
-The [independent script](../examples/gls_factor_premia.py) constructs synthetic monthly
+The [independent script](../examples/gls_cma_workflow.py) constructs synthetic monthly
 simple excess-return NAVs, recovers their returns, fits LASSO and estimates historical
 residual means. It uses 240 observations, eight assets, three factors, uniform observation
 weights, no missing data and CLARABEL. The factor design has rank three and five residual
@@ -312,8 +312,8 @@ cash-adjusted forecast and the selected annual covariance.
 Run from a checkout:
 
 ```console
-python examples/gls_factor_premia.py
-python examples/gls_factor_premia.py --output /path/to/new_arithmetic_run
+python examples/gls_cma_workflow.py
+python examples/gls_cma_workflow.py --output /path/to/new_arithmetic_run
 ```
 
 The second command explicitly saves input returns/NAVs, loadings, covariance,

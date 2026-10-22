@@ -4,7 +4,7 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
-from .bundle import BundleSettings, FactorBundle
+from factormodels.bundle import BundleSettings, FactorBundle
 
 __all__ = ["synthetic_bundle"]
 

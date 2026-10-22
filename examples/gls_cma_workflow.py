@@ -10,6 +10,8 @@ import argparse
 import json
 from pathlib import Path
 
+from factormodels.utils.local_path import create_output_directory
+
 import numpy as np
 import pandas as pd
 from scipy.stats import t
@@ -121,8 +123,7 @@ def persist_example(result: dict, directory: Path) -> Path:
     """
     from factormodels.reports.cma_diagnostics import render_cma_diagnostics
 
-    directory = Path(directory)
-    directory.mkdir(parents=True, exist_ok=False)
+    directory = create_output_directory(directory)
     inputs, audit = result["inputs"], result["audit"]
     for name in ("forecasts", "factor_prices", "asset_prices", "factor_returns", "asset_returns",
                  "historical_residual", "asset_covariance"):

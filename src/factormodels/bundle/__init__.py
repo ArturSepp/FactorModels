@@ -22,6 +22,7 @@ import qis
 from factorlasso import LassoModel, LassoModelType
 from qis.perfstats.config import ReturnTypes
 
+from factormodels.utils.local_path import create_output_directory, resolve_resource_path
 from factormodels.estimation import FactorCovarEstimator
 from factormodels.model import FactorModelSnapshot, RollingFactorModel
 
@@ -359,7 +360,7 @@ def load_bundle(directory: str | Path) -> FactorBundle:
     """Read and validate six supplied files, without fitting, fetching or writing.
 
     Args:
-        directory: Existing directory containing the six documented CSV names.
+        directory: Existing six-file directory; relative names use YAML RESOURCE_PATH.
 
     Returns:
         FactorBundle: Owned histories and explicit settings, with source SHA-256 hashes.
@@ -368,7 +369,7 @@ def load_bundle(directory: str | Path) -> FactorBundle:
         FileNotFoundError: If any required file is absent.
         ValueError: If schema, labels, units, chronology or configuration is invalid.
     """
-    directory = Path(directory).resolve()
+    directory = resolve_resource_path(directory)
     missing = [name for name in _FILES.values() if not (directory / name).is_file()]
     if missing:
         raise FileNotFoundError(f"incomplete bundle in {directory}: missing {missing}")
@@ -445,7 +446,7 @@ def save_bundle(bundle: FactorBundle, directory: str | Path) -> Path:
 
     Args:
         bundle: Inputs to serialize, checked again before writing.
-        directory: New destination. Its parent must already exist.
+        directory: New destination; relative names use YAML OUTPUT_PATH. Missing parents are created.
 
     Returns:
         Path: Absolute path containing the six versioned CSV files.
@@ -457,8 +458,7 @@ def save_bundle(bundle: FactorBundle, directory: str | Path) -> Path:
     may leave an incomplete new directory; the loader rejects incomplete bundles.
     """
     bundle = replace(bundle)
-    directory = Path(directory).resolve()
-    directory.mkdir(parents=False, exist_ok=False)
+    directory = create_output_directory(directory)
     for name, filename in _FILES.items():
         frame = bundle.settings.to_frame() if name == "settings" else getattr(bundle, name)
         frame.to_csv(directory / filename)

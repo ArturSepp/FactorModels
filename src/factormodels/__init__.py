@@ -122,8 +122,12 @@ from factormodels.bundle import (
     BUNDLE_SCHEMA_VERSION, BundleSettings, FactorBundle, load_bundle, fit_bundle, save_bundle,
 )
 from factormodels.examples import synthetic_bundle
+from factormodels.utils import get_paths, get_resource_path, get_output_path
 
 __all__ = [
+    "get_paths",
+    "get_resource_path",
+    "get_output_path",
     "BUNDLE_SCHEMA_VERSION",
     "BundleSettings",
     "FactorBundle",

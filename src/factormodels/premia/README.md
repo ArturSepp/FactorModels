@@ -208,11 +208,11 @@ The public example below is synthetic and does not reproduce either provider.
 ## Development and verification
 
 From a FactorModels checkout, install into an external environment and run the canonical
-[offline example](../../../examples/gls_factor_premia.py):
+[offline example](../../../examples/gls_cma_workflow.py):
 
 ```console
 python -m pip install -e .
-python examples/gls_factor_premia.py
+python examples/gls_cma_workflow.py
 python -m pytest src/factormodels/premia/tests/inference_test.py
 ```
 
@@ -234,7 +234,7 @@ not replacement of a baseline.
 
 ## Related documentation
 
-- [Canonical synthetic GLS example](../../../examples/gls_factor_premia.py)
+- [Canonical synthetic GLS example](../../../examples/gls_cma_workflow.py)
 - [Completed CMA result and inputs](../cma/diagnostics.py)
 - [Package outputs and boundaries](../../../README.md)
 - [FactorLasso](https://github.com/ArturSepp/FactorLasso)

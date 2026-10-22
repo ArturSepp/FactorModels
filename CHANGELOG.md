@@ -4,6 +4,16 @@ FactorModels constructs multi-asset tradable factor models and provides
 generalized least squares (GLS) and capital market assumption (CMA) diagnostics.
 The first public release is 0.1.0; earlier entries record unpublished development.
 
+## Unreleased
+
+- Move root implementation modules into import-compatible subpackages; only `__init__.py`
+  remains as Python source directly under `factormodels/`. Public imports and estimator outputs are unchanged.
+- Resolve relative bundle, example and report paths through YAML resource/output settings,
+  with explicit environment overrides. Absolute caller paths retain their destination;
+  bundle and example exports still refuse to overwrite an existing directory.
+- Rename the complete arithmetic GLS/CMA workflow to `examples/gls_cma_workflow.py`,
+  distinct from the GLS-only demonstration in `examples/methods/gls_factor_premia.py`.
+
 ## 0.1.0 — first public release (2026-10-21)
 
 - Publish the canonical `factormodels` distribution and public FactorModels source.
