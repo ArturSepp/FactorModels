@@ -4,7 +4,7 @@ FactorModels constructs multi-asset tradable factor models and provides
 generalized least squares (GLS) and capital market assumption (CMA) diagnostics.
 The first public release is 0.1.0; earlier entries record unpublished development.
 
-## [0.2.0.dev0] - Unreleased
+## [0.2.0] - 2026-10-24
 
 ### Removed
 

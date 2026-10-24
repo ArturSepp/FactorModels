@@ -626,7 +626,7 @@ the model and its applications, and the estimator it builds on:
   author  = {Sepp, Artur},
   title   = {factormodels: Multi-Asset Factor Models in {Python}},
   year    = {2026},
-  version = {0.2.0.dev0},
+  version = {0.2.0},
   url     = {https://github.com/ArturSepp/FactorModels},
 }
 
