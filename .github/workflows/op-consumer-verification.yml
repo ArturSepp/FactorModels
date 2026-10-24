@@ -16,7 +16,7 @@ permissions:
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
   MPLBACKEND: Agg
-  OP_SOURCE_SHA: 42f38ef9eeb27156b2f8997b701677ed4c1836e4
+  OP_SOURCE_SHA: db0038f8dad9ef2d45388993ace1cbe993fe0ea1
   FM_SOURCE_SHA: ${{ github.sha }}
 
 jobs:
