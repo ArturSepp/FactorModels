@@ -43,6 +43,18 @@ uses history through the cutoff. Before FX conversion and fitting, all histories
 are clipped to that cutoff. Input timestamps and declared units are caller
 assertions, not independent provider evidence.
 
+The [QIS reference-currency conversion and excess-returns guide](https://github.com/ArturSepp/QuantInvestStrats/blob/main/docs/reference_currency_excess_returns.md)
+owns the conversion and reference-cash calculation contract. Its
+[USD/CHF worked example](https://github.com/ArturSepp/QuantInvestStrats/blob/main/docs/reference_currency_excess_returns.md#the-same-usd-asset-in-usd-and-chf-excess-returns-and-betas)
+compares hedge ratios 0, 0.5 and 1 for the same asset against a fixed USD factor.
+See also [why fully hedged payoffs can differ](https://github.com/ArturSepp/QuantInvestStrats/blob/main/docs/reference_currency_excess_returns.md#why-full-hedging-does-not-reproduce-the-usd-payoff-exactly)
+and [why a mean excess-return difference alone does not change beta](https://github.com/ArturSepp/QuantInvestStrats/blob/main/docs/reference_currency_excess_returns.md#why-a-different-mean-excess-return-alone-does-not-change-beta).
+The USD 100-to-110 illustration shows that an opening-principal hedge leaves FX
+exposure on the investment gain. The beta identity uses equal-weight OLS with an
+intercept on a common sample; it is a teaching example, not a claim of invariance
+for every FactorModels estimator. Preserve the chosen factor basis, observation
+sample, mean adjustment and regularisation when interpreting a fitted model.
+
 ## Load, fit, persist
 
 `load_bundle` returns owned input tables and source file SHA-256 hashes. It does

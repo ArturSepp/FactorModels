@@ -41,6 +41,12 @@ rendering. See [fields and units](completed_model.md) and the
 distinction between calibrated and implied premia. QIS may print a timing line
 during currency-adjusted return preparation; it is not a numerical result.
 
+Follow the [QIS reference-currency conversion and excess-returns guide](https://github.com/ArturSepp/QuantInvestStrats/blob/main/docs/reference_currency_excess_returns.md),
+including its [USD/CHF comparison for hedge ratios 0, 0.5 and 1](https://github.com/ArturSepp/QuantInvestStrats/blob/main/docs/reference_currency_excess_returns.md#the-same-usd-asset-in-usd-and-chf-excess-returns-and-betas).
+The [currency-preparation notes](rolling_factor_covar_from_csv.md)
+also link the explanation of why a full principal hedge does not guarantee the
+same beta, and why an OLS intercept absorbs a constant response shift.
+
 ## Local path configuration
 
 FactorModels follows OptimalPortfolios' `RESOURCE_PATH` / `OUTPUT_PATH` YAML
