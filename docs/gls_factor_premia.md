@@ -190,8 +190,8 @@ level and retain deterministic forecast boxes alongside both objects.
 
 ## Worked example
 
-The [canonical bundle workflow](../examples/reference_workflows.py) calls
-`fit_bundle(synthetic_bundle())`, then uses the resulting `FactorModelSnapshot`
+The [canonical estimator workflow](../examples/reference_workflows.py) calls
+`FactorCovarEstimator.fit_current` on synthetic DataFrames, then uses the resulting `FactorModelSnapshot`
 for GLS and CMA diagnostics. Its loadings $B$, factor covariance $F$, selected
 residual covariance $R$ and asset covariance $\Sigma=BFB^{\mathsf T}+R$ are held
 fixed throughout. There is no second historical fit or covariance reconstruction.

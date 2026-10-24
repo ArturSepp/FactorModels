@@ -1,47 +1,72 @@
-# Supplied six-file bundles
+<a id="supplied-six-file-bundles"></a>
+
+# Factor estimation from supplied CSVs
 
 *Author: [Artur Sepp](https://github.com/ArturSepp)*
 
 Implemented in [FactorModels](https://github.com/ArturSepp/FactorModels).
 Software citation: [CITATION.cff](https://github.com/ArturSepp/FactorModels/blob/main/CITATION.cff).
 
-`load_bundle(directory)` is the installed load-only API. The
-[canonical reference script](https://github.com/ArturSepp/FactorModels/blob/main/examples/reference_workflows.py)
-accepts `--bundle` and fits only when `--fit` is supplied. No market-data provider
-or OP installation is needed.
+Load ordinary DataFrames with pandas and call `FactorCovarEstimator` directly.
+The development version removes the six-file input API; it does not impose a
+replacement serialization schema. Historical experiments keep their original
+files and recorded package environments. See the [migration guide](migration.md).
 
-## One explicit schema
+<a id="one-explicit-schema"></a>
 
-| File | Contents |
-|---|---|
-| `futures_risk_factors.csv` | Dated factor NAVs or native observed levels, in configured factor order |
-| `fx_hedging_data_fx_spots.csv` | Dated USD per currency-unit spots, including USD=1 anchor |
-| `fx_hedging_data_domestic_rates.csv` | Dated annual decimal domestic rates for all required currencies |
-| `asset_prices.csv` | Dated positive asset prices in each asset's local currency |
-| `asset_metadata.csv` | Asset-indexed `currency`, `hedge_ratio` in [0,1], and `return_frequency` |
-| `risk_model_settings.csv` | One `value` column indexed by settings name, including `schema_version=1` |
+## Supplied histories
 
-Create settings with `BundleSettings` and persist with `save_bundle`; its
-`to_frame()` emits every required field. `from_frame()` rejects missing or unknown
-settings and unsupported versions. JSON-valued cells preserve named factor maps
-and cadence parameters. Unversioned historical bundles are not accepted by this
-API. Convert active inputs in a separate working copy and retain the original.
+The [reference script](../examples/reference_workflows.py) accepts two CSV paths:
 
-## Units, configuration and dates
+```console
+python examples/reference_workflows.py --factor-prices factors.csv --asset-prices assets.csv --fit
+```
 
-The settings state reference currency, ordered factors, recipe identity,
-LOG/DIFFERENCE factor coordinates and native units, total/excess basis, FX quote
-and rate units, covariance units, factor-return cadence/span, rolling cadence,
-FL model/penalty/loss normalization, beta span/warmup, demeaning, cash-rate lag,
-zero-return handling, optional cadence
-overrides and the selected residual policy. Changing a default constructor value
-does not reinterpret an already serialized schema-v1 settings file.
+Both CSVs have a dated index and one numeric column per factor or asset. This
+example requires monthly USD total-return NAVs/prices. Factor column order is
+retained; asset columns determine the output asset order. It prepares decimal
+log asset returns with `qis.to_returns(..., is_log_returns=True)`, preserves the
+initial missing return, and treats exact zero returns as missing, then calls
+`FactorCovarEstimator.fit_current` with an explicit cutoff. The example's LOG
+factor configuration requires positive NAVs. Validate source quality and retain
+the recipe, input units and source provenance yourself.
 
-`estimation_end` is the information cutoff. `estimation_start` selects the first
-rolling output date; earlier observations remain warmup history. Current fitting
-uses history through the cutoff. Before FX conversion and fitting, all histories
-are clipped to that cutoff. Input timestamps and declared units are caller
-assertions, not independent provider evidence.
+Relative CSV paths use YAML `RESOURCE_PATH`; an explicit `--output` uses
+`OUTPUT_PATH`. Absolute paths retain their destination. See
+[local path configuration](reference_workflows.md).
+Loading alone never fits or writes. `--fit` estimates in memory; `--output`
+exports model and eligible report tables to a new directory and refuses overwrite.
+
+<a id="units-configuration-and-dates"></a>
+
+## Configure the estimator explicitly
+
+The [minimal example](../examples/minimal_model.py) demonstrates the complete
+definition, construction, rolling estimation and covariance retrieval workflow.
+Supply factor NAVs or declared native levels as `risk_factor_prices`, and prepared
+decimal log asset returns as `asset_returns_dict`, keyed by cadence. Configure
+`LassoModel` and `FactorCovarEstimator` in Python: factor-covariance frequency and
+span, regression span and penalty, rolling cadence, coordinate map and selected
+residual policy are explicit choices. There is no settings CSV parser.
+
+`fit_current(..., cutoff=...)` returns a `FactorModelSnapshot`;
+`fit_rolling(..., time_period=...)` returns a `RollingFactorModel` whose
+`covariances` map is keyed by fitted dates. Earlier history remains available for
+warmup; each fit truncates observations at its own cutoff. Covariance is annual
+in the declared coordinates. Factor and asset total/excess bases must agree.
+Input dates do not independently prove provider availability or publication delays.
+
+<a id="load-fit-persist"></a>
+
+## Currency preparation and persistence
+
+For mixed currencies, hedging or excess-return preparation, use
+`qis.FxRatesData.compute_fx_adjusted_returns(..., is_log_returns=True)` explicitly
+before estimation. Supply the correct FX quote/rate conventions, currency labels,
+hedge ratios, cash lag and observation cadences, and clip all preparation inputs
+at the information cutoff. The USD price example performs none of these adjustments.
+See [QIS](https://github.com/ArturSepp/QuantInvestStrats) and its
+[software citation](https://github.com/ArturSepp/QuantInvestStrats/blob/main/CITATION.cff).
 
 The [QIS reference-currency conversion and excess-returns guide](https://github.com/ArturSepp/QuantInvestStrats/blob/main/docs/reference_currency_excess_returns.md)
 owns the conversion and reference-cash calculation contract. Its
@@ -55,21 +80,7 @@ intercept on a common sample; it is a teaching example, not a claim of invarianc
 for every FactorModels estimator. Preserve the chosen factor basis, observation
 sample, mean adjustment and regularisation when interpreting a fitted model.
 
-## Load, fit, persist
-
-`load_bundle` returns owned input tables and source file SHA-256 hashes. It does
-not estimate a model or modify files. `fit_bundle(bundle)` returns one
-`FactorModelSnapshot`; `fit_bundle(bundle, rolling=True)` returns dated snapshots
-in a `RollingFactorModel`. The complete estimator is the same `FactorCovarEstimator` pipeline:
-QIS currency/return preparation and factor covariance, followed by FL estimation
-and the selected residual assembly.
-
-`save_bundle(bundle, new_directory)` writes the six inputs, never replacing an
-existing directory. It does not save a fitted checkpoint or arbitrary in-memory
-`FactorBundle.provenance` entries; keep those separately when needed. Reloading
-records the six source files' hashes. The reference script
-separately exports inspectable result tables and a report only on request.
-
-No runtime historical-format adapter, provider fetching, hidden refit or
-overwrite mode is supplied. See [completed fields](completed_model.md) and
-[downstream usage](integration.md).
+Persist input tables with pandas or your application's storage layer. Retain
+configuration and provenance separately. Result-table exports are inspectable
+tables, not a fitted-object checkpoint format. See
+[completed fields](completed_model.md) and [downstream usage](integration.md).

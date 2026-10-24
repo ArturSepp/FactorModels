@@ -1,12 +1,6 @@
 """Canonical factor-model, GLS and CMA numerical API."""
 
-from importlib.metadata import PackageNotFoundError as _PackageNotFoundError
-from importlib.metadata import version as _distribution_version
-
-try:
-    __version__ = _distribution_version("factormodels")
-except _PackageNotFoundError:
-    __version__ = "0+unknown"
+from factormodels.utils.version import __version__
 
 from factormodels.premia import (
     GlsGeometry,
@@ -63,13 +57,13 @@ from factormodels.estimation import (
     FactorCovarEstimator,
 )
 
-from factormodels.model import (
+from factormodels.estimation.models import (
     DatedFactorCovariance,
     FactorModelSnapshot,
     RollingFactorModel,
 )
 
-from factormodels.risk import (
+from factormodels.estimation.risk import (
     build_risk_model,
 )
 
@@ -84,9 +78,8 @@ from factormodels.spec import (
     normalise_factor_labels,
 )
 
-from factormodels.construction import (
+from factormodels.spec.construction import (
     DEFAULT_RETURNS_FREQ,
-    INHERIT,
     build_factor_panel,
     build_factor_catalogue_panel,
     select_factor_prices,
@@ -96,7 +89,7 @@ from factormodels.construction import (
     compute_volatility_targeted_portfolio,
 )
 
-from factormodels.constraints import (
+from factormodels.estimation.beta_constraints import (
     compute_beta_loading_signs,
 )
 
@@ -116,25 +109,14 @@ from factormodels.analytics import (
     compare_universe_dispersion,
     sample_universe_dispersion,
 )
-from factormodels.portfolio_context import prepare_portfolio_context
-from factormodels.signals import extract_rolling_clusters, prepare_cluster_scores
-from factormodels.bundle import (
-    BUNDLE_SCHEMA_VERSION, BundleSettings, FactorBundle, load_bundle, fit_bundle, save_bundle,
-)
-from factormodels.examples import synthetic_bundle
+from factormodels.analytics.portfolio_context import prepare_portfolio_context
+from factormodels.analytics.signals import extract_rolling_clusters, prepare_cluster_scores
 from factormodels.utils import get_paths, get_resource_path, get_output_path
 
 __all__ = [
     "get_paths",
     "get_resource_path",
     "get_output_path",
-    "BUNDLE_SCHEMA_VERSION",
-    "BundleSettings",
-    "FactorBundle",
-    "load_bundle",
-    "fit_bundle",
-    "save_bundle",
-    "synthetic_bundle",
     "FactorOpportunityModel",
     "alpha_dispersion",
     "factor_access_metrics",
@@ -212,7 +194,6 @@ __all__ = [
     "assemble_factor_model",
     "normalise_factor_labels",
     "DEFAULT_RETURNS_FREQ",
-    "INHERIT",
     "build_factor_panel",
     "build_factor_catalogue_panel",
     "select_factor_prices",

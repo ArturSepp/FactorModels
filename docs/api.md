@@ -6,8 +6,8 @@ Use the [FactorModels package](https://github.com/ArturSepp/FactorModels) direct
 
 ## Choose an entry point
 
-Start with `synthetic_bundle`, `load_bundle`, `fit_bundle` and
-`FactorModelSnapshot` to obtain and inspect a model. `assemble_factor_model` and
+Start with `FactorCovarEstimator.fit_current` or `.fit_rolling` and
+`FactorModelSnapshot` to estimate and inspect a model from DataFrames. `assemble_factor_model` and
 `build_factor_panel` construct factor histories, and `FactorCovarEstimator`
 exposes current and rolling estimation. `build_risk_model` exports a risk view.
 
@@ -29,7 +29,7 @@ guarantee for a pre-release package.
 - `assemble_factor_model`
 - `normalise_factor_labels`
 
-## `factormodels.construction`
+## `factormodels.spec.construction`
 
 - `build_factor_panel`
 - `build_factor_catalogue_panel`
@@ -39,9 +39,8 @@ guarantee for a pre-release package.
 - `compute_live_strategic_weights`
 - `compute_volatility_targeted_portfolio`
 - `DEFAULT_RETURNS_FREQ`
-- `INHERIT`
 
-## `factormodels.constraints`
+## `factormodels.estimation.beta_constraints`
 
 - `compute_beta_loading_signs`
 
@@ -109,7 +108,7 @@ intercept in isolation. See the [complete mean bridge](gls_factor_premia.md).
 
 - `FactorCovarEstimator`
 
-## `factormodels.model`
+## `factormodels.estimation.models`
 
 - `DatedFactorCovariance`
 - `FactorModelSnapshot`
@@ -120,30 +119,17 @@ copies of the fitted tables. The existing `.asset_covariance` and
 `.residual_covariance` retain the selected residual policy. These accessors perform
 no estimation.
 
-## `factormodels.examples`
+## Repository teaching inputs
 
-- `synthetic_bundle`
+`synthetic_prices()` lives in `examples/reference_workflows.py`; it is excluded from the installed library.
 
-Also exported from the package root. It returns fresh deterministic
-synthetic `FactorBundle` inputs without fitting, downloading or saving anything.
-Use `fit_bundle(synthetic_bundle())` from any directory after installing the
-package. The [reference workflow](reference_workflows.md) reuses the same inputs.
+Also exported from the package root in the development version. It returns two
+fresh deterministic DataFrames: factor NAVs and asset total-return prices.
+It performs no fitting, downloading or saving. Prepare log returns with
+`qis.to_returns(..., is_log_returns=True)` and pass the histories directly to
+`FactorCovarEstimator`. See the [reference workflow](reference_workflows.md).
 
-## `factormodels.bundle`
-
-- `BUNDLE_SCHEMA_VERSION`
-- `BundleSettings`
-- `FactorBundle`
-- `load_bundle`
-- `fit_bundle`
-- `save_bundle`
-
-The [six-file contract](rolling_factor_covar_from_csv.md) defines schema version 1,
-units and configuration. Loading produces validated inputs only. Fitting returns
-a snapshot or rolling result; saving inputs creates a new directory. There is no
-implicit acquisition, fitted-result checkpoint or historical-format adapter.
-
-## `factormodels.risk`
+## `factormodels.estimation.risk`
 
 - `build_risk_model`
 
@@ -159,14 +145,14 @@ Current fitting clips all historical inputs before estimation and does not mutat
 
 GLS/CMA results condition on their supplied loadings/error model. Their intervals do not automatically include estimated-loading uncertainty or future-return risk. Correlated residual covariance is preserved in total risk; a diagonal-reference decomposition must be explicitly requested and labelled.
 
-## `factormodels.portfolio_context`
+## `factormodels.analytics.portfolio_context`
 
 - `prepare_portfolio_context`
 
 The returned dictionary completes the risk/table handoff for a downstream portfolio
 result. It contains no optimiser object and performs no portfolio solve.
 
-## `factormodels.signals`
+## `factormodels.analytics.signals`
 
 - `extract_rolling_clusters`
 - `prepare_cluster_scores`

@@ -7,8 +7,8 @@ import pytest
 from factorlasso import CurrentFactorCovarData, ResidualCorrelationData
 from qis.perfstats.config import ReturnTypes
 
-from factormodels.model import FactorModelSnapshot
-from factormodels.portfolio_context import prepare_portfolio_context
+from factormodels.estimation.models import FactorModelSnapshot
+from factormodels.analytics.portfolio_context import prepare_portfolio_context
 
 
 def _snapshot(complete: bool = True, correlated: bool = False) -> FactorModelSnapshot:

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "factormodels"
-version = "0.1.1"
+version = "0.2.0.dev0"
 description = "Factor construction, GLS premia, capital market assumptions and factor covariance estimation"
 readme = "README.md"
 requires-python = ">=3.11"

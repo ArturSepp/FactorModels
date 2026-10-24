@@ -15,7 +15,7 @@ import pandas as pd
 import pytest
 from qis import ReturnTypes
 
-from factormodels.construction import (
+from factormodels.spec.construction import (
     build_factor_catalogue_panel,
     build_factor_panel,
     compute_factor_nav,
@@ -23,7 +23,7 @@ from factormodels.construction import (
     compute_risk_factor_portfolio,
     compute_volatility_targeted_portfolio,
 )
-from factormodels.constraints import compute_beta_loading_signs
+from factormodels.estimation.beta_constraints import compute_beta_loading_signs
 from factormodels.spec import (
     Factor,
     FactorFamily,
@@ -314,3 +314,44 @@ def test_construction_works_with_rosaa_imports_blocked():
                             env=environment, check=False, capture_output=True, text=True)
     assert result.returncode == 0, result.stdout + result.stderr
     assert "NO_ROSAA_CONSTRUCTION_PASS" in result.stdout
+
+
+@pytest.mark.parametrize("policy,target,expected_target", [
+    (VolTargetPolicy.INHERIT, None, .15),
+    (VolTargetPolicy.INHERIT, .10, .10),
+    (VolTargetPolicy.NONE, None, None),
+    (VolTargetPolicy.FIXED, .10, .10),
+])
+def test_factor_configuration_controls_volatility_target(policy, target, expected_target):
+    """Configured inheritance, no targeting and fixed targets match explicit portfolio inputs."""
+    prices = _weekly_prices()
+    original = Factor("basket", FactorFamily("family", .15), ("A",), (1.,),
+                      ("B",), (.4,), rebalancing_freq="W-WED")
+    configured = replace(original, vol_target_policy=policy, vol_target=target)
+    actual = compute_factor_nav(configured, prices)
+    expected = compute_risk_factor_portfolio(
+        prices, np.array([1., -.4]), rebalancing_freq="W-WED",
+        portfolio_vol_target=expected_target, vol_span=original.vol_span,
+        returns_freq="W-WED", ticker="basket", vol_warmup_period=original.vol_warmup_period,
+    ).get_portfolio_nav()
+    pd.testing.assert_series_equal(actual, expected, check_exact=True)
+    assert original.vol_target is None
+    assert original.vol_target_policy is VolTargetPolicy.INHERIT
+    assert original.resolved_vol_target == .15
+    if policy is VolTargetPolicy.NONE:
+        assert configured.initial_volatility == .15
+        reference = _held_unit_nav(prices, np.array([1., -.4]), set(prices.index))
+        np.testing.assert_allclose(actual / actual.iloc[0], reference, rtol=1e-12, atol=1e-12)
+    elif expected_target == .15:
+        fixed = replace(original, vol_target_policy=VolTargetPolicy.FIXED, vol_target=.15)
+        pd.testing.assert_series_equal(actual, compute_factor_nav(fixed, prices), check_exact=True)
+
+
+def test_call_time_volatility_override_is_rejected():
+    """Removed runtime overrides fail explicitly instead of shadowing recorded configuration."""
+    prices = _weekly_prices()
+    factor = Factor("basket", FactorFamily("family", .15), ("A",), (1.,))
+    with pytest.raises(TypeError, match="vol_target"):
+        compute_factor_nav(factor, prices, vol_target=None)
+    with pytest.raises(TypeError):
+        compute_factor_nav(factor, prices, None, None, .10)

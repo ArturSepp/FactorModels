@@ -6,8 +6,8 @@ import pandas as pd
 import pytest
 from factorlasso import CurrentFactorCovarData, StabilityPoolingType, VarianceColumns
 
-from factormodels.model import FactorModelSnapshot, RollingFactorModel
-from factormodels.signals import extract_rolling_clusters, prepare_cluster_scores
+from factormodels.estimation.models import FactorModelSnapshot, RollingFactorModel
+from factormodels.analytics.signals import extract_rolling_clusters, prepare_cluster_scores
 
 TICKERS = [f"t{i}" for i in range(8)]
 SIGNAL_DATES = pd.DatetimeIndex(["2024-01-31", "2024-02-29", "2024-03-31"])

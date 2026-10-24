@@ -95,8 +95,7 @@ Do not use `uv run` from the source project for the installed check: it selects
 the project's editable environment.
 
 Run `python -m pytest --pyargs factormodels` with that installed interpreter.
-Also pass the absolute source paths for `tests/test_bundle_load.py`,
-`tests/test_examples.py`, `tests/test_readme.py`, `tests/test_documented_contracts.py` and
+Also pass the absolute source paths for `tests/test_examples.py`, `tests/test_readme.py`, `tests/test_documented_contracts.py` and
 `tests/test_dependency_floor.py`. Those top-level acceptance contracts complement
 the shipped source-adjacent tests; their collection counts need not match.
 Confirm `factormodels.__file__` resolves inside the installed environment.
@@ -118,7 +117,7 @@ separate actions. Use the runnable sources linked from the
 [reference workflows](docs/reference_workflows.md).
 
 Contribute source, tests and documentation. Keep local `agents/` records,
-production bundles, market-data snapshots, generated reports and manuscripts out
+production inputs, market-data snapshots, generated reports and manuscripts out
 of Git and distributions. Preserve the source licence and supplemental notices;
 see the [licensing guide](docs/licensing.md).
 

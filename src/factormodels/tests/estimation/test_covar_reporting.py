@@ -31,7 +31,7 @@ from factormodels.reports.covariance import (
     run_rolling_covar_report,
 )
 from factormodels.estimation import FactorCovarEstimator
-from factormodels.model import FactorModelSnapshot
+from factormodels.estimation.models import FactorModelSnapshot
 
 N_ASSETS = 8
 ASSETS = [f'A{i}' for i in range(N_ASSETS)]

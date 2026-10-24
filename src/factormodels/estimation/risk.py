@@ -8,7 +8,7 @@ import pandas as pd
 import qis
 from factorlasso import CurrentFactorCovarData, RollingFactorCovarData
 
-from factormodels.model import FactorModelSnapshot, RollingFactorModel
+from factormodels.estimation.models import FactorModelSnapshot, RollingFactorModel
 
 
 def build_risk_model(

@@ -11,35 +11,38 @@ offers three input paths. All default execution is offline and load-only. Use
 
 | Path | Data and completed output | Limitations |
 |---|---|---|
-| Synthetic | Installed `synthetic_bundle()` supplies 121 monthly USD NAV observations; `run_local_test(1)` returns the fitted log-return model, GLS inference and CMA audit | Synthetic arithmetic forecasts use an explicit second-order mean bridge and the unchanged fitted log covariance as a risk approximation |
-| Caller-supplied | `--bundle /path/to/inputs` validates six files; `--fit` explicitly estimates from them | Caller supplies data rights, availability, recipe and conventions |
-| Public proxy | `public_proxy_bundle(prices)` constructs Equity=SPY and Rates=TLT long-only factors; `run_local_test(2)` uses synthetic prices under those ticker labels | A two-ETF illustration, not the production MATF recipe; target asset histories are synthetic even when real proxy prices are supplied |
+| Synthetic | Repository example `synthetic_prices()` supplies two DataFrames with 121 monthly USD NAV observations; `run_local_test(1)` returns the fitted log-return model, GLS inference and CMA audit | Synthetic arithmetic forecasts use an explicit second-order mean bridge and the unchanged fitted log covariance as a risk approximation |
+| Caller-supplied | `--factor-prices factors.csv --asset-prices assets.csv` loads two price tables; `--fit` calls the estimator directly | Caller supplies data rights, availability, recipe and conventions |
+| Public proxy | `public_proxy_prices(prices)` constructs Equity=SPY and Rates=TLT long-only factors; `run_local_test(2)` uses synthetic prices under those ticker labels | A two-ETF illustration, not the production MATF recipe; target asset histories are synthetic even when real proxy prices are supplied |
 
 ## Reproduce offline
 
-The installed `factormodels.synthetic_bundle()` helper supplies fresh inputs
+The `synthetic_prices()` helper in `examples/reference_workflows.py` supplies fresh input DataFrames
 without fitting, acquisition or persistence. The command-line examples live in
 the checkout; after installing the package, run from that checkout:
 
 ```console
 python examples/reference_workflows.py
 python examples/reference_workflows.py --fit --output /path/to/new_synthetic_run
-python examples/reference_workflows.py --bundle /path/to/new_synthetic_run/inputs --fit
+python examples/reference_workflows.py --factor-prices factors.csv --asset-prices assets.csv --fit
 ```
 
-The first command only constructs/validates synthetic inputs and prints their
+The first command only constructs synthetic inputs and prints their
 count. The second returns an annual fitted covariance and, for the eligible
-synthetic model, GLS inference and a CMA audit. It saves input CSVs, fitted model
+synthetic model, GLS inference and a CMA audit. It saves fitted model
 tables, forecast and diagnostic tables, provenance and a CMA PDF to a new
-directory. The third is the caller-supplied path and writes nothing.
+directory. The third loads caller-prepared monthly USD total-return prices and writes nothing.
+Keep the source CSVs and estimator configuration separately; no fixed input schema is imposed.
 
 The example independently checks covariance assembly, labels, date bounds and
 positive semidefiniteness. The tests block network access, test default load-only
 behavior, and check persisted covariance and its units. Completion does not require
 rendering. See [fields and units](completed_model.md) and the
 [GLS/CMA methodology](gls_factor_premia.md) for the forecast construction and
-distinction between calibrated and implied premia. QIS may print a timing line
-during currency-adjusted return preparation; it is not a numerical result.
+distinction between calibrated and implied premia. The example uses
+`qis.to_returns(..., is_log_returns=True)` and an explicit `FactorCovarEstimator`;
+it performs no currency conversion or hedging. Prepare those upstream with
+`qis.FxRatesData` when your inputs need them.
 
 Follow the [QIS reference-currency conversion and excess-returns guide](https://github.com/ArturSepp/QuantInvestStrats/blob/main/docs/reference_currency_excess_returns.md),
 including its [USD/CHF comparison for hedge ratios 0, 0.5 and 1](https://github.com/ArturSepp/QuantInvestStrats/blob/main/docs/reference_currency_excess_returns.md#the-same-usd-asset-in-usd-and-chf-excess-returns-and-betas).
@@ -66,15 +69,15 @@ folder for outputs; an installed wheel defaults to the current working directory
 Use an external output root for a OneDrive checkout. In a running Python process,
 call `factormodels.get_paths.cache_clear()` after editing settings.
 
-Relative names passed to `load_bundle` and `--proxy-prices` use `RESOURCE_PATH`.
-Relative names passed to `save_bundle`, report renderers and `--output` use
+Relative names passed to `--factor-prices`, `--asset-prices` and `--proxy-prices`
+use `RESOURCE_PATH`. Relative names passed to report renderers and `--output` use
 `OUTPUT_PATH`. Absolute paths retain their explicit location. Input lookup never
-creates folders. Output parents are created when needed; bundle and example
+creates folders. Output parents are created when needed; example
 exports still reject existing run directories. PDF renderers retain their atomic
 replacement behavior. Computing without `--output` still writes no results.
 
 ```console
-python examples/reference_workflows.py --bundle supplied_run --fit --output fitted_run
+python examples/reference_workflows.py --factor-prices factors.csv --asset-prices assets.csv --fit --output fitted_run
 python examples/gls_cma_workflow.py --output arithmetic_run
 ```
 
@@ -100,7 +103,7 @@ inputs. No provider download is necessary to test construction or fitting.
 
 ## Inspect or consume
 
-`run_local_test` returns a dictionary containing `bundle`, `snapshot`, `audit` and
+`run_local_test` returns a dictionary containing `snapshot`, `audit` and
 `report_status`. The canonical synthetic path keeps the fitted loadings and annual
 factor, residual and asset covariance unchanged. It starts with synthetic annual
 arithmetic factor assumptions of 4% each, applies the explicit mean bridge
@@ -110,7 +113,7 @@ arithmetic alpha. The CMA audit uses the full forecast and records admitted alph
 and the GLS residual as construction channels. Both use zero cash and the fitted
 annual log covariance as an explicitly declared risk approximation.
 
-This report adapter supports LOG factors, zero domestic rates and strictly
+This report adapter supports LOG factors, a zero cash forecast assumption and strictly
 positive diagonal selected residual covariance. Native-point coordinates,
 correlated residuals, zero residual variance and nonzero cash require additional
 convention or metric choices. For those cases `audit` is `None` and

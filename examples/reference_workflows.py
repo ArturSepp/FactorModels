@@ -1,4 +1,4 @@
-"""Three explicit reference paths: synthetic, supplied bundle, public proxy.
+"""Three explicit reference paths: synthetic, supplied prices, public proxy.
 
 All prices in the default example are synthetic USD total-return NAVs with zero
 cash. Fitted risk uses annualized log-return moments; illustrative forecasts use
@@ -8,6 +8,7 @@ No acquisition, fitting on load, or persistence occurs implicitly.
 from __future__ import annotations
 
 import argparse
+from dataclasses import replace
 import json
 from pathlib import Path
 
@@ -15,17 +16,76 @@ from factormodels.utils.local_path import create_output_directory, resolve_resou
 
 import numpy as np
 import pandas as pd
+import qis
+from factorlasso import LassoModel, LassoModelType
 
 from factormodels import (
-    BundleSettings, CmaDiagnosticInputs, FactorBundle, FactorModelSnapshot, RiskFactors,
-    annual_arithmetic_from_log, compute_cma_diagnostics, fit_bundle,
-    infer_factor_premia, load_bundle, save_bundle, synthetic_bundle,
+    CmaDiagnosticInputs, FactorCovarEstimator, FactorModelSnapshot, RiskFactors,
+    annual_arithmetic_from_log, compute_cma_diagnostics, infer_factor_premia,
 )
 
 
-def inspect_fit(bundle: FactorBundle) -> dict:
-    """Fit supplied inputs and check covariance assembly independently of FL helpers."""
-    snapshot = fit_bundle(bundle)
+def synthetic_prices() -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Return independent synthetic factor NAVs and asset total-return prices.
+
+    The fixed seed produces 121 monthly USD observations from January 2014 through
+    January 2024 for two factors and four assets. These are illustrative prices,
+    not market data. Callers prepare log returns and configure their estimator.
+    No acquisition, fitting, rendering or persistence occurs.
+
+    Returns:
+        tuple[pd.DataFrame, pd.DataFrame]: Factor NAVs, then asset prices.
+    """
+    rng = np.random.default_rng(6102026)
+    dates = pd.date_range("2014-01-31", periods=121, freq="ME")
+    x = rng.normal([.004, .001], [.035, .018], (120, 2))
+    b = np.array([[.9, .1], [.1, .9], [.6, .4], [.4, -.2]])
+    y = x @ b.T + rng.normal(0., .013, (120, 4))
+    levels = pd.DataFrame(100 * np.exp(np.vstack([np.zeros(2), x.cumsum(axis=0)])),
+                          index=dates, columns=["Equity", "Rates"])
+    prices = pd.DataFrame(100 * np.exp(np.vstack([np.zeros(4), y.cumsum(axis=0)])),
+                          index=dates, columns=["Asset A", "Asset B", "Asset C", "Asset D"])
+    return levels, prices
+
+
+def inspect_fit(
+    factor_prices: pd.DataFrame, asset_prices: pd.DataFrame, *,
+    estimator: FactorCovarEstimator | None = None, cutoff=None,
+    cash_rate: float = 0., factor_units: dict[str, str] | None = None,
+) -> dict:
+    """Fit supplied USD total-return prices directly and inspect the completed model.
+
+    Inputs are monthly histories already in one currency; currency conversion and
+    hedging belong to the caller. Cash is only a forecast-audit assumption here.
+    Native factor levels require their units and an explicit estimator coordinate map.
+    """
+    cutoff = pd.Timestamp(factor_prices.index[-1] if cutoff is None else cutoff)
+    if estimator is None:
+        estimator = FactorCovarEstimator(
+            lasso_model=LassoModel(
+                model_type=LassoModelType.LASSO, reg_lambda=1.e-5, span=36,
+                warmup_period=6, demean=True, solver="CLARABEL", loss_normalization="sample",
+            ),
+            factor_returns_freq="ME", factor_covar_span=36,
+            rebalancing_freq="QE", residual_type="orthogonal",
+        )
+    # Keep warmup and the first missing return; exact zero returns remain missing.
+    returns = qis.to_returns(
+        asset_prices.loc[:cutoff], freq="ME", is_log_returns=True,
+        drop_first=False, ffill_nans=False,
+    ).replace(0., np.nan)
+    snapshot = estimator.fit_current(
+        risk_factor_prices=factor_prices, asset_returns_dict={"ME": returns},
+        assets=list(asset_prices.columns), cutoff=cutoff,
+    )
+    if factor_units is None:
+        if any(kind.name != "LOG" for kind in snapshot.factor_return_types.values()):
+            raise ValueError("Native difference factors require explicit factor_units")
+        factor_units = {name: "dimensionless" for name in factor_prices.columns}
+    snapshot = replace(snapshot, provenance={
+        **snapshot.provenance, "reference_ccy": "USD", "factor_units": dict(factor_units),
+        "factor_return_basis": "total",
+    })
     betas = snapshot.loadings
     factors = snapshot.factor_covariance
     residual = snapshot.residual_covariance
@@ -34,14 +94,14 @@ def inspect_fit(bundle: FactorBundle) -> dict:
     reference = np.einsum("ik,kl,jl->ij", betas, factors, betas) + residual.to_numpy()
     np.testing.assert_allclose(covariance, reference, rtol=1e-11, atol=1e-12)
     assert covariance.index.equals(betas.index) and covariance.columns.equals(betas.index)
-    assert snapshot.cutoff == bundle.settings.estimation_end
+    assert snapshot.cutoff == cutoff
     assert snapshot.data.residuals.index.max() <= snapshot.cutoff
     assert np.linalg.eigvalsh(covariance).min() >= -1e-10
 
-    return {"bundle": bundle, "snapshot": snapshot, **audit_snapshot(bundle, snapshot)}
+    return {"snapshot": snapshot, **audit_snapshot(snapshot, cash_rate=cash_rate)}
 
 
-def audit_snapshot(bundle: FactorBundle, snapshot: FactorModelSnapshot) -> dict:
+def audit_snapshot(snapshot: FactorModelSnapshot, *, cash_rate: float = 0.) -> dict:
     """Connect a frozen fit to illustrative arithmetic forecasts without refitting.
 
     All factor forecasts are explicitly assumed to be 4% annual arithmetic excess
@@ -54,7 +114,7 @@ def audit_snapshot(bundle: FactorBundle, snapshot: FactorModelSnapshot) -> dict:
     unavailable = None
     if any(kind.name != "LOG" for kind in snapshot.factor_return_types.values()):
         unavailable = "native difference factors require explicit forecast units"
-    elif not (bundle.domestic_rates.loc[:snapshot.cutoff].to_numpy() == 0.).all():
+    elif cash_rate != 0.:
         unavailable = "nonzero cash requires explicit total-to-excess forecast treatment"
     elif not np.allclose(residual, np.diag(np.diag(residual)), rtol=0., atol=1e-14):
         unavailable = "correlated residual risk is retained; this report requires a diagonal policy"
@@ -84,7 +144,7 @@ def audit_snapshot(bundle: FactorBundle, snapshot: FactorModelSnapshot) -> dict:
         channels=pd.DataFrame({"admitted_alpha": alpha_arithmetic,
                                "forecast_residual": premia.assets.residual}),
         provenance={"data_kind": "illustrative_forecasts_on_supplied_fit",
-                    "reference_ccy": bundle.settings.reference_ccy,
+                    "reference_ccy": snapshot.provenance["reference_ccy"],
                     "as_of": str(snapshot.cutoff.date()),
                     "model_name": "Annual log-risk approximation",
                     "universe": f"{len(betas)} assets / {len(betas.columns)} factors",
@@ -119,20 +179,19 @@ def persist_example(result: dict, directory: Path) -> Path:
     """Save fitted tables and any eligible arithmetic audit on explicit request.
 
     These CSVs are table exports, not a fitted-object checkpoint or reload format.
-    The six input CSVs under inputs/ can be loaded separately without refitting.
+    Retain source histories and estimator configuration separately when needed.
     """
     directory = create_output_directory(directory)
-    save_bundle(result["bundle"], directory / "inputs")
     snapshot = result["snapshot"]
     snapshot.loadings.to_csv(directory / "loadings.csv")
     snapshot.factor_covariance.to_csv(directory / "factor_covariance.csv")
     snapshot.residual_covariance.to_csv(directory / "residual_covariance.csv")
     snapshot.asset_covariance.to_csv(directory / "asset_covariance.csv")
     (directory / "result_metadata.json").write_text(json.dumps({
-        "cutoff": str(snapshot.cutoff), "reference_ccy": result["bundle"].settings.reference_ccy,
+        "cutoff": str(snapshot.cutoff), "reference_ccy": snapshot.provenance["reference_ccy"],
         "covariance_units": "annual_asset_log_returns_squared", "residual_type": snapshot.residual_type,
-        "factor_return_types": dict(result["bundle"].settings.factor_return_types),
-        "factor_units": dict(result["bundle"].settings.factor_units),
+        "factor_return_types": {name: kind.name for name, kind in snapshot.factor_return_types.items()},
+        "factor_units": snapshot.provenance["factor_units"],
         "report_status": result["report_status"], "provenance": snapshot.provenance,
     }, indent=2, default=str) + "\n", encoding="utf-8")
     if result["audit"] is not None:
@@ -161,7 +220,7 @@ class ProxyFactors(RiskFactors):
     RATES = "Rates"
 
 
-def public_proxy_bundle(prices: pd.DataFrame | None = None) -> FactorBundle:
+def public_proxy_prices(prices: pd.DataFrame | None = None) -> tuple[pd.DataFrame, pd.DataFrame]:
     """Construct a two-ETF proxy from supplied USD adjusted prices.
 
     None uses synthetic histories labelled SPY/TLT, not downloaded ETF evidence.
@@ -171,10 +230,9 @@ def public_proxy_bundle(prices: pd.DataFrame | None = None) -> FactorBundle:
     from factormodels import Factor, FactorFamily, VolTargetPolicy, build_factor_panel
     from factormodels.spec import FactorModelSpec
 
-    base = synthetic_bundle()
-    synthetic_prices = prices is None
+    factor_prices, asset_prices = synthetic_prices()
     if prices is None:
-        prices = base.factor_levels.rename(columns={"Equity": "SPY", "Rates": "TLT"})
+        prices = factor_prices.rename(columns={"Equity": "SPY", "Rates": "TLT"})
     prices = prices.loc[:, ["SPY", "TLT"]].copy()
     factors = [Factor(name="Equity", family=FactorFamily("Equity", vol_target=None),
                       long_side_tickers=("SPY",), long_side_weights=(1.,),
@@ -187,26 +245,18 @@ def public_proxy_bundle(prices: pd.DataFrame | None = None) -> FactorBundle:
     levels = build_factor_panel(spec, prices, returns_freq="ME", rebalancing_freq="QE", vol_span=None)
     # Four illustrative targets remain synthetic even when the proxy prices are acquired.
     # Use supplied proxy date overlap; do not imply that these are observed asset returns.
-    assets = base.asset_prices.reindex(levels.index).dropna()
+    assets = asset_prices.reindex(levels.index).dropna()
     if len(assets) < 24:
         raise ValueError("The teaching asset panel requires at least 24 common dates in 2014–2024")
     levels = levels.loc[assets.index]
-    return FactorBundle(
-        factor_levels=levels, fx_spots=pd.DataFrame({"USD": 1.}, index=levels.index),
-        domestic_rates=pd.DataFrame({"USD": 0.}, index=levels.index), asset_prices=assets,
-        asset_metadata=base.asset_metadata,
-        settings=BundleSettings(reference_ccy="USD", factor_names=tuple(levels.columns),
-                                estimation_start=levels.index[12], estimation_end=levels.index[-1],
-                                recipe_id="public-etf-proxy-v1"),
-        provenance={"proxy_prices": "synthetic" if synthetic_prices else "caller_supplied_adjusted_closes",
-                    "target_assets": "synthetic", "definitions": {"Equity": "long SPY", "Rates": "long TLT"}})
+    return levels, assets
 
 
 def run_local_test(case: int = 1) -> dict:
     """Run synthetic fit (1) or offline proxy construction/fit (2), returning objects."""
     if case not in (1, 2):
         raise ValueError("case must be 1 (synthetic) or 2 (synthetic ETF proxy)")
-    result = inspect_fit(synthetic_bundle() if case == 1 else public_proxy_bundle())
+    result = inspect_fit(*(synthetic_prices() if case == 1 else public_proxy_prices()))
     print(result["snapshot"].asset_covariance)
     return result
 
@@ -235,23 +285,31 @@ def acquire_proxy_prices() -> pd.DataFrame:
 def main() -> None:
     """Load only by default; fitting and writing each require their own option."""
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--bundle", type=Path, help="Caller-supplied schema-v1 six-file directory")
+    parser.add_argument("--factor-prices", type=Path, help="Dated monthly USD total-return factor NAV CSV")
+    parser.add_argument("--asset-prices", type=Path, help="Dated monthly USD total-return asset price CSV")
     parser.add_argument("--proxy-prices", type=Path, help="Already acquired USD adjusted SPY/TLT CSV")
     parser.add_argument("--acquire-proxy", action="store_true", help="Explicit optional Yahoo acquisition")
     parser.add_argument("--fit", action="store_true", help="Explicitly fit in memory")
     parser.add_argument("--output", type=Path, help="New output directory; requires --fit")
     args = parser.parse_args()
-    if sum(bool(x) for x in (args.bundle, args.proxy_prices, args.acquire_proxy)) > 1:
-        parser.error("choose --bundle, --proxy-prices or --acquire-proxy")
+    if bool(args.factor_prices) != bool(args.asset_prices):
+        parser.error("--factor-prices and --asset-prices must be supplied together")
+    if sum(bool(x) for x in (args.factor_prices, args.proxy_prices, args.acquire_proxy)) > 1:
+        parser.error("choose supplied factor/asset prices, --proxy-prices or --acquire-proxy")
     if args.output and not args.fit:
         parser.error("--output requires --fit")
-    bundle = (public_proxy_bundle(acquire_proxy_prices()) if args.acquire_proxy else
-        load_bundle(args.bundle) if args.bundle else public_proxy_bundle(
-        pd.read_csv(resolve_resource_path(args.proxy_prices), index_col=0, parse_dates=True))
-        if args.proxy_prices else synthetic_bundle())
-    print(f"Loaded {len(bundle.factor_levels)} factor observations; recipe={bundle.settings.recipe_id}")
+    if args.factor_prices:
+        factor_prices = pd.read_csv(resolve_resource_path(args.factor_prices), index_col=0, parse_dates=True)
+        asset_prices = pd.read_csv(resolve_resource_path(args.asset_prices), index_col=0, parse_dates=True)
+    elif args.acquire_proxy or args.proxy_prices:
+        prices = (acquire_proxy_prices() if args.acquire_proxy else
+                  pd.read_csv(resolve_resource_path(args.proxy_prices), index_col=0, parse_dates=True))
+        factor_prices, asset_prices = public_proxy_prices(prices)
+    else:
+        factor_prices, asset_prices = synthetic_prices()
+    print(f"Loaded {len(factor_prices)} factor observations")
     if args.fit:
-        result = inspect_fit(bundle)
+        result = inspect_fit(factor_prices, asset_prices)
         print(result["snapshot"].asset_covariance)
         print(result["report_status"])
         if args.output:

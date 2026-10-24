@@ -24,7 +24,7 @@ from factorlasso import (
     get_linkages_by_freq,
 )
 from factormodels.estimation import FactorCovarEstimator
-from factormodels.model import FactorModelSnapshot
+from factormodels.estimation.models import FactorModelSnapshot
 
 def _snapshot_table(snapshot: FactorModelSnapshot) -> pd.DataFrame:
     """Retain fit diagnostics and report the selected residual-risk scaling."""

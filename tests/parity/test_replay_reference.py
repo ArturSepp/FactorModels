@@ -40,7 +40,7 @@ def test_missing_component_is_rejected():
 @pytest.mark.parametrize("corrupt", [False, True])
 def test_consumer_construction_executes_rosaa_boundary_and_rejects_corruption(monkeypatch, corrupt):
     """A direct FM fallback would miss the deliberately corrupted Rosaa output."""
-    from factormodels.construction import build_factor_panel
+    from factormodels.spec.construction import build_factor_panel
 
     module = ModuleType("ramen.quant_model_mvp.rosaa.data.factors.panel_io")
     module.__file__ = __file__

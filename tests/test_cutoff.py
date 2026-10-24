@@ -4,7 +4,7 @@ import pandas as pd
 import pytest
 import qis
 
-from factormodels.model import DatedFactorCovariance
+from factormodels.estimation.models import DatedFactorCovariance
 from factormodels.tests._estimation_fixture import estimator, panels
 
 

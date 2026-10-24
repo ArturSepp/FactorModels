@@ -10,8 +10,8 @@ from qis.perfstats.config import ReturnTypes
 from qis.portfolio.risk.factor_groups import FactorGroupSpec
 
 from factormodels.estimation import FactorCovarEstimator
-from factormodels.model import DatedFactorCovariance
-from factormodels.risk import build_risk_model
+from factormodels.estimation.models import DatedFactorCovariance
+from factormodels.estimation.risk import build_risk_model
 from factormodels.tests._estimation_fixture import estimator, panels
 
 

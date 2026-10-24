@@ -196,7 +196,7 @@ class FactorModelSnapshot:
         Correlated residuals retain B and total covariance but omit QIS's diagonal
         F/D decomposition unless explicitly requesting a diagonal reference view.
         """
-        from factormodels.risk import build_risk_model
+        from factormodels.estimation.risk import build_risk_model
 
         return build_risk_model(self, diagonal_reference=diagonal_reference)
 
@@ -231,6 +231,6 @@ class RollingFactorModel:
 
     def to_risk_model(self, *, diagonal_reference: bool = False) -> qis.RiskModel:
         """Export all snapshots without replacing their selected residual policies."""
-        from factormodels.risk import build_risk_model
+        from factormodels.estimation.risk import build_risk_model
 
         return build_risk_model(self, diagonal_reference=diagonal_reference)

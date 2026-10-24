@@ -33,16 +33,12 @@ def test_offline_reference(relative, case):
     namespace["run_local_test"](case)
 
 
-def test_supplied_bundle_round_trip_preserves_log_risk_and_arithmetic_report(tmp_path, monkeypatch):
-    """Load-only inputs round trip; the declared forecast bridge connects the audit."""
+def test_direct_fit_preserves_log_risk_and_arithmetic_report(tmp_path, monkeypatch):
+    """Plain input tables feed a direct fit and the declared forecast bridge."""
     import matplotlib.pyplot as plt
-    from factormodels import load_bundle, save_bundle
     from factormodels.reports.cma_diagnostics import _build_pages
     namespace = runpy.run_path(str(ROOT / "examples" / "reference_workflows.py"))
-    bundle = namespace["synthetic_bundle"]()
-    source = save_bundle(bundle, tmp_path / "supplied")
-    loaded = load_bundle(source)
-    result = namespace["inspect_fit"](loaded)
+    result = namespace["inspect_fit"](*namespace["synthetic_prices"]())
     monkeypatch.setenv("FACTORMODELS_OUTPUT_PATH", str(tmp_path / "configured"))
     output = namespace["persist_example"](result, "report")
     assert output == tmp_path / "configured/report"
@@ -131,7 +127,7 @@ def test_reference_cli_defaults_to_load_only(monkeypatch, capsys):
     def forbidden(*args, **kwargs):
         raise AssertionError("load-only entry point attempted another action")
     main = namespace["main"]
-    for name in ("fit_bundle", "inspect_fit", "persist_example", "acquire_proxy_prices"):
+    for name in ("inspect_fit", "persist_example", "acquire_proxy_prices"):
         monkeypatch.setitem(main.__globals__, name, forbidden)
     monkeypatch.setattr("sys.argv", ["reference_workflows.py"])
     main()
@@ -148,3 +144,73 @@ def test_reference_cli_fit_does_not_persist_without_output(monkeypatch, capsys):
     monkeypatch.setattr("sys.argv", ["reference_workflows.py", "--fit"])
     main()
     assert "available: arithmetic forecast approximation" in capsys.readouterr().out
+
+
+def test_reference_csv_cli_uses_yaml_and_direct_log_estimation(tmp_path, monkeypatch):
+    """Two supplied CSVs become the declared log-return panels without a serializer."""
+    from factormodels import FactorCovarEstimator, get_paths
+    namespace = runpy.run_path(str(ROOT / "examples" / "reference_workflows.py"))
+    factors, prices = namespace["synthetic_prices"]()
+    inputs = tmp_path / "inputs"
+    inputs.mkdir()
+    factors.to_csv(inputs / "factors.csv")
+    prices.to_csv(inputs / "assets.csv")
+    settings = tmp_path / "paths.yaml"
+    settings.write_text("RESOURCE_PATH: inputs\nOUTPUT_PATH: outputs\n", encoding="utf-8")
+    monkeypatch.setenv("FACTORMODELS_SETTINGS_PATH", str(settings))
+    monkeypatch.delenv("FACTORMODELS_RESOURCE_PATH", raising=False)
+    get_paths.cache_clear()
+    original = FactorCovarEstimator.fit_current
+    calls = []
+
+    def record(self, **kwargs):
+        """Run the real estimator while capturing the prepared inputs and result."""
+        result = original(self, **kwargs)
+        calls.append((kwargs, result))
+        return result
+
+    monkeypatch.setattr(FactorCovarEstimator, "fit_current", record)
+    monkeypatch.setattr("sys.argv", ["reference_workflows.py", "--factor-prices", "factors.csv",
+                                     "--asset-prices", "assets.csv", "--fit"])
+    before = {p.relative_to(tmp_path): p.read_bytes() for p in tmp_path.rglob("*") if p.is_file()}
+    try:
+        namespace["main"]()
+    finally:
+        get_paths.cache_clear()
+    assert len(calls) == 1
+    supplied, snapshot = calls[0]
+    assert supplied["cutoff"] == factors.index[-1]
+    assert supplied["assets"] == list(prices.columns)
+    pd.testing.assert_frame_equal(supplied["risk_factor_prices"], factors, check_freq=False)
+    # Independent log-ratio reference detects a silent switch to arithmetic returns.
+    expected = np.log(prices / prices.shift(1)).replace(0., np.nan)
+    pd.testing.assert_frame_equal(supplied["asset_returns_dict"]["ME"], expected,
+                                  rtol=1e-11, atol=1e-12, check_freq=False)
+    assert supplied["asset_returns_dict"]["ME"].iloc[0].isna().all()
+    assert snapshot.asset_covariance.shape == (4, 4)
+    assert before == {p.relative_to(tmp_path): p.read_bytes() for p in tmp_path.rglob("*") if p.is_file()}
+    assert not (tmp_path / "outputs").exists()
+
+
+@pytest.mark.parametrize("arguments", [
+    ["--factor-prices", "factors.csv"],
+    ["--asset-prices", "assets.csv"],
+    ["--factor-prices", "factors.csv", "--asset-prices", "assets.csv", "--acquire-proxy"],
+    ["--output", "unrequested"],
+])
+def test_reference_cli_rejects_incomplete_or_conflicting_inputs(arguments, monkeypatch):
+    """Invalid input choices fail before any loading, acquisition or estimation."""
+    namespace = runpy.run_path(str(ROOT / "examples" / "reference_workflows.py"))
+
+    def forbidden(*args, **kwargs):
+        """Reject side effects before argument validation."""
+        raise AssertionError("invalid arguments must fail before actions")
+
+    main = namespace["main"]
+    for name in ("inspect_fit", "synthetic_prices", "acquire_proxy_prices", "persist_example"):
+        monkeypatch.setitem(main.__globals__, name, forbidden)
+    monkeypatch.setattr(pd, "read_csv", forbidden)
+    monkeypatch.setattr("sys.argv", ["reference_workflows.py", *arguments])
+    with pytest.raises(SystemExit) as error:
+        main()
+    assert error.value.code == 2

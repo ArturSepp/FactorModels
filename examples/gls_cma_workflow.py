@@ -3,7 +3,7 @@
 Monthly simple excess-return NAVs, uniform weights, CLARABEL, no missing data.
 The small example teaches the two stages; it does not substitute for MATF production
 price preparation, expert priors, horizons or data. No network access. Persistence
-requires an explicit --output directory; the log-return bundle is not converted.
+requires an explicit --output directory; the log-return example is not converted.
 """
 
 import argparse

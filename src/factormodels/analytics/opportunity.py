@@ -14,7 +14,7 @@ import numpy as np
 import pandas as pd
 from factorlasso import CurrentFactorCovarData, ResidualCorrelationData, ResidualType
 
-from factormodels.risk import build_risk_model
+from factormodels.estimation.risk import build_risk_model
 from factormodels.premia import sharpe_accounting as sa
 
 

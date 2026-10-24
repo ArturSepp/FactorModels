@@ -21,8 +21,8 @@ Implemented in [FactorModels](https://github.com/ArturSepp/FactorModels). Softwa
 
 ## Inputs and computation
 
-The [canonical bundle workflow](reference_workflows.md) estimates a log-return
-model with `fit_bundle`, then supplies its unchanged loadings and covariance to
+The [canonical estimator workflow](reference_workflows.md) estimates a log-return
+model with `FactorCovarEstimator.fit_current`, then supplies its unchanged loadings and covariance to
 GLS inference and this audit. Annual arithmetic forecasts use an explicit
 second-order mean bridge. Annual log-return covariance is retained as a declared
 risk approximation, rather than relabelled as exact arithmetic covariance.
@@ -102,7 +102,7 @@ Keep a production audit of the published forecast distinct from a provider view
 whose admitted alpha has already been removed. Reconcile the construction channels
 to the target actually supplied.
 
-In the canonical bundle example, the audit target is the full synthetic forecast
+In the canonical estimator example, the audit target is the full synthetic forecast
 at zero cash. GLS first credits the arithmetic alpha constructed from the
 historical log alpha and the asset-level variance adjustment. The audit retains
 that admitted alpha and the GLS residual as separate construction channels. Its

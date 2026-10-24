@@ -35,7 +35,7 @@ from __future__ import annotations
 # packages
 import numpy as np
 import pandas as pd
-from typing import Mapping, Optional, Union
+from typing import Mapping, Optional
 from numbers import Integral
 # qis / project
 import qis as qis
@@ -45,26 +45,13 @@ from factormodels.spec import (
 )
 
 __all__ = [
-    "DEFAULT_RETURNS_FREQ", "INHERIT", "build_factor_panel", "build_factor_catalogue_panel",
+    "DEFAULT_RETURNS_FREQ", "build_factor_panel", "build_factor_catalogue_panel",
     "select_factor_prices", "compute_factor_nav", "compute_risk_factor_portfolio",
     "compute_live_strategic_weights", "compute_volatility_targeted_portfolio",
 ]
 
 # Weekly Wednesday: avoids Monday holidays and week-end effects.
 DEFAULT_RETURNS_FREQ: str = 'W-WED'
-
-
-class _Inherit:
-    """Sentinel for 'take the vol target from the factor'.
-
-    ``None`` is a meaningful value on that argument — it disables vol targeting and holds the
-    strategic weights unlevered — so it cannot double as 'not supplied'.
-    """
-    def __repr__(self) -> str:
-        return 'INHERIT'
-
-
-INHERIT = _Inherit()
 
 
 def build_factor_panel(spec: FactorModelSpec,
@@ -176,19 +163,18 @@ def compute_factor_nav(factor: Factor,
                        futures_prices: pd.DataFrame,
                        rebalancing_freq: Optional[str] = None,
                        vol_span: Optional[int] = None,
-                       vol_target: Union[float, None, _Inherit] = INHERIT,
+                       *,
                        returns_freq: str = DEFAULT_RETURNS_FREQ,
                        ticker: Optional[str] = None
                        ) -> pd.Series:
     """the NAV of one factor, as a vol-targeted portfolio of its flattened basket.
 
     Args:
-        factor: The factor's sides, weights, family and holding rule.
+        factor: The factor's sides, weights, family, volatility-target policy and holding rule.
+            Configure inheritance, disabled targeting or a fixed target on the factor itself.
         futures_prices: Base price panel carrying the factor's constituents.
         rebalancing_freq: Overrides ``factor.rebalancing_freq`` when not None.
         vol_span: Overrides ``factor.vol_span`` when not None.
-        vol_target: ``INHERIT`` resolves against the factor and its family; a float overrides it;
-            ``None`` disables vol targeting and holds the strategic weights unlevered.
         returns_freq: Frequency the vol estimate is computed at.
         ticker: Name the resulting series carries. None uses ``factor.name``.
 
@@ -214,14 +200,12 @@ def compute_factor_nav(factor: Factor,
             for component in factor.component_factors], axis=1)
         rebalancing_freq = factor.rebalancing_freq
     prices = select_factor_prices(factor, futures_prices)
-    resolved_vol_target = (factor.resolved_vol_target if isinstance(vol_target, _Inherit)
-                           else vol_target)
     portfolio_data = compute_risk_factor_portfolio(
         prices=prices,
         strategic_weights=np.array(factor.signed_weights()),
         rebalancing_freq=(rebalancing_freq if rebalancing_freq is not None
                           else factor.rebalancing_freq),
-        portfolio_vol_target=resolved_vol_target,
+        portfolio_vol_target=factor.resolved_vol_target,
         vol_span=vol_span if vol_span is not None else factor.vol_span,
         returns_freq=returns_freq,
         ticker=ticker if ticker is not None else factor.name,

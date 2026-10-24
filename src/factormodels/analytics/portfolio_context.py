@@ -9,8 +9,8 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
-from factormodels.model import FactorModelSnapshot
-from factormodels.risk import build_risk_model
+from factormodels.estimation.models import FactorModelSnapshot
+from factormodels.estimation.risk import build_risk_model
 
 __all__ = ['prepare_portfolio_context']
 

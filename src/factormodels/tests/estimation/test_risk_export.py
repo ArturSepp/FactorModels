@@ -7,7 +7,7 @@ import pandas as pd
 import pytest
 from factorlasso import CurrentFactorCovarData, RollingFactorCovarData, VarianceColumns
 
-from factormodels.risk import build_risk_model
+from factormodels.estimation.risk import build_risk_model
 
 SEED = 20260808
 N_DATES = 3

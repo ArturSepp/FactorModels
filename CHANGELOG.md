@@ -4,6 +4,40 @@ FactorModels constructs multi-asset tradable factor models and provides
 generalized least squares (GLS) and capital market assumption (CMA) diagnostics.
 The first public release is 0.1.0; earlier entries record unpublished development.
 
+## [0.2.0.dev0] - Unreleased
+
+### Removed
+
+- Remove the six-file input bundle layer and its public exports: `factormodels.bundle`,
+  `BUNDLE_SCHEMA_VERSION`, `BundleSettings`, `FactorBundle`, `load_bundle`, `fit_bundle`,
+  `save_bundle` and `synthetic_bundle`. Existing callers must prepare DataFrames and
+  call `FactorCovarEstimator.fit_current` or `.fit_rolling` directly.
+
+### Changed
+
+- Read volatility targeting directly from `Factor.vol_target_policy` and `Factor.vol_target`.
+  Remove the custom `INHERIT` sentinel and `compute_factor_nav(..., vol_target=...)` override;
+  inherit, disabled and fixed targeting remain explicit factor configurations. Research callers
+  use `dataclasses.replace`; `returns_freq` and `ticker` are keyword-only to reject old
+  positional overrides. Construction outputs and inherited defaults are unchanged.
+
+- Move implementations out of package initializers into named modules: definitions and
+  construction under `spec`, estimator/results/risk and beta constraints under `estimation`,
+  portfolio context and cluster signals under `analytics`. Initializers contain exports only.
+  Remove the redundant `construction`, `constraints`, `model`, `risk`, `portfolio_context`,
+  `signals` and `examples` packages. Public numerical root exports remain available.
+- Keep synthetic teaching inputs in the repository examples and the self-contained README,
+  removing `synthetic_prices` from the installed API. Update callers and package checks.
+  Algorithms, seeds, conventions and historical environments are unchanged.
+
+- Examples and README configure the estimator explicitly. `synthetic_prices()` returns
+  plain factor NAV and asset price DataFrames with the existing seed and histories.
+- The reference CLI accepts `--factor-prices` and `--asset-prices` instead of `--bundle`.
+  YAML resource/output paths and explicit result export remain supported. Currency/hedging
+  preparation and input persistence belong to the caller. Estimator algorithms are unchanged.
+- Update the affected source/wheel tests, CI import checks and input documentation.
+  Historical environments and saved inputs remain unchanged.
+
 ## 0.1.1 (2026-10-22)
 
 - Move root implementation modules into import-compatible subpackages; only `__init__.py`

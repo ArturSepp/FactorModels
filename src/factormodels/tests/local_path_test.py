@@ -45,28 +45,24 @@ def test_environment_overrides_yaml(paths, tmp_path, monkeypatch):
     assert not (tmp_path / "override-inputs").exists()
 
 
-def test_relative_bundle_roundtrip_and_no_overwrite(paths, tmp_path):
-    """Bundle names use YAML roots and refuse to overwrite an existing saved bundle."""
-    local_path, config = paths
-    config.write_text("RESOURCE_PATH: outputs\nOUTPUT_PATH: outputs\n", encoding="utf-8")
-    local_path.get_paths.cache_clear()
-    original = fm.synthetic_bundle()
-    output = fm.save_bundle(original, "nested/synthetic")
-    assert output == tmp_path / "outputs/nested/synthetic"
-    loaded = fm.load_bundle("nested/synthetic")
-    assert loaded.settings == original.settings
-    before = {p.name: p.read_bytes() for p in output.iterdir()}
+def test_output_directory_uses_yaml_and_never_overwrites(paths, tmp_path):
+    """Example exports create a fresh directory beneath the YAML output root."""
+    local_path, _ = paths
+    output = local_path.create_output_directory("nested/example")
+    assert output == tmp_path / "outputs/nested/example"
+    marker = output / "keep.txt"
+    marker.write_text("keep", encoding="utf-8")
     with pytest.raises(FileExistsError):
-        fm.save_bundle(original, "nested/synthetic")
-    assert before == {p.name: p.read_bytes() for p in output.iterdir()}
+        local_path.create_output_directory("nested/example")
+    assert marker.read_text(encoding="utf-8") == "keep"
 
 
-def test_absolute_bundle_paths_bypass_local_settings(paths, tmp_path):
-    """An explicit absolute path retains its caller-selected location."""
-    _, config = paths
+def test_absolute_paths_bypass_local_settings(paths, tmp_path):
+    """Explicit absolute input and output paths need no usable YAML settings."""
+    local_path, config = paths
     config.write_text("not: [valid", encoding="utf-8")
-    output = fm.save_bundle(fm.synthetic_bundle(), tmp_path / "absolute/nested/bundle")
-    assert fm.load_bundle(output).settings.recipe_id == fm.synthetic_bundle().settings.recipe_id
+    output = local_path.create_output_directory(tmp_path / "absolute/nested/example")
+    assert local_path.resolve_resource_path(output) == output
     assert not (tmp_path / "outputs").exists()
 
 
@@ -108,16 +104,18 @@ def test_output_creation_error_never_falls_back(paths, tmp_path):
 
 
 def test_shipped_yaml_and_public_module_paths():
-    """Wheel users receive the settings template and stable Python import paths."""
+    """Wheel users receive the settings template and named implementation modules."""
     import importlib
     package = Path(fm.__file__).parent
     assert (package / "settings.yaml").is_file()
     assert sorted(p.name for p in package.glob("*.py")) == ["__init__.py"]
-    for name in ("bundle", "construction", "constraints", "estimation", "examples", "model", "portfolio_context", "risk", "signals", "spec"):
+    for name in ("spec.construction", "estimation.beta_constraints", "estimation.estimator",
+                 "estimation.models", "analytics.portfolio_context", "estimation.risk",
+                 "analytics.signals", "spec.definitions"):
         module = importlib.import_module(f"factormodels.{name}")
-        assert Path(module.__file__).name == "__init__.py"
-    assert fm.FactorModelSpec.__module__ == "factormodels.spec"
-    assert fm.FactorCovarEstimator.__module__ == "factormodels.estimation"
+        assert Path(module.__file__).name == name.rsplit(".", 1)[-1] + ".py"
+    assert fm.FactorModelSpec.__module__ == "factormodels.spec.definitions"
+    assert fm.FactorCovarEstimator.__module__ == "factormodels.estimation.estimator"
 
 
 def test_output_resolution_has_no_creation_side_effect(paths, tmp_path):

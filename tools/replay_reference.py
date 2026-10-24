@@ -373,7 +373,7 @@ def construction(implementation, receipt=None):
     if implementation == "reference":
         from ramen.quant_model_mvp.rosaa.data.factors.construction import compute_risk_factor_portfolio
     elif implementation == "factormodels":
-        from factormodels.construction import compute_risk_factor_portfolio
+        from factormodels.spec.construction import compute_risk_factor_portfolio
     dates = pd.bdate_range("2025-01-01", periods=95)
     prices = pd.DataFrame({"a":100*np.exp(np.arange(95)*.001),
                            "b":80*np.exp(np.arange(95)*-.0003)}, index=dates)

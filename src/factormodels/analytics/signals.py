@@ -17,7 +17,7 @@ from factorlasso import (
     score_with_stability_pooled_clusters,
 )
 
-from factormodels.model import RollingFactorModel
+from factormodels.estimation.models import RollingFactorModel
 
 __all__ = ["extract_rolling_clusters", "prepare_cluster_scores"]
 

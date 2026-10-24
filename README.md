@@ -79,8 +79,8 @@ premia implied by a set of forecasts. It is written in pandas and numpy on top o
 **1. Factors as declared histories.** A `Factor` carries a return type: a basket or a tracked
 index uses `LOG` returns of its NAV, an observed level uses `DIFFERENCE` changes in its native
 units and is copied through construction unchanged. The declared types travel with the fit; a
-supplied factor covariance in the wrong coordinates is rejected, and the bundle schema records
-the units of every factor. See [factor construction](docs/construction.md).
+supplied factor covariance in the wrong coordinates is rejected. Callers retain the native
+units of every factor alongside their inputs. See [factor construction](docs/construction.md).
 
 **2. Baskets held at a volatility target.** A basket factor is a long side, an optional short
 side, and the volatility the combined basket is held at. The leverage
@@ -126,13 +126,6 @@ under the fitted covariance, and reports an explicit status for every check;
 margins; `compute_conditional_gls_intervals` gives pointwise intervals under the diagonal
 working model. `reports.cma_diagnostics` renders the audit with `qis` plotting primitives. See
 [CMA diagnostics](docs/cma_diagnostics.md).
-
-**8. A six-file bundle contract.** `load_bundle`, `fit_bundle` and `save_bundle` are separate
-actions on a versioned directory of six CSV files (factor levels, asset prices, FX spots,
-domestic rates, asset metadata, settings). Currency conversion and hedging run through
-`qis.FxRatesData`, settings round-trip through `BundleSettings`, and every fit records the
-SHA-256 of its inputs in provenance. Loading never fits, fitting never writes, and saving refuses
-to overwrite. See [six-file bundles](docs/rolling_factor_covar_from_csv.md).
 
 ### When to use it — and when not
 
@@ -204,7 +197,7 @@ and scenario analysis using macro data.
 
 `factormodels` adds the financial model around the `factorlasso` estimator: factor definitions
 and NAV construction, the mixed-cadence `FactorCovarEstimator`, the completed
-`FactorModelSnapshot`, GLS premia and CMA diagnostics, the six-file bundle contract, and the
+`FactorModelSnapshot`, GLS premia and CMA diagnostics, and the
 export to a `qis.RiskModel`. The [API reference](docs/api.md) lists every public object and the
 [downstream integration](docs/integration.md) page shows the handoff to `optimalportfolios`.
 
@@ -217,18 +210,17 @@ export to a `qis.RiskModel`. The [API reference](docs/api.md) lists every public
 | Residual covariance policies | $R$ orthogonal, empirical, exposure-cluster or residual-cluster; `residual_corr_weight`, `residual_var_weight` | `FactorCovarEstimator(residual_type=...)`, `snapshot.residual_covariance`, `snapshot.to_risk_model()` | [completed model](docs/completed_model.md) · [`reference_workflows.py`](examples/reference_workflows.py) |
 | GLS factor premia | $\mu^{excess} = B \lambda + w \odot \alpha$ solved by GLS with $R$ as weight; bridge $A\,(\bar r_{\log} + \tfrac{1}{2}\operatorname{Var}(r_{\log}))$ | `infer_factor_premia` → `GlsPremiaResult`, `annual_arithmetic_from_log`, `compute_gls_uncertainty`, `compute_gls_loading_stability`, `compute_gls_provider_contrast` | [GLS factor premia](docs/gls_factor_premia.md) · [`gls_cma_workflow.py`](examples/gls_cma_workflow.py), [`methods/gls_factor_premia.py`](examples/methods/gls_factor_premia.py) |
 | CMA audit and identification | forecast = loaded premia + admitted alpha + residual; implied squared Sharpe under $\Sigma$ | `compute_cma_diagnostics` → `CmaDiagnosticResult`, `compute_cma_identification`, `compute_conditional_gls_intervals`, `reports.cma_diagnostics` | [CMA diagnostics](docs/cma_diagnostics.md) · [`reference_workflows.py`](examples/reference_workflows.py) |
-| Six-file bundles | load, fit, save as separate actions; SHA-256 of inputs in provenance | `load_bundle`, `fit_bundle`, `save_bundle`, `BundleSettings`, `synthetic_bundle` | [six-file bundles](docs/rolling_factor_covar_from_csv.md) · [`reference_workflows.py`](examples/reference_workflows.py) |
 
 ### Analytics at a glance
 
 | Area | What the package computes |
 |---|---|
 | Factor construction | Long/short baskets held at a family volatility target, tracked indices, observed levels with `LOG` or `DIFFERENCE` return types; sign-constraint matrices from family rules |
-| Loadings and covariance | Per-cadence sign-constrained LASSO loadings, annual factor covariance on a chosen grid, asset covariance $B F B^{\top} + R$, rolling causal snapshots with provenance (cutoff, observation dates, spans, input hashes) |
+| Loadings and covariance | Per-cadence sign-constrained LASSO loadings, annual factor covariance on a chosen grid, asset covariance $B F B^{\top} + R$, rolling causal snapshots with provenance (cutoff, observation dates, spans) |
 | Residual risk | Orthogonal, empirical, exposure-cluster and residual-cluster residual covariances; diagonal reference decomposition on request |
 | Expected returns | GLS factor premia with Student-t intervals, factor-mimicking portfolios, asset-level reconciliation, forecast-box and cash-bound sensitivity ranges, propagated forecast and loading uncertainty |
 | Audit | CMA reconciliation and Sharpe accounting with explicit per-check status; premium precision and pairwise contrasts against equivalence margins |
-| Data contract | Six-file CSV bundles with FX conversion and hedging through `qis.FxRatesData`; export of the selected covariance as `qis.RiskModel` |
+| Data contract | Supplied factor histories and log asset-return DataFrames by cadence; export of the selected covariance as `qis.RiskModel` |
 
 ## Five-minute quickstart
 
@@ -334,15 +326,55 @@ From a source checkout, run the full example to print the covariance matrices:
 python -m examples.minimal_model
 ```
 
-### Fit a supplied bundle
+<a id="fit-a-supplied-bundle"></a>
 
-All inputs are synthetic. `synthetic_bundle()` supplies 121 monthly USD NAV observations for two
-factors and four assets, with a fixed seed.
+### Fit supplied DataFrames directly
+
+All inputs are synthetic. The local `synthetic_prices()` function below supplies two DataFrames with 121 monthly USD NAV observations for two
+factors and four assets, with a fixed seed. Prepare returns and configure the estimator explicitly.
+The repository workflow in `examples/reference_workflows.py` uses the same input generator.
 
 ```python
-from factormodels import fit_bundle, synthetic_bundle
+import qis
+from factorlasso import LassoModel, LassoModelType
+from factormodels import FactorCovarEstimator
 
-model = fit_bundle(synthetic_bundle())
+
+def synthetic_prices() -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Return independent synthetic factor NAVs and asset total-return prices.
+
+    The fixed seed produces 121 monthly USD observations from January 2014 through
+    January 2024 for two factors and four assets. These are illustrative prices,
+    not market data. Callers prepare log returns and configure their estimator.
+    No acquisition, fitting, rendering or persistence occurs.
+
+    Returns:
+        tuple[pd.DataFrame, pd.DataFrame]: Factor NAVs, then asset prices.
+    """
+    rng = np.random.default_rng(6102026)
+    dates = pd.date_range("2014-01-31", periods=121, freq="ME")
+    x = rng.normal([.004, .001], [.035, .018], (120, 2))
+    b = np.array([[.9, .1], [.1, .9], [.6, .4], [.4, -.2]])
+    y = x @ b.T + rng.normal(0., .013, (120, 4))
+    levels = pd.DataFrame(100 * np.exp(np.vstack([np.zeros(2), x.cumsum(axis=0)])),
+                          index=dates, columns=["Equity", "Rates"])
+    prices = pd.DataFrame(100 * np.exp(np.vstack([np.zeros(4), y.cumsum(axis=0)])),
+                          index=dates, columns=["Asset A", "Asset B", "Asset C", "Asset D"])
+    return levels, prices
+
+factor_navs, asset_prices = synthetic_prices()
+asset_returns = qis.to_returns(asset_prices, freq="ME", is_log_returns=True, ffill_nans=False)
+current_estimator = FactorCovarEstimator(
+    lasso_model=LassoModel(
+        model_type=LassoModelType.LASSO, span=36, warmup_period=6,
+        reg_lambda=1e-5, demean=True, solver="CLARABEL", loss_normalization="sample",
+    ),
+    factor_returns_freq="ME", factor_covar_span=36, residual_type="orthogonal",
+)
+model = current_estimator.fit_current(
+    risk_factor_prices=factor_navs, asset_returns_dict={"ME": asset_returns},
+    assets=list(asset_returns.columns), cutoff=factor_navs.index[-1],
+)
 
 print(model.cutoff.date())
 print(model.loadings.round(3))
@@ -533,8 +565,8 @@ Runnable examples in [`examples/`](examples/), all offline:
 
 - [`minimal_model.py`](examples/minimal_model.py): start here for factor definition,
   rolling estimation and covariance retrieval by date, using synthetic monthly inputs.
-- [`reference_workflows.py`](examples/reference_workflows.py): synthetic bundle,
-  caller-supplied bundle and public-ETF proxy construction, with the fitted model
+- [`reference_workflows.py`](examples/reference_workflows.py): synthetic DataFrames,
+  caller-supplied price CSVs and public-ETF proxy construction, with the fitted model
   connected to GLS premia and the CMA audit, and table export on request.
 - [`construct_factors.py`](examples/construct_factors.py): factor definitions,
   NAV construction and loading-sign constraints from synthetic daily prices.
@@ -554,7 +586,7 @@ Method documentation: [completed model](docs/completed_model.md),
 [factor covariance](docs/factor_covariance_hcgl.md),
 [GLS factor premia](docs/gls_factor_premia.md),
 [CMA diagnostics](docs/cma_diagnostics.md),
-[six-file bundles](docs/rolling_factor_covar_from_csv.md),
+[estimation from CSVs](docs/rolling_factor_covar_from_csv.md),
 [downstream integration](docs/integration.md) and the [API reference](docs/api.md).
 
 ## Testing
@@ -566,8 +598,8 @@ uv run --no-sync ruff check src tests tools
 ```
 
 The suite covers construction identities against independent sums, point-in-time
-contracts with deliberate counterexamples, residual-policy assembly, bundle
-round-trips, GLS and audit identities against independent QR and Cholesky
+contracts with deliberate counterexamples, residual-policy assembly, direct
+DataFrame and CSV workflows, GLS and audit identities against independent QR and Cholesky
 references, and the documented examples. The `optimalportfolios` import ban is enforced by
 `ruff` in CI.
 
@@ -594,7 +626,7 @@ the model and its applications, and the estimator it builds on:
   author  = {Sepp, Artur},
   title   = {factormodels: Multi-Asset Factor Models in {Python}},
   year    = {2026},
-  version = {0.1.1},
+  version = {0.2.0.dev0},
   url     = {https://github.com/ArturSepp/FactorModels},
 }
 
