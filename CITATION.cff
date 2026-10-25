@@ -10,7 +10,7 @@ authors:
     orcid: "https://orcid.org/0000-0002-7038-1748"
 license: MIT
 version: 0.3.0
-# Unreleased development candidate; set date-released at publication.
+date-released: 2026-10-25
 keywords:
   - MATF
   - multi-asset

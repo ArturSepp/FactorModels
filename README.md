@@ -154,7 +154,7 @@ working model. `reports.cma_diagnostics` renders the audit with `qis` plotting p
 - You need portfolio optimisation. Pass the fitted covariance to `optimalportfolios`.
 - You need non-linear or regime-switching factor dynamics.
 
-The current source is the **unreleased 0.3.0 candidate**. Completed-result callers
+The current release is **0.3.0**. Completed-result callers
 should follow the [migration guide](docs/migration.md).
 
 ## Installation

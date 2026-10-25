@@ -6,9 +6,9 @@ The first public release is 0.1.0; earlier entries record unpublished developmen
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/): a behaviour
 change leads each release, then `Added`, `Changed`, `Fixed`, `Removed`.
 
-## [0.3.0] - Unreleased
+## [0.3.0] - 2026-10-25
 
-This breaking candidate removes snapshot/rolling `.data` views. Read completed
+This breaking release removes snapshot/rolling `.data` views. Read completed
 FM fields; pass raw FL fits through `snapshots_from_factorlasso` before risk export.
 Opportunity constructors consume prepared snapshots or complete covariance views,
 and reports require explicitly prepared historical-alpha diagnostics. Retired
