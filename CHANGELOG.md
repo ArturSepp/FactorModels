@@ -3,6 +3,73 @@
 FactorModels constructs multi-asset tradable factor models and provides
 generalized least squares (GLS) and capital market assumption (CMA) diagnostics.
 The first public release is 0.1.0; earlier entries record unpublished development.
+The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/): a behaviour
+change leads each release, then `Added`, `Changed`, `Fixed`, `Removed`.
+
+## [0.3.0] - Unreleased
+
+This breaking candidate removes snapshot/rolling `.data` views. Read completed
+FM fields; pass raw FL fits through `snapshots_from_factorlasso` before risk export.
+Opportunity constructors consume prepared snapshots or complete covariance views,
+and reports require explicitly prepared historical-alpha diagnostics. Retired
+`spec`, `premia`, `cma` and moved deep imports have no forwarding modules. Follow
+the [migration guide](docs/migration.md) when upgrading callers from 0.2.0.
+
+### Changed
+
+- Split private estimation orchestration into cadence fitting, cluster scheduling
+  and residual preparation/reuse stages, preserving numerical operation order.
+- Complete production signature annotations and mathematical ownership headers;
+  remove all temporary production annotation/header exemptions.
+- Share CMA report PDF persistence, preserving output resolution, atomic replacement,
+  Matplotlib style restoration, figure closure and cleanup on failure. Use verified
+  public QIS imports for factor returns, portfolio variance and return conventions.
+- GLS, CMA and opportunity/uncertainty analytics now share `factormodels.gls_diagnostic`.
+  Geometry and premium inference have separate modules; shared validation and
+  Cholesky whitening sit below geometry and Sharpe accounting. Accounting uses the
+  full whitened design and does not inherit geometry's retained-rank truncation.
+- GLS/accounting labelled numerical inputs now reject missing axis labels and
+  nonnumeric pandas dtypes, including object/string data that could previously be
+  coerced to floats. Both covariance axes must align exactly, including when B is
+  unlabelled. Unlabelled array/list conversion and descriptive metadata tables retain
+  their contracts. Existing valid numerical results and established error text remain.
+- Shipped tests now use component-adjacent `tests/test_*.py` locations and one discovery
+  convention; the installed-wheel CI verifies each component and nonempty collection.
+- Factor definitions, construction, beta constraints, completed model contracts and
+  risk export now live in `factormodels.analytics`; cluster scoring lives in
+  `factormodels.estimation.cluster_scores`. Public root names and numerical results
+  are preserved. The migration guide lists the removed deep paths.
+- Completed snapshots own plain FM fields, including selected residual/asset covariance,
+  raw unit-weight diagonal-reference covariance, fit statistics, histories and separate
+  correlation observation/estimation dates. Mutable fields return defensive copies.
+- Risk export accepts completed FM models or plain covariance. Convert raw FL results
+  explicitly with `snapshots_from_factorlasso`; use `snapshot_from_moments` for supplied
+  moments. Removed risk-policy keywords raise `TypeError`.
+- Opportunity diagnostics consume completed snapshots through `from_snapshot`, or explicit
+  full moments and all three prepared covariance views. GLS retains raw residual D.
+- Covariance reports consume completed rolling models and dated prepared diagnostics.
+  Portfolio context accepts explicit prepared diagnostics; its default is span-free.
+
+### Added
+
+- `resolve_resource_path`, `resolve_output_path` and `create_output_directory` are
+  exported by `factormodels.utils` and the root package with unchanged path semantics.
+- Dependency-direction checks and zero-debt annotation/header inventories prevent
+  regressions in the completed production contracts.
+- `estimate_historical_alpha`, `prepare_snapshot_diagnostics` and
+  `PreparedSnapshotDiagnostics` preserve FL alpha semantics through explicit preparation,
+  including the in-sample fallback and explicit unavailability for minimal moments.
+
+### Removed
+
+- `factormodels.premia`, `factormodels.cma`, and analytics opportunity/uncertainty/universe
+  deep paths. Import their names from the root or `gls_diagnostic`. Removed the four
+  geometry delegates and duplicate loadings preparation in Sharpe accounting;
+  callers use `gls_diagnostic.geometry` directly. No compatibility facades remain.
+- `factormodels.spec`, `estimation.models`, `estimation.risk`,
+  `estimation.beta_constraints` and `analytics.signals` deep paths; no forwarding modules.
+- Snapshot and rolling `.data` FL-container views. Use the named completed fields and
+  preparation APIs; no retired interface forwards calls. This is an unpublished candidate.
 
 ## [0.2.0] - 2026-10-24
 
@@ -30,6 +97,9 @@ The first public release is 0.1.0; earlier entries record unpublished developmen
   removing `synthetic_prices` from the installed API. Update callers and package checks.
   Algorithms, seeds, conventions and historical environments are unchanged.
 
+- Update the optional OP handoff to `optimalportfolios.optimization.opportunity`.
+  This development example requires the matching OP development candidate.
+
 - Examples and README configure the estimator explicitly. `synthetic_prices()` returns
   plain factor NAV and asset price DataFrames with the existing seed and histories.
 - The reference CLI accepts `--factor-prices` and `--asset-prices` instead of `--bundle`.
@@ -38,7 +108,7 @@ The first public release is 0.1.0; earlier entries record unpublished developmen
 - Update the affected source/wheel tests, CI import checks and input documentation.
   Historical environments and saved inputs remain unchanged.
 
-## 0.1.1 (2026-10-22)
+## [0.1.1] - 2026-10-22
 
 - Move root implementation modules into import-compatible subpackages; only `__init__.py`
   remains as Python source directly under `factormodels/`. Public imports and estimator outputs are unchanged.
@@ -51,20 +121,27 @@ The first public release is 0.1.0; earlier entries record unpublished developmen
 - Add a minimal model definition and estimation example with rolling covariance retrieval,
   presented as the README starting example.
 
-## 0.1.0 — first public release (2026-10-21)
+## [0.1.0] - 2026-10-21
 
-- Publish the canonical `factormodels` distribution and public FactorModels source.
-- Provide factor construction, fitted asset loadings and covariance, rolling models,
-  GLS/CMA analytics and explicit QIS/OptimalPortfolios handoffs.
-- Retain the verified candidate algorithms, estimator outputs and numerical defaults.
-- Use public OSS consumer verification and PyPI installation instructions.
+First public release. The Python floor rises from 3.10 to 3.11 and Pillow is pinned at
+`>=13.0.0`, to exclude the known Pillow vulnerabilities whose fixed release no longer supports
+Python 3.10; both floors are enforced in the installed package metadata and checked in CI.
+Estimator source, defaults and numerical conventions are unchanged from 0.1.0rc4.
 
-- Require Python 3.11 or later and Pillow 13 or later to exclude the known
-  Pillow vulnerabilities whose fixed release no longer supports Python 3.10.
-- Check the new minimum interpreter in CI and enforce both floors in installed
-  package metadata. Estimator source, defaults and numerical conventions are unchanged.
+### Added
 
-## 0.1.0rc4 — unpublished FactorModels rename candidate (2026-10-20)
+- The canonical `factormodels` distribution on PyPI and the public FactorModels source.
+- Factor construction, fitted asset loadings and covariance (`FactorCovarEstimator`,
+  `FactorModelSnapshot`), rolling models, GLS/CMA analytics (`infer_factor_premia`,
+  `compute_cma_diagnostics`) and the explicit QIS/OptimalPortfolios handoffs.
+- Public OSS consumer verification and PyPI installation instructions.
+
+### Changed
+
+- `requires-python` is `>=3.11`; `pillow>=13.0.0` is a declared floor.
+- The verified candidate algorithms, estimator outputs and numerical defaults are retained.
+
+## [0.1.0rc4] - 2026-10-20 (unpublished FactorModels rename candidate)
 
 - Rename the distribution and import namespace from `tradablefactors` to
   `factormodels`, displayed as FactorModels (FM). No forwarding package is installed.
@@ -77,7 +154,7 @@ The first public release is 0.1.0; earlier entries record unpublished developmen
 - Add portable contributor setup, locked source checks, installed-artifact
   verification and strict documentation build instructions.
 
-## 0.1.0rc3 — unpublished release candidate (2026-10-19)
+## [0.1.0rc3] - 2026-10-19 (unpublished release candidate)
 
 - Connect the fitted-model quickstart to GLS/CMA through an explicit second-order
   mean bridge, retaining annual log covariance as the declared risk approximation.
@@ -88,7 +165,7 @@ The first public release is 0.1.0; earlier entries record unpublished developmen
 - Clarify citation wording, synthetic shrinkage and downstream use. Preserve
   fitted estimator values, seeds, selected covariance policies and dependencies.
 
-## 0.1.0rc2 — unpublished release candidate (2026-10-19)
+## [0.1.0rc2] - 2026-10-19 (unpublished release candidate)
 
 This candidate provides factor definitions and net asset value (NAV) construction, fitted asset
 loadings and annual covariance at a stated cutoff, rolling model estimates,
@@ -111,14 +188,14 @@ Changes since `0.1.0rc1`:
 - Retain estimator outputs, numerical library implementations and dependency
   versions.
 
-## 0.1.0rc1 — unpublished release candidate (2026-10-19)
+## [0.1.0rc1] - 2026-10-19 (unpublished release candidate)
 
 - Align package, citation and README version metadata without numerical or API
   changes.
 - Retain the MIT source licence, supplemental notices and verified MIT FactorLasso
   dependency floor. Dependency versions and resolution remain unchanged.
 
-## 0.1.0.dev3 — development (2026-10-18)
+## [0.1.0.dev3] - 2026-10-18 (development)
 
 - Require the verified MIT FactorLasso release `>=1.0.4.post1` in base installs
   and the lock, excluding earlier GPL releases without changing estimation or
@@ -137,7 +214,7 @@ Changes since `0.1.0rc1`:
 - Document completed model fields, units, cutoffs and mutability; move factor
   estimation and GLS/CMA method documentation to its owning package.
 
-## 0.1.0.dev2 — development (2026-10-18)
+## [0.1.0.dev2] - 2026-10-18 (development)
 
 - Add opportunity GLS diagnostics, alpha-uncertainty inference and universe
   diagnostics formerly in OptimalPortfolios. Return prepared arrays for downstream
@@ -149,7 +226,7 @@ Changes since `0.1.0rc1`:
 - Use FactorLasso for statistical estimation and QIS for general risk/reporting
   interfaces, without introducing an optimiser dependency.
 
-## 0.1.0.dev1 — development
+## [0.1.0.dev1] (development)
 
 - Add factor families, basket/model specifications and assembly from an explicitly supplied catalogue.
 - Add basket construction, volatility targeting, composite NAVs, supported
@@ -159,7 +236,7 @@ Changes since `0.1.0rc1`:
 - Add offline construction examples and independent held-unit, warm-up,
   shared-gate and splice verification.
 
-## 0.1.0.dev0 — development
+## [0.1.0.dev0] (development)
 
 - Extract GLS, Sharpe accounting, CMA identification and conditional inference from OptimalPortfolios.
 - Introduce explicit current/rolling fitted results and cutoff-aware factor covariance estimation.

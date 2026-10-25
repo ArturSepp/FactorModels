@@ -1,6 +1,13 @@
+---
+myst:
+  html_meta:
+    description: >-
+      Three offline factormodels reference workflows: synthetic DataFrames, caller-supplied prices and public-ETF proxy construction, with GLS premia and the CMA audit.
+---
+
 # Three reference workflows
 
-*Author: [Artur Sepp](https://github.com/ArturSepp)*
+*Author: [Artur Sepp](https://github.com/ArturSepp) / First recorded: [2026-10-18](https://github.com/ArturSepp/FactorModels/commit/91f424eeabc1cd99880aef829feb6af9c61b046b)*
 
 Implemented in [FactorModels](https://github.com/ArturSepp/FactorModels).
 Software citation: [CITATION.cff](https://github.com/ArturSepp/FactorModels/blob/main/CITATION.cff).
@@ -43,7 +50,6 @@ distinction between calibrated and implied premia. The example uses
 `qis.to_returns(..., is_log_returns=True)` and an explicit `FactorCovarEstimator`;
 it performs no currency conversion or hedging. Prepare those upstream with
 `qis.FxRatesData` when your inputs need them.
-
 Follow the [QIS reference-currency conversion and excess-returns guide](https://github.com/ArturSepp/QuantInvestStrats/blob/main/docs/reference_currency_excess_returns.md),
 including its [USD/CHF comparison for hedge ratios 0, 0.5 and 1](https://github.com/ArturSepp/QuantInvestStrats/blob/main/docs/reference_currency_excess_returns.md#the-same-usd-asset-in-usd-and-chf-excess-returns-and-betas).
 The [currency-preparation notes](rolling_factor_covar_from_csv.md)

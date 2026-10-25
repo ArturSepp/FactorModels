@@ -2,32 +2,41 @@
 
 Provider adapters own source selection, cash, alpha and scenario construction.
 This module only presents those results using the established QIS report primitives.
+
+Purpose: Render comparable completed CMA inference views and separate sensitivity scenarios.
+Inputs: CmaInferenceReport containing completed accounting, intervals, identification and optional sensitivity results.
+Outputs: render_cma_inference writes a validated three-page PDF and returns its resolved path.
+Units: Annual return endpoints are formatted as percentages; normalised precision and score quantities stay dimensionless.
+Conditioning: Compare a common factor basis; retain unavailable intervals and keep forecast versus loading uncertainty distinct.
+Ownership: FM reports only validate and present completed results; reports._pdf handles atomic QIS export.
 """
 
 from __future__ import annotations
+from typing import Any
+from collections.abc import Hashable, Mapping, Sequence
+
 
 from dataclasses import dataclass, field
 from pathlib import Path
 
 from factormodels.utils.local_path import resolve_output_path
-from tempfile import NamedTemporaryFile
-from typing import Mapping
+from factormodels.reports._pdf import PDF_RC, write_figures_to_pdf
 
 import matplotlib.pyplot as plt
 from matplotlib.figure import Figure
 import numpy as np
 import pandas as pd
-import qis
 
-from factormodels.cma.diagnostics import CmaDiagnosticResult
-from factormodels.cma.uncertainty import CmaConditionalGlsResult
-from factormodels.cma.identification import CmaIdentificationResult
-from factormodels.premia import (
-    GlsLoadingStabilityResult, GlsResolutionResult, GlsUncertaintyScenario,
-)
+from factormodels.gls_diagnostic.cma_diagnostics import CmaDiagnosticResult
+from factormodels.gls_diagnostic.cma_inference import CmaConditionalGlsResult
+from factormodels.gls_diagnostic.cma_identification import CmaIdentificationResult
+from factormodels.gls_diagnostic import GlsLoadingStabilityResult, GlsResolutionResult, GlsUncertaintyScenario
 from factormodels.reports.cma_diagnostics import (
     _INK, _LEFT, _MUTED, _TEAL, _number, _section, _table, _text, _value, _write,
 )
+
+
+__all__ = ['CmaInferenceView', 'CmaInferenceReport', 'validate_cma_inference_report', 'render_cma_inference']
 
 
 @dataclass(frozen=True)
@@ -142,7 +151,7 @@ def _validate(report: CmaInferenceReport) -> tuple[CmaInferenceView, list[str]]:
     return headline, factors
 
 
-def _validate_scenario(scenario, view, *, contrast=False):
+def _validate_scenario(scenario: GlsUncertaintyScenario, view: CmaInferenceView, *, contrast: bool=False) -> None:
     """Keep alternative covariance assumptions separate from the default CI contract."""
     if not isinstance(scenario, GlsUncertaintyScenario):
         raise ValueError('Uncertainty scenarios require a typed GLS result.')
@@ -171,7 +180,7 @@ def _validate_scenario(scenario, view, *, contrast=False):
             raise ValueError('Uncertainty scenarios must preserve their view point estimates.')
 
 
-def _validate_extensions(view):
+def _validate_extensions(view: CmaInferenceView) -> None:
     """Reject results from another estimator, scenario, or stability convention before rendering."""
     result = view.resolution
     if result is not None:
@@ -204,7 +213,7 @@ def _validate_extensions(view):
         _validate_loading_result(view.loading_stability, view)
 
 
-def _validate_loading_result(stability, view, *, contrast=False):
+def _validate_loading_result(stability: GlsLoadingStabilityResult, view: CmaInferenceView, *, contrast: bool=False) -> None:
     """Bind ordinary and paired-difference stability to their explicitly stated baseline."""
     method = 'paired_loading_stability_contrast' if contrast else 'paired_loading_stability'
     if (not isinstance(stability, GlsLoadingStabilityResult)
@@ -378,7 +387,7 @@ def _contributors_page(report: CmaInferenceReport, headline: CmaInferenceView) -
     return fig
 
 
-def _carry_influence_rows(report, headline):
+def _carry_influence_rows(report: CmaInferenceReport, headline: CmaInferenceView) -> list[list[str]]:
     """Reuse exact contribution and shock rows for the carry interpretation table."""
     sensitivity = headline.result.factor_sensitivity
     carry = _carry_factor(headline)
@@ -395,7 +404,7 @@ def _carry_influence_rows(report, headline):
             for tail in tails for _, row in tail.iterrows()]
 
 
-def _contrast_interval(view, key):
+def _contrast_interval(view: CmaInferenceView, key: Hashable) -> str:
     """Format annual percentages or dimensionless normalized premia without confusing units."""
     table = view.identification.contrasts
     if key not in table.index:
@@ -410,7 +419,7 @@ def _contrast_interval(view, key):
     return estimate+f'\n[{scale*row.lower:.2f}, {scale*row.upper:.2f}]'
 
 
-def _identification_page(report, headline):
+def _identification_page(report: CmaInferenceReport, headline: CmaInferenceView) -> Figure:
     """Keep individual sensitivity, pair contrasts, equivalence and assumptions on one page."""
     carry = _carry_factor(headline)
     single = carry in ('Carry FX', 'Carry FX futures', 'FX Carry')
@@ -487,7 +496,7 @@ def _identification_page(report, headline):
     return fig
 
 
-def _single_carry_precision(fig, report, headline):
+def _single_carry_precision(fig: Figure, report: CmaInferenceReport, headline: CmaInferenceView) -> None:
     """Show the refitted single-carry model without inventing absent pair contrasts."""
     carry = _carry_factor(headline)
     blend = carry == 'Carry FX'
@@ -645,21 +654,21 @@ def _stability_page(report: CmaInferenceReport, headline: CmaInferenceView) -> F
     return fig
 
 
-def _band(row, lower='lower', upper='upper'):
+def _band(row: pd.Series, lower: str='lower', upper: str='upper') -> str:
     """Format a supplied annual interval or sensitivity range without computing one."""
     if not np.isfinite([row.get(lower, np.nan), row.get(upper, np.nan)]).all():
         return 'N/A'
     return f'[{100*row[lower]:.2f}, {100*row[upper]:.2f}]'
 
 
-def _precision_flag(value):
+def _precision_flag(value: Any) -> str:
     """Distinguish unavailable precision from a failed economic precision target."""
     if value is None or pd.isna(value):
         return 'N/A'
     return 'OK' if value else 'Weak'
 
 
-def _resolution_page(report, headline, factors):
+def _resolution_page(report: CmaInferenceReport, headline: CmaInferenceView, factors: Sequence[str]) -> Figure:
     """Show the unchanged conditional estimates beside scale-free estimator geometry."""
     fig = _page(report, headline, 'Premia and precision', 1)
     level = 100*headline.conditional_intervals.summary['confidence_level']
@@ -707,7 +716,7 @@ def _resolution_page(report, headline, factors):
     return fig
 
 
-def _visibility_rows(report, headline):
+def _visibility_rows(report: CmaInferenceReport, headline: CmaInferenceView) -> list[list[str]]:
     """Select low-visibility and high-influence sleeves from completed numerical tables."""
     assets = headline.resolution.assets
     sensitivity = headline.result.factor_sensitivity
@@ -732,7 +741,7 @@ def _visibility_rows(report, headline):
     return rows
 
 
-def _geometry_contributors_page(report, headline):
+def _geometry_contributors_page(report: CmaInferenceReport, headline: CmaInferenceView) -> Figure:
     """Retain all factor revision tails while exposing what residual checks can observe."""
     fig = _page(report, headline, 'Contributions and residual visibility', 2)
     _section(fig, .817, 'Top two / bottom two benchmark-revision contributors',
@@ -780,13 +789,13 @@ def _geometry_contributors_page(report, headline):
     return fig
 
 
-def _scenario_label(scenario):
+def _scenario_label(scenario: GlsUncertaintyScenario) -> str:
     """Prefer a declared scenario label while preserving its actual inference method."""
     return str(scenario.summary.get('label') or scenario.summary.get('scenario_label')
                or scenario.summary['method']).replace('_', ' ')
 
 
-def _scenario_description(scenario):
+def _scenario_description(scenario: GlsUncertaintyScenario) -> str:
     """Print the distribution and reference assumptions that distinguish scenario ranges."""
     info = scenario.summary
     law = {'none': 'covariance only, no distributional interval',
@@ -805,7 +814,7 @@ def _scenario_description(scenario):
             f"target: {info['target'].replace('_', ' ')}."+source)
 
 
-def _forecast_box_note(headline):
+def _forecast_box_note(headline: CmaInferenceView) -> str:
     """Retain the existing carry forecast-box endpoints beside the new uncertainty panels."""
     carry = _carry_factor(headline)
     boxes = headline.result.provenance.get('adviser_box_bounds', ())
@@ -821,7 +830,7 @@ def _forecast_box_note(headline):
              'All views and factors are in sidecars.') if parts else '')
 
 
-def _extension_stability_page(report, headline):
+def _extension_stability_page(report: CmaInferenceReport, headline: CmaInferenceView) -> Figure:
     """Distinguish conditional inference, refit stability and declared covariance scenarios."""
     fig = _page(report, headline, 'Stability and uncertainty scenarios', 3)
     stability = headline.loading_stability
@@ -975,21 +984,6 @@ def render_cma_inference(report: CmaInferenceReport, output_path: str | Path) ->
         raise ValueError('output_path must have the .pdf extension.')
     _validate(report)
     target.parent.mkdir(parents=True, exist_ok=True)
-    figures = []
-    temporary = None
-    try:
-        with plt.rc_context({'font.family': 'DejaVu Sans', 'pdf.fonttype': 42,
-                             'ps.fonttype': 42, 'text.usetex': False}):
-            figures = _build_inference_pages(report)
-            with NamedTemporaryFile(prefix='.cma-inference-', suffix='.pdf',
-                                    dir=target.parent, delete=False) as handle:
-                temporary = Path(handle.name)
-            qis.save_figs_to_pdf(figures, temporary.stem, local_path=str(temporary.parent),
-                                 orientation='portrait', add_current_date=False)
-            temporary.replace(target)
-    finally:
-        for fig in figures:
-            plt.close(fig)
-        if temporary is not None:
-            temporary.unlink(missing_ok=True)
-    return target
+    with plt.rc_context(PDF_RC):
+        figures = _build_inference_pages(report)
+        return write_figures_to_pdf(figures, target)

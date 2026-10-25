@@ -1,8 +1,9 @@
 # Numerical migration reference
 
-*Author: [Artur Sepp](https://github.com/ArturSepp) / First recorded: [2026-10-18](https://github.com/ArturSepp/tradablefactors/commit/2e23f5a9334fe2c44a5acfa028e0ac3e368f93a0)*
+*Author: [Artur Sepp](https://github.com/ArturSepp) / First recorded: [2026-10-18](https://github.com/ArturSepp/FactorModels/commit/2e23f5a9334fe2c44a5acfa028e0ac3e368f93a0)*
 
-Implemented in [factormodels](https://github.com/ArturSepp/tradablefactors).
+Implemented in [FactorModels](https://github.com/ArturSepp/FactorModels).
+Software citation: [CITATION.cff](https://github.com/ArturSepp/FactorModels/blob/main/CITATION.cff).
 
 `manifest.json` describes the fixed reference cohort, tolerances, required
 artifacts and paper test inventory. It contains safe identifiers and hashes,
@@ -20,8 +21,9 @@ The CLI accepts `--mode capture|verify`,
 `--manifest PATH` and `--directory PATH`. Capture is reference-only and refuses
 to overwrite its output. Verify does not change the baseline. The `papers` and
 `rosaa` checks can select their section of the established `all.json` baseline.
-Consumer paper replay additionally requires `--consumer-op-root PATH`, naming
-the explicit active research checkout. `--receipt PATH` writes a new external
+Consumer paper replay additionally requires `--consumer-root PATH` (legacy alias
+`--consumer-op-root`), naming
+the explicit active FactorModels research checkout containing both private papers. `--receipt PATH` writes a new external
 JSON record of imported consumer sources, their SHA-256 identities and the
 full actual report data. An existing receipt is never replaced.
 

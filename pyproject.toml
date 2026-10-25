@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "factormodels"
-version = "0.2.0"
+version = "0.3.0"
 description = "Factor construction, GLS premia, capital market assumptions and factor covariance estimation"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -22,6 +22,7 @@ classifiers = [
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
     "Topic :: Office/Business :: Financial :: Investment",
     "Topic :: Scientific/Engineering :: Mathematics",
@@ -62,7 +63,7 @@ exclude = ["*.run_local", "*.run_local.*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests", "src/factormodels"]
-python_files = ["test_*.py", "*_test.py"]
+python_files = ["test_*.py"]
 addopts = "-ra"
 
 [tool.ruff]
@@ -70,7 +71,7 @@ target-version = "py311"
 line-length = 120
 
 [tool.ruff.lint]
-select = ["F", "TID251", "TID253", "ICN"]
+select = ["F", "TID251", "TID253", "ICN", "ANN001", "ANN002", "ANN003", "ANN201", "ANN202", "ANN204"]
 
 [tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["F401", "F403"]
@@ -78,6 +79,10 @@ select = ["F", "TID251", "TID253", "ICN"]
 "tools/replay_reference.py" = ["TID251"]
 "examples/downstream_handoff.py" = ["TID251"]
 
+# Tests/examples/tooling retain correctness/import checks; only ANN is exempt.
+"**/tests/**" = ["ANN001", "ANN002", "ANN003", "ANN201", "ANN202", "ANN204"]
+"examples/**" = ["ANN001", "ANN002", "ANN003", "ANN201", "ANN202", "ANN204"]
+"tools/**" = ["ANN001", "ANN002", "ANN003", "ANN201", "ANN202", "ANN204"]
 [tool.ruff.lint.flake8-tidy-imports.banned-api]
 "optimalportfolios" = {msg = "FactorModels supplies risk inputs to optimisers; it does not import them."}
 "ramen" = {msg = "Application-specific bindings remain in downstream consumers."}
@@ -100,7 +105,7 @@ ignore-init-method = true
 ignore-init-module = true
 ignore-private = true
 ignore-semiprivate = true
-exclude = ["agents", "tests", "tools", "docs", "build"]
+exclude = ["agents", "tests", "tools", "docs", "build", "papers"]
 
 [tool.deptry]
 known_first_party = ["factormodels"]

@@ -1,0 +1,43 @@
+{
+  "remove_in_stage": 4,
+  "annotation_rules": [
+    "ANN001",
+    "ANN002",
+    "ANN003",
+    "ANN201",
+    "ANN202",
+    "ANN204"
+  ],
+  "annotations": [],
+  "headers": {},
+  "variadic_inventory": [
+    {
+      "path": "src/factormodels/estimation/_pipeline.py",
+      "function": "copy",
+      "parameter": "overrides",
+      "kind": "**kwargs",
+      "annotated": true
+    },
+    {
+      "path": "src/factormodels/reports/cma_diagnostics.py",
+      "function": "_write",
+      "parameter": "kwargs",
+      "kind": "**kwargs",
+      "annotated": true
+    },
+    {
+      "path": "src/factormodels/reports/covariance.py",
+      "function": "plot_covariance_snapshot",
+      "parameter": "kwargs",
+      "kind": "**kwargs",
+      "annotated": true
+    },
+    {
+      "path": "src/factormodels/reports/covariance.py",
+      "function": "plot_hcgl_covar_data",
+      "parameter": "kwargs",
+      "kind": "**kwargs",
+      "annotated": true
+    }
+  ]
+}

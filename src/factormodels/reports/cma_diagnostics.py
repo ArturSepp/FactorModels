@@ -1,27 +1,35 @@
 """Compact CMA audit pages rendered from completed numerical diagnostic results.
 
 The renderer only selects, formats and aggregates display rows. GLS, policy decisions and
-scenario construction belong to ``factormodels.cma.diagnostics``. Complete result
+scenario construction belong to ``factormodels.gls_diagnostic.cma_diagnostics``. Complete result
 tables and provenance are persisted by the caller beside this intentionally bounded report.
+
+Purpose: Render completed CMA audit tables into a compact PDF.
+Inputs: CmaDiagnosticResult, optional zero-alpha counterfactual, title, page count and output filename.
+Outputs: render_cma_diagnostics returns the resolved completed PDF path.
+Units: Format supplied annual returns as percentages/basis points; displayed scores keep their stated units.
+Conditioning: Render existing availability and accounting status without fitting, changing forecasts or estimating uncertainty.
+Ownership: FM owns presentation and atomic file lifecycle through reports._pdf; QIS supplies plotting/export primitives.
 """
 
 from __future__ import annotations
 
+
 from pathlib import Path
 
 from factormodels.utils.local_path import resolve_output_path
-from tempfile import NamedTemporaryFile
+from factormodels.reports._pdf import PDF_RC, write_figures_to_pdf
 from textwrap import wrap
 from typing import Any
 
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+import qis
 from matplotlib.figure import Figure
 from matplotlib.patches import Rectangle
-import qis
 
-from factormodels.cma.diagnostics import CmaDiagnosticResult
+from factormodels.gls_diagnostic.cma_diagnostics import CmaDiagnosticResult
 
 
 _INK = '#183047'
@@ -34,6 +42,9 @@ _LEFT = 0.055
 _WIDTH = 0.890
 _ASSET_ROWS = 8
 _FACTOR_ROWS = 12
+
+
+__all__ = ['render_cma_diagnostics']
 
 
 def _text(value: Any, width: int = 80, lines: int = 2) -> str:
@@ -573,7 +584,7 @@ def _alpha_contributors_page(result: CmaDiagnosticResult, title: str, label: str
 
 
 def _build_pages(result: CmaDiagnosticResult, pages: int,
-                 title: str | None = None, *, zero_alpha_result=None) -> list[Figure]:
+                 title: str | None = None, *, zero_alpha_result: CmaDiagnosticResult | None=None) -> list[Figure]:
     """Build bounded report pages while leaving every supplied table and scalar unchanged."""
     if pages not in (2, 3):
         raise ValueError('CMA diagnostic reports support two or three pages.')
@@ -628,21 +639,6 @@ def render_cma_diagnostics(result: CmaDiagnosticResult, output_path: str | Path,
     if pages not in (2, 3):
         raise ValueError('CMA diagnostic reports support two or three pages.')
     target.parent.mkdir(parents=True, exist_ok=True)
-    figures: list[Figure] = []
-    temporary: Path | None = None
-    try:
-        with plt.rc_context({'font.family': 'DejaVu Sans', 'pdf.fonttype': 42,
-                             'ps.fonttype': 42, 'text.usetex': False}):
-            figures = _build_pages(result, pages, title, zero_alpha_result=zero_alpha_result)
-            with NamedTemporaryFile(prefix='.cma-report-', suffix='.pdf',
-                                    dir=target.parent, delete=False) as handle:
-                temporary = Path(handle.name)
-            qis.save_figs_to_pdf(figures, temporary.stem, local_path=str(temporary.parent),
-                                 orientation='portrait', add_current_date=False)
-            temporary.replace(target)
-    finally:
-        for fig in figures:
-            plt.close(fig)
-        if temporary is not None:
-            temporary.unlink(missing_ok=True)
-    return target
+    with plt.rc_context(PDF_RC):
+        figures = _build_pages(result, pages, title, zero_alpha_result=zero_alpha_result)
+        return write_figures_to_pdf(figures, target)

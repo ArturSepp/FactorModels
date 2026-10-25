@@ -5,7 +5,7 @@ import sys
 
 import pytest
 
-from factormodels.tests.construction_test import (
+from factormodels.analytics.tests.test_construction import (
     test_composite_keeps_its_own_daily_anchor_under_outer_quarterly_override,
     test_construction_works_with_rosaa_imports_blocked,
     test_future_prices_cannot_change_past_weights_or_nav,

@@ -1,8 +1,15 @@
+---
+myst:
+  html_meta:
+    description: >-
+      Estimate current and rolling factor models directly from supplied CSV histories, with explicit returns, units, dates and YAML paths.
+---
+
 <a id="supplied-six-file-bundles"></a>
 
 # Factor estimation from supplied CSVs
 
-*Author: [Artur Sepp](https://github.com/ArturSepp)*
+*Author: [Artur Sepp](https://github.com/ArturSepp) / First recorded: [2026-10-18](https://github.com/ArturSepp/FactorModels/commit/91f424eeabc1cd99880aef829feb6af9c61b046b)*
 
 Implemented in [FactorModels](https://github.com/ArturSepp/FactorModels).
 Software citation: [CITATION.cff](https://github.com/ArturSepp/FactorModels/blob/main/CITATION.cff).

@@ -11,13 +11,17 @@ myst:
 
 *Author: [Artur Sepp](https://github.com/ArturSepp) / First recorded: [2026-10-13](https://github.com/ArturSepp/OptimalPortfolios/commit/00eadd14a0687486efba43ae9f8f575bf491e6ce)*
 
+Implemented in [FactorModels](https://github.com/ArturSepp/FactorModels).
+Software citation: [CITATION.cff](https://github.com/ArturSepp/FactorModels/blob/main/CITATION.cff).
+
+This article was first recorded in [OptimalPortfolios](https://github.com/ArturSepp/OptimalPortfolios/blob/00eadd14a0687486efba43ae9f8f575bf491e6ce/docs/cma_diagnostics.md) before its transfer to FactorModels.
+
 FactorModels audits an already computed expected-return vector against its
 supplied factor model. [OptimalPortfolios](https://github.com/ArturSepp/OptimalPortfolios)
 uses the resulting expected returns and covariances in optimisation. The audit returns
 complete numerical tables separately from a two- or three-page PDF. The audit
 does not estimate CMAs, change an admission weight or replace published forecasts.
 
-Implemented in [FactorModels](https://github.com/ArturSepp/FactorModels). Software citation: [CITATION.cff](https://github.com/ArturSepp/FactorModels/blob/main/CITATION.cff).
 
 ## Inputs and computation
 
@@ -43,7 +47,7 @@ available for checking GLS directly on synthetic simple excess returns. It is a
 separate calibration, not a second fit inside the canonical pipeline.
 
 Import `CmaDiagnosticInputs`, `CmaDiagnosticSpec`, `AdmissionPolicy` and
-`compute_cma_diagnostics` from `factormodels.cma`. The input requires labelled
+`compute_cma_diagnostics` from `factormodels.gls_diagnostic`. The input requires labelled
 `betas`, strictly positive `residual_variances` and `excess_cma`, all in exactly the
 same asset order. The factor columns define the order of optional
 `factor_covariance` and calibrated `factor_premia`. Expected returns are annual
@@ -74,7 +78,7 @@ cutoff, recorded in the result. Truncating nonzero directions is a model
 approximation; failed covariance accounting remains visible.
 
 The numerical GLS implementation belongs to
-[`factormodels.premia`](gls_factor_premia.md): `infer_factor_premia` accepts
+[`factormodels.gls_diagnostic`](gls_factor_premia.md): `infer_factor_premia` accepts
 provider total-return forecasts, cash, admitted alpha, estimated loadings and
 residual risk. It returns implied premia, conditional intervals, mimicking
 portfolios and optional forecast-box sensitivities. FactorModels also owns
@@ -119,7 +123,7 @@ the two interpretations. Its selected diagonal residual weight feeds inference,
 covariance assembly and audit consistently. A correlated production covariance
 cannot be substituted and silently relabelled as this diagonal example.
 
-The FactorModels `premia/README.md` lists public entry points, result fields
+The FactorModels [GLS contracts guide](gls_contracts.md) lists public entry points, result fields
 and contributor commands. The
 [methodology guide](gls_factor_premia.md) gives the equations and conditional model.
 
@@ -265,7 +269,7 @@ the local paper replication workspace.
 ## Conditional GLS confidence intervals
 
 `compute_conditional_gls_intervals(inputs, confidence_level=0.95, spec=spec)` is
-an opt-in numerical calculation exported from `factormodels.cma`. Its
+an opt-in numerical calculation exported from `factormodels.gls_diagnostic`. Its
 `CmaConditionalGlsResult` contains `factors`, joint `covariance` and `summary`.
 It neither modifies nor extends the frozen `CmaDiagnosticResult` tables. The
 caller applies cash and admitted alpha to the forecast before calling it, using

@@ -1,0 +1,53 @@
+name: Feature request
+description: Propose a focused addition within the factor-model boundary
+title: "[Feature]: "
+body:
+  - type: textarea
+    id: use_case
+    attributes:
+      label: Modelling or research task
+      description: Describe the task before proposing an API.
+    validations:
+      required: true
+
+  - type: textarea
+    id: current_gap
+    attributes:
+      label: Current limitation
+      description: Explain why the existing construction rules, residual policies, GLS or CMA diagnostics do not cover it, and the current workaround.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed behaviour
+      description: State return types, cadences, units, cutoff and provenance conventions, and the smallest useful API.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Factor construction and declared histories
+        - Loadings and covariance estimation
+        - Residual covariance policies
+        - GLS factor premia
+        - CMA diagnostics and reports
+        - DataFrame estimation inputs
+        - Documentation or offline example
+        - Packaging or developer tooling
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: boundaries
+    attributes:
+      label: Project boundary
+      options:
+        - label: This stays point-in-time; no fit uses information after its cutoff.
+          required: true
+        - label: This does not add an optimiser dependency; statistical estimation stays in factorlasso and risk export in qis.
+          required: true

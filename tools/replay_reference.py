@@ -135,6 +135,12 @@ def current_content(data):
             "variances": data.y_variances, "asset_covariance": data.get_y_covar()}
 
 
+def candidate_content(snapshot):
+    """Extract the unchanged economic schema from FM-owned completed fields."""
+    return {"betas": snapshot.loadings, "factor_covariance": snapshot.factor_covariance,
+            "variances": snapshot.fit_statistics, "asset_covariance": snapshot.asset_covariance}
+
+
 def estimate(implementation):
     """Compare current, rolling and historical-cutoff fits on identical inputs."""
     import numpy as np
@@ -162,25 +168,27 @@ def estimate(implementation):
                                                      estimation_date=cutoff)
         rolling = estimator().fit_rolling_factor_covars(factors, returns, period).data
     else:
-        current = estimator().fit_current(factors, returns, cutoff=factors.index[-1]).data
-        past = estimator().fit_current(factors, returns, cutoff=cutoff).data
-        rolling = estimator().fit_rolling(factors, returns, time_period=period).data.data
+        current = estimator().fit_current(factors, returns, cutoff=factors.index[-1])
+        past = estimator().fit_current(factors, returns, cutoff=cutoff)
+        rolling = estimator().fit_rolling(factors, returns, time_period=period).snapshots
+    extract = current_content if implementation == "reference" else candidate_content
     for data in [current, past, *rolling.values()]:
-        b, f = data.y_betas.to_numpy(), data.x_covar.to_numpy()
-        residual = data.y_variances[VarianceColumns.RESIDUAL_VARS.value].to_numpy()
+        content = extract(data)
+        b, f = content['betas'].to_numpy(), content['factor_covariance'].to_numpy()
+        residual = content['variances'][VarianceColumns.RESIDUAL_VARS.value].to_numpy()
         # Independent scalar summation rather than the production matrix assembly.
         reference = np.array([[sum(b[i,k]*f[k,l]*b[j,l]
                                    for k in range(b.shape[1]) for l in range(b.shape[1]))
                                for j in range(len(b))] for i in range(len(b))])
         reference += np.diag(residual)
-        np.testing.assert_allclose(data.get_y_covar(), reference, rtol=1e-10, atol=1e-14)
-    return {"current": current_content(current), "aligned_cutoff": current_content(past),
-            "rolling": {str(k): current_content(v) for k,v in rolling.items()}}, current
+        np.testing.assert_allclose(content['asset_covariance'], reference, rtol=1e-10, atol=1e-14)
+    return {"current": extract(current), "aligned_cutoff": extract(past),
+            "rolling": {str(k): extract(v) for k,v in rolling.items()}}, current
 
 
 def diagnostic_module(implementation):
     """Resolve the canonical owner for the requested implementation."""
-    name = "optimalportfolios.matf.cma_diagnostics" if implementation == "reference" else "factormodels.cma.diagnostics"
+    name = "optimalportfolios.matf.cma_diagnostics" if implementation == "reference" else "factormodels.gls_diagnostic.cma_diagnostics"
     return importlib.import_module(name)
 
 
@@ -333,7 +341,7 @@ def consumer_paper_results(mapping, consumer_root, receipt=None):
 
 def consumer_construction(prices, receipt=None):
     """Exercise Rosaa's production panel boundary with explicit synthetic input/output seams."""
-    from factormodels.spec import Factor, FactorFamily, FactorModelSpec, RiskFactors, VolTargetPolicy
+    from factormodels.analytics.definitions import Factor, FactorFamily, FactorModelSpec, RiskFactors, VolTargetPolicy
     from ramen.quant_model_mvp.rosaa.data.factors import panel_io
 
     class ReplayFactors(RiskFactors):
@@ -373,7 +381,7 @@ def construction(implementation, receipt=None):
     if implementation == "reference":
         from ramen.quant_model_mvp.rosaa.data.factors.construction import compute_risk_factor_portfolio
     elif implementation == "factormodels":
-        from factormodels.spec.construction import compute_risk_factor_portfolio
+        from factormodels.analytics.construction import compute_risk_factor_portfolio
     dates = pd.bdate_range("2025-01-01", periods=95)
     prices = pd.DataFrame({"a":100*np.exp(np.arange(95)*.001),
                            "b":80*np.exp(np.arange(95)*-.0003)}, index=dates)
@@ -402,7 +410,9 @@ def downstream(reference_root, data):
     import pandas as pd
     from optimalportfolios.optimization.constraints import Constraints
     from optimalportfolios.optimization.general.quadratic import wrapper_quadratic_optimisation
-    weights, outcome = wrapper_quadratic_optimisation(data.get_y_covar(), Constraints())
+    weights, outcome = wrapper_quadratic_optimisation(
+        data.asset_covariance if type(data).__module__.startswith("factormodels.") else data.get_y_covar(),
+        Constraints())
     np.testing.assert_allclose(weights.sum(), 1., atol=1e-7)
     stress_fixture = load_file("_tf_reference_market", Path(reference_root)/
                               "QuantInvestStrats/src/qis/portfolio/stress/tests/conftest.py")
@@ -426,8 +436,8 @@ def main():
     parser.add_argument("--case", required=True, choices=["all","papers","rosaa"])
     parser.add_argument("--manifest", required=True, type=Path)
     parser.add_argument("--directory", required=True, type=Path)
-    parser.add_argument("--consumer-op-root", type=Path,
-                        help="Explicit active OP research checkout, required for consumer papers/all")
+    parser.add_argument("--consumer-root", "--consumer-op-root", dest="consumer_op_root", type=Path,
+                        help="Explicit active paper checkout (FactorModels), required for consumer papers/all")
     parser.add_argument("--consumer-manifest", type=Path,
                         help="Operational test inventory; defaults to consumer_manifest.json beside --manifest")
     parser.add_argument("--receipt", type=Path,

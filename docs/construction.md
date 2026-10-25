@@ -1,6 +1,16 @@
+---
+myst:
+  html_meta:
+    description: >-
+      Constructing a factormodels factor model: ordered factor NAVs from supplied price histories, explicit basket definitions, volatility targets and loading-sign constraints.
+---
+
 # Constructing a factor model
 
-*Author: [Artur Sepp](https://github.com/ArturSepp)*
+*Author: [Artur Sepp](https://github.com/ArturSepp) / First recorded: [2026-10-18](https://github.com/ArturSepp/FactorModels/commit/b6893a9e37d7cb2353666edf20f416a096ee5943)*
+
+Implemented in [FactorModels](https://github.com/ArturSepp/FactorModels).
+Software citation: [CITATION.cff](https://github.com/ArturSepp/FactorModels/blob/main/CITATION.cff).
 
 [FactorModels](https://github.com/ArturSepp/FactorModels) constructs ordered factor NAVs from supplied price histories and explicit basket definitions. The completed construction outputs are the model specification, the NAV/level panel and, when requested, the asset-by-factor loading constraints. Each can be inspected and used downstream without Rosaa. Software citation: [CITATION.cff](https://github.com/ArturSepp/FactorModels/blob/main/CITATION.cff).
 

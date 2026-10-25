@@ -17,8 +17,8 @@ import pandas as pd
 from scipy.stats import t
 
 from factorlasso import LassoModel, LassoModelType
-from factormodels.cma import CmaDiagnosticInputs, compute_cma_diagnostics
-from factormodels.premia import infer_factor_premia
+from factormodels.gls_diagnostic import CmaDiagnosticInputs, compute_cma_diagnostics
+from factormodels.gls_diagnostic import infer_factor_premia
 
 
 def arithmetic_example(*, residual_var_weight: float = 1.) -> dict:

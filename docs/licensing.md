@@ -1,10 +1,20 @@
+---
+myst:
+  html_meta:
+    description: >-
+      Source and dependency licensing of factormodels: MIT first-party source, retained notices, the factorlasso MIT floor and reviewed Windows runtime terms.
+---
+
 # Source and dependency licensing
 
-*Author: [Artur Sepp](https://github.com/ArturSepp)*
+*Author: [Artur Sepp](https://github.com/ArturSepp) / First recorded: [2026-10-19](https://github.com/ArturSepp/FactorModels/commit/396aba7a391ed8f6c22ea2e9c88f2909645e81a5)*
+
+Implemented in [FactorModels](https://github.com/ArturSepp/FactorModels).
+Software citation: [CITATION.cff](https://github.com/ArturSepp/FactorModels/blob/main/CITATION.cff).
 
 [FactorModels](https://github.com/ArturSepp/FactorModels) distributes its
 first-party source under MIT, with original notices retained. See the
-[software citation](../CITATION.cff), [LICENSE](../LICENSE), and
+[software citation](https://github.com/ArturSepp/FactorModels/blob/main/CITATION.cff), [LICENSE](../LICENSE), and
 [supplemental third-party notices](https://github.com/ArturSepp/FactorModels/blob/main/THIRD_PARTY_NOTICES.md).
 
 ## FactorLasso minimum

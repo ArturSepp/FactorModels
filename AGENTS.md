@@ -48,7 +48,10 @@ currency when supplied, selected residual policy and relevant provenance. The
 full selected covariance; label diagonal-reference decompositions explicitly.
 
 Read the [shared documentation standard](https://github.com/ArturSepp/ArturSepp/blob/main/docs/documentation_standard.md)
-before substantive reader-facing documentation edits. Maintain `LICENSE`,
+before substantive reader-facing documentation edits. Every human-authored reader page uses the
+linked author, owning FactorModels repository, `CITATION.cff` and verified First recorded links
+shown in `docs/api.md`. Preserve and explain verified earlier sources for transferred articles;
+new uncommitted pages keep an author-only byline until commit evidence exists. Maintain `LICENSE`,
 supplemental notices, `CITATION.cff`, the README citation and `CHANGELOG.md`.
 Version metadata must agree. Keep generated analyses and private inputs out of
 source distributions and the public repository.

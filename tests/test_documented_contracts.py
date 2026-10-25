@@ -25,13 +25,13 @@ def test_completed_model_can_be_inspected_without_rerunning_producer(monkeypatch
     risk = snapshot.to_risk_model()
     pd.testing.assert_frame_equal(risk.covar[snapshot.cutoff], covariance)
     assert covariance.shape == (4, 4)
-    assert snapshot.data.y_betas.shape == (4, 2)
+    assert snapshot.loadings.shape == (4, 2)
     assert snapshot.provenance["asset_return_type"] == "log"
     assert snapshot.provenance["reference_ccy"] == "USD"
     assert snapshot.cutoff == pd.Timestamp("2024-01-31")
     np.testing.assert_allclose(np.diag(covariance),
-                               np.diag(snapshot.data.y_betas @ snapshot.data.x_covar
-                                       @ snapshot.data.y_betas.T + snapshot.residual_covariance))
+                               np.diag(snapshot.loadings @ snapshot.factor_covariance
+                                       @ snapshot.loadings.T + snapshot.residual_covariance))
 
 
 def test_proxy_definition_has_exact_single_component_nav_returns():
@@ -54,7 +54,7 @@ def test_log_fit_connects_to_explicit_arithmetic_forecasts_without_refitting(mon
     assert not np.allclose(log_returns.cov(), simple_returns.cov(), rtol=1e-8, atol=1e-12)
     snapshot = namespace["inspect_fit"](factors, prices)["snapshot"]
     before = (snapshot.loadings, snapshot.factor_covariance, snapshot.residual_covariance,
-              snapshot.asset_covariance, snapshot.data.residuals.copy())
+              snapshot.asset_covariance, snapshot.residuals.copy())
     def forbidden(*args, **kwargs):
         raise AssertionError("the arithmetic forecast audit must not refit")
     monkeypatch.setattr(FactorCovarEstimator, "fit_current", forbidden)
@@ -63,7 +63,7 @@ def test_log_fit_connects_to_explicit_arithmetic_forecasts_without_refitting(mon
     inputs, audit, forecasts = result["inputs"], result["audit"], result["forecasts"]
     for actual, expected in zip((inputs.betas, inputs.factor_covariance,
                                  snapshot.residual_covariance, inputs.production_covariance,
-                                 snapshot.data.residuals), before):
+                                 snapshot.residuals), before):
         pd.testing.assert_frame_equal(actual, expected, check_exact=True)
     np.testing.assert_allclose(inputs.residual_variances, np.diag(before[2]), rtol=0., atol=0.)
     np.testing.assert_allclose(audit.assets.excess_cma, forecasts.provider_total-forecasts.cash)
@@ -83,7 +83,7 @@ def test_log_forecast_bridge_uses_full_variance_reconciliation_once():
     snapshot, forecasts = result["snapshot"], result["forecasts"]
     b, f, sigma = snapshot.loadings, snapshot.factor_covariance, snapshot.asset_covariance
     # Independent geometric sum includes the zero initial state after leading missing data.
-    residuals = snapshot.data.residuals
+    residuals = snapshot.residuals
     assert residuals.iloc[0].isna().all()
     finite = residuals.dropna()
     assert residuals.loc[finite.index[0]:].notna().all().all()
@@ -177,7 +177,7 @@ def test_connected_audit_uses_selected_residual_weight_without_changing_fit():
     )
     result = namespace["inspect_fit"](*namespace["synthetic_prices"](), estimator=estimator)
     snapshot, inputs, audit = result["snapshot"], result["inputs"], result["audit"]
-    expected = .5*snapshot.data.y_variances[VarianceColumns.RESIDUAL_VARS.value]
+    expected = .5*snapshot.fit_statistics[VarianceColumns.RESIDUAL_VARS.value]
     np.testing.assert_allclose(inputs.residual_variances, expected, rtol=1e-12)
     np.testing.assert_allclose(audit.assets.residual_vol**2, expected, rtol=1e-12)
     reference = np.einsum("ik,kl,jl->ij", inputs.betas, inputs.factor_covariance, inputs.betas)

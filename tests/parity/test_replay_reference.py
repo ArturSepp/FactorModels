@@ -40,7 +40,7 @@ def test_missing_component_is_rejected():
 @pytest.mark.parametrize("corrupt", [False, True])
 def test_consumer_construction_executes_rosaa_boundary_and_rejects_corruption(monkeypatch, corrupt):
     """A direct FM fallback would miss the deliberately corrupted Rosaa output."""
-    from factormodels.spec.construction import build_factor_panel
+    from factormodels.analytics.construction import build_factor_panel
 
     module = ModuleType("ramen.quant_model_mvp.rosaa.data.factors.panel_io")
     module.__file__ = __file__
@@ -74,7 +74,7 @@ def test_consumer_construction_executes_rosaa_boundary_and_rejects_corruption(mo
 
 def paper_adapters(monkeypatch, *, corrupt_faj=False, corrupt_matf=False):
     """Supply executable consumer seams without private source/data in public tests."""
-    from factormodels.cma.diagnostics import CmaDiagnosticInputs, compute_cma_diagnostics
+    from factormodels.gls_diagnostic.cma_diagnostics import CmaDiagnosticInputs, compute_cma_diagnostics
     betas = pd.DataFrame([[1., 0.], [0., 1.], [.5, .6], [1., -.2]],
                          index=list("abcd"), columns=["equity", "rates"])
     residual = pd.Series([.01, .02, .03, .04], index=betas.index)

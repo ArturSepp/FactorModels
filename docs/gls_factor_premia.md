@@ -10,11 +10,15 @@ myst:
 
 *Author: [Artur Sepp](https://github.com/ArturSepp) / First recorded: [2026-10-16](https://github.com/ArturSepp/OptimalPortfolios/commit/ccb486a6a1ab1d3949d2b6408ee85dcf9dc687a8)*
 
+Implemented in [FactorModels](https://github.com/ArturSepp/FactorModels).
+Software citation: [CITATION.cff](https://github.com/ArturSepp/FactorModels/blob/main/CITATION.cff).
+
+This article was first recorded in [OptimalPortfolios](https://github.com/ArturSepp/OptimalPortfolios/blob/ccb486a6a1ab1d3949d2b6408ee85dcf9dc687a8/docs/gls_factor_premia.md) before its transfer to FactorModels.
+
 FactorModels produces completed premium estimates, forecast reconciliations and
 conditional diagnostics. Consumers such as
 [OptimalPortfolios](https://github.com/ArturSepp/OptimalPortfolios) use prepared expected
 returns in a separate optimisation step.
-Implemented in [FactorModels](https://github.com/ArturSepp/FactorModels). Software citation: [CITATION.cff](https://github.com/ArturSepp/FactorModels/blob/main/CITATION.cff).
 
 Generalized least squares (GLS) projects asset expected returns onto a fitted factor
 loading matrix. This second stage infers the premia implicit in a provider's capital
@@ -222,7 +226,7 @@ $$
 m=\ell_y+\tfrac12 s.
 $$
 
-Here `snapshot.data.estimate_alpha(alpha_span=36)` supplies already annualised
+Here `estimate_historical_alpha(snapshot, alpha_span=36)` supplies already annualised
 historical log alpha from the original residual histories. It is not
 `insample_alpha`, and is not annualised again. These model-implied log means are
 forecast construction inputs; they do not claim to reproduce sample asset means.
@@ -324,14 +328,14 @@ not a fitted-object checkpoint. See [CMA report interpretation](cma_diagnostics.
 
 ## Implementation in factormodels
 
-The supported inference import is now `factormodels.premia`; the old OP
+The supported inference import is now `factormodels.gls_diagnostic`; the old OP
 analytics imports have been removed. Install FactorModels for
-this offline example. Its `premia/README.md` describes module responsibilities
+this offline example. Its [GLS contracts guide](gls_contracts.md) describes module responsibilities
 and contributor checks; `_inference.py` is private. OP consumes the resulting
 expected returns and covariance for constrained optimisation.
 
 The mean bridge `annual_arithmetic_from_log` is exported from
-`factormodels.cma` and the package root. It does not estimate a model or
+`factormodels.gls_diagnostic` and the package root. It does not estimate a model or
 transform covariance.
 
 - `infer_factor_premia` returns `GlsPremiaResult`: exact asset reconciliation, premium
@@ -356,7 +360,7 @@ transform covariance.
   draw status and assumptions. `compute_gls_loading_stability_contrast` takes
   paired result differences using the intersection of available draws.
 
-These are exported from `factormodels.premia` and the FactorModels package
+These are exported from `factormodels.gls_diagnostic` and the FactorModels package
 root. There are no OP forwarding exports. The GLS calculation uses NumPy, pandas
 and SciPy and does not call
 FactorLasso. All return units are supplied by the caller;

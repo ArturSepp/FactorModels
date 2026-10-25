@@ -1,5 +1,16 @@
-"""Current and rolling factor-model estimation from supplied market histories."""
+"""Current and rolling factor-model estimation from supplied market histories.
+Purpose: Fit complete current and rolling factor models from supplied historical data.
+Inputs: FL configuration, factor prices, per-cadence asset returns, cutoff and residual policy.
+Outputs: FactorCovarEstimator.fit_current and fit_rolling return completed FM contracts.
+Units: Asset observations are log returns; factor units are declared and output moments annualised by native cadence.
+Conditioning: Truncate all histories at each cutoff, isolate fitting state and preserve the selected residual covariance.
+Ownership: FM orchestrates and owns completed results; FL fits loadings/residuals and QIS estimates factor covariance.
+"""
 from __future__ import annotations
+from typing import Any
+from collections.abc import Mapping
+from datetime import date, datetime
+from factorlasso import CurrentFactorCovarData
 
 from copy import deepcopy
 from dataclasses import dataclass
@@ -10,9 +21,13 @@ import qis
 from factorlasso import LassoModel
 
 from factormodels.estimation._pipeline import _FactorCovarPipeline
-from factormodels.estimation.models import (
+from factormodels.estimation._results import _materialize
+from factormodels.analytics.models import (
     DatedFactorCovariance, FactorModelSnapshot, RollingFactorModel, _return_types,
 )
+
+
+__all__ = ['FactorCovarEstimator']
 
 
 def _historical_panel(panel: pd.DataFrame, cutoff: pd.Timestamp, name: str) -> pd.DataFrame:
@@ -104,7 +119,7 @@ class FactorCovarEstimator:
             factor_return_types=deepcopy(self.factor_return_types),
         )
 
-    def _inputs(self, risk_factor_prices, asset_returns_dict, cutoff):
+    def _inputs(self, risk_factor_prices: pd.DataFrame, asset_returns_dict: Mapping[str, pd.DataFrame], cutoff: str | date | datetime | np.datetime64 | pd.Timestamp) -> tuple[pd.Timestamp, pd.DataFrame, dict[str, pd.DataFrame]]:
         """Truncate every historical panel and validate the asset partition."""
         cutoff = pd.Timestamp(cutoff)
         if pd.isna(cutoff):
@@ -119,7 +134,7 @@ class FactorCovarEstimator:
             raise ValueError("assets must belong to exactly one return cadence")
         return cutoff, factors, returns
 
-    def _snapshot(self, data, cutoff, provenance):
+    def _snapshot(self, data: CurrentFactorCovarData, cutoff: pd.Timestamp, provenance: Mapping[str, Any]) -> FactorModelSnapshot:
         """Attach selected assembly policy and coordinate metadata to a fitted result."""
         estimated = provenance["factor_covariance"] == "estimated"
         provenance = {
@@ -134,7 +149,7 @@ class FactorCovarEstimator:
             "reg_lambda": self.lasso_model.reg_lambda,
             "reg_lambda_freq_dict": deepcopy(self.reg_lambda_freq_dict),
         }
-        return FactorModelSnapshot(
+        return _materialize(
             data=data, cutoff=cutoff, residual_type=self.residual_type,
             residual_var_weight=self.residual_var_weight,
             residual_corr_weight=self.residual_corr_weight,

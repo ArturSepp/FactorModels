@@ -8,7 +8,6 @@ No acquisition, fitting on load, or persistence occurs implicitly.
 from __future__ import annotations
 
 import argparse
-from dataclasses import replace
 import json
 from pathlib import Path
 
@@ -20,6 +19,7 @@ import qis
 from factorlasso import LassoModel, LassoModelType
 
 from factormodels import (
+    estimate_historical_alpha,
     CmaDiagnosticInputs, FactorCovarEstimator, FactorModelSnapshot, RiskFactors,
     annual_arithmetic_from_log, compute_cma_diagnostics, infer_factor_premia,
 )
@@ -82,7 +82,7 @@ def inspect_fit(
         if any(kind.name != "LOG" for kind in snapshot.factor_return_types.values()):
             raise ValueError("Native difference factors require explicit factor_units")
         factor_units = {name: "dimensionless" for name in factor_prices.columns}
-    snapshot = replace(snapshot, provenance={
+    snapshot = snapshot.with_provenance({
         **snapshot.provenance, "reference_ccy": "USD", "factor_units": dict(factor_units),
         "factor_return_basis": "total",
     })
@@ -95,7 +95,7 @@ def inspect_fit(
     np.testing.assert_allclose(covariance, reference, rtol=1e-11, atol=1e-12)
     assert covariance.index.equals(betas.index) and covariance.columns.equals(betas.index)
     assert snapshot.cutoff == cutoff
-    assert snapshot.data.residuals.index.max() <= snapshot.cutoff
+    assert snapshot.residuals.index.max() <= snapshot.cutoff
     assert np.linalg.eigvalsh(covariance).min() >= -1e-10
 
     return {"snapshot": snapshot, **audit_snapshot(snapshot, cash_rate=cash_rate)}
@@ -126,7 +126,7 @@ def audit_snapshot(snapshot: FactorModelSnapshot, *, cash_rate: float = 0.) -> d
     factor_arithmetic = pd.Series(.04, index=betas.columns, name="assumed_arithmetic_premium")
     factor_log = factor_arithmetic-.5*pd.Series(np.diag(factors), index=betas.columns)
     # FactorLasso estimates the EWMA from the producer's already annualized residuals.
-    alpha_log = snapshot.data.estimate_alpha(alpha_span=36)
+    alpha_log = estimate_historical_alpha(snapshot, alpha_span=36)
     asset_log = betas @ factor_log + alpha_log
     asset_arithmetic = annual_arithmetic_from_log(
         asset_log, pd.Series(np.diag(covariance), index=betas.index), annualization_factor=1.)
@@ -228,7 +228,7 @@ def public_proxy_prices(prices: pd.DataFrame | None = None) -> tuple[pd.DataFram
     reproduce the proprietary MATF universe, hedges, carry or calibration.
     """
     from factormodels import Factor, FactorFamily, VolTargetPolicy, build_factor_panel
-    from factormodels.spec import FactorModelSpec
+    from factormodels.analytics.definitions import FactorModelSpec
 
     factor_prices, asset_prices = synthetic_prices()
     if prices is None:

@@ -3,6 +3,13 @@
 The OP EWMA estimator remains in OP. QIS has no single exported helper with
 this exact sampling, double-drop, annualisation and normalized-kernel contract,
 so FM owns this small orchestration of its existing kernels.
+
+Purpose: Prepare factor returns and factor covariance using existing QIS kernels.
+Inputs: Dated factor prices, return-coordinate mapping, sampling frequency and EWMA settings.
+Outputs: compute_returns_from_prices and estimate_factor_covariance return sampled returns and F.
+Units: LOG factors use fractional log returns; DIFFERENCE factors keep point units and covariance uses their products.
+Conditioning: Preserve sampling, double-drop, demeaning, normalization and optional annualisation order.
+Ownership: FM owns the orchestration contract; QIS owns conversion and covariance calculations.
 """
 
 from __future__ import annotations
@@ -11,7 +18,10 @@ from typing import Optional
 
 import pandas as pd
 import qis as qis
-from qis.perfstats.returns import to_factor_returns
+from qis import to_factor_returns
+
+
+__all__ = []
 
 
 def compute_returns_from_prices(prices: pd.DataFrame,

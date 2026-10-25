@@ -3,14 +3,14 @@ message: "Please cite the working paper for the MATF methodology and this softwa
 type: software
 repository-code: "https://github.com/ArturSepp/FactorModels"
 url: "https://github.com/ArturSepp/FactorModels"
-title: "FactorModels: Financial factor models and GLS analytics"
+title: "factormodels: Factor construction, GLS premia, capital market assumptions and factor covariance estimation"
 authors:
   - family-names: Sepp
     given-names: Artur
     orcid: "https://orcid.org/0000-0002-7038-1748"
 license: MIT
-version: 0.2.0
-date-released: 2026-10-24
+version: 0.3.0
+# Unreleased development candidate; set date-released at publication.
 keywords:
   - MATF
   - multi-asset

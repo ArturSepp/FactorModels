@@ -1,5 +1,10 @@
 # factormodels
 
+*Author: [Artur Sepp](https://github.com/ArturSepp) / First recorded: [2026-10-18](https://github.com/ArturSepp/FactorModels/commit/2e23f5a9334fe2c44a5acfa028e0ac3e368f93a0)*
+
+Implemented in [FactorModels](https://github.com/ArturSepp/FactorModels).
+Software citation: [CITATION.cff](https://github.com/ArturSepp/FactorModels/blob/main/CITATION.cff).
+
 **Factor construction, GLS premia, capital market assumptions and factor covariance estimation
 — multi-asset factor models in Python from tradable instruments and observed levels to
 point-in-time loadings, covariance and provider-implied factor premia.**
@@ -16,14 +21,15 @@ return preparation and risk export to [qis](https://github.com/ArturSepp/QuantIn
 [OptimalPortfolios](https://github.com/ArturSepp/OptimalPortfolios) consumes the
 fitted covariance and is not required to complete a fit.
 
-**Install:** `python -m pip install factormodels` · **Import:** `factormodels` · **Status:** Released
+**Install:** `pip install factormodels` · **Import:** `factormodels` · **Status:** Released
 
 [![PyPI](https://img.shields.io/pypi/v/factormodels?style=flat-square)](https://pypi.org/project/factormodels/)
 [![Python](https://img.shields.io/pypi/pyversions/factormodels?style=flat-square)](https://pypi.org/project/factormodels/)
-[![Docs](https://img.shields.io/badge/docs-GitHub-blue?style=flat-square)](https://github.com/ArturSepp/FactorModels/blob/main/docs/index.md)
-[![Downloads](https://static.pepy.tech/badge/factormodels)](https://pepy.tech/project/factormodels)
 [![CI](https://github.com/ArturSepp/FactorModels/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/ArturSepp/FactorModels/actions/workflows/ci.yml)
+[![Docs](https://img.shields.io/badge/docs-GitHub-blue?style=flat-square)](https://github.com/ArturSepp/FactorModels/blob/main/docs/index.md)
 [![License](https://img.shields.io/github/license/ArturSepp/FactorModels.svg?style=flat-square)](LICENSE)
+[![Downloads](https://static.pepy.tech/badge/factormodels)](https://pepy.tech/project/factormodels)
+[![Monthly](https://static.pepy.tech/badge/factormodels/month)](https://pepy.tech/project/factormodels)
 
 **Papers:** Sepp, A., Ossa, I. and Kastenholz, M. (2026), *Robust Optimization of Strategic and
 Tactical Asset Allocation for Multi-Asset Portfolios*, The Journal of Portfolio Management 52(4) ·
@@ -147,6 +153,9 @@ working model. `reports.cma_diagnostics` renders the audit with `qis` plotting p
   cross-sectional regression of a Barra-type model is a different estimator.
 - You need portfolio optimisation. Pass the fitted covariance to `optimalportfolios`.
 - You need non-linear or regime-switching factor dynamics.
+
+The current source is the **unreleased 0.3.0 candidate**. Completed-result callers
+should follow the [migration guide](docs/migration.md).
 
 ## Installation
 
@@ -401,7 +410,7 @@ Asset D  0.004682  0.000435  0.002665  0.003494
 
 Returns are decimal log returns, covariances are annualised with 12 periods a year, and the
 cutoff is the last observation. The `FactorModelSnapshot` also carries `residual_covariance`,
-`provenance` and the FactorLasso fit in `model.data`. `model.to_risk_model()` exports the
+`provenance` and FM-owned fit statistics, residual histories and cluster diagnostics. `model.to_risk_model()` exports the
 selected covariance as a `qis.RiskModel` without refitting. The loadings are LASSO estimates
 over a 36-month span, so a small planted loading can shrink to zero.
 
@@ -428,7 +437,9 @@ B, F = model.loadings, model.factor_covariance
 R, S = model.residual_covariance, model.asset_covariance
 
 premia_assumed = pd.Series(0.04, index=B.columns)              # annual arithmetic
-alpha_log = model.data.estimate_alpha(alpha_span=36)            # annualised log residual mean
+from factormodels import estimate_historical_alpha
+
+alpha_log = estimate_historical_alpha(model, alpha_span=36)            # annualised log residual mean
 asset_log_mean = B @ (premia_assumed - 0.5 * pd.Series(np.diag(F), index=B.columns)) + alpha_log
 asset_mean = annual_arithmetic_from_log(asset_log_mean, pd.Series(np.diag(S), index=B.index))
 alpha = asset_mean - B @ premia_assumed
@@ -579,7 +590,7 @@ Runnable examples in [`examples/`](examples/), all offline:
   prices → LASSO loadings and alpha → provider-implied GLS premia, teaching the two stages on
   monthly excess-return NAVs.
 - [`downstream_handoff.py`](examples/downstream_handoff.py): fitted model to an
-  `optimalportfolios` solve to `qis` tracking error. Requires `optimalportfolios`.
+  `optimalportfolios` solve to `qis` tracking error. Requires the OP development candidate with `optimization.opportunity`.
 
 Method documentation: [completed model](docs/completed_model.md),
 [factor construction](docs/construction.md),
@@ -609,14 +620,14 @@ Release history is maintained in [CHANGELOG.md](CHANGELOG.md).
 
 ## Feedback & contributing <a name="feedback-contributing"></a>
 
-- **Bug:** open an [issue](https://github.com/ArturSepp/FactorModels/issues) with the version, Python/platform, a minimal reproducer, and expected versus actual output.
-- **Feature:** open an [issue](https://github.com/ArturSepp/FactorModels/issues) and describe the modelling goal, the current workaround, and the smallest useful API. In particular: which construction rule, residual policy or diagnostic is missing?
+- **Bug:** use the [bug-report form](https://github.com/ArturSepp/FactorModels/issues/new?template=bug_report.yml) with the version, Python/platform, a minimal reproducer, and expected versus actual output.
+- **Feature:** use the [feature-request form](https://github.com/ArturSepp/FactorModels/issues/new?template=feature_request.yml) and describe the modelling goal, the current workaround, and the smallest useful API. In particular: which construction rule, residual policy or diagnostic is missing?
 - **Question or methodology:** open an [issue](https://github.com/ArturSepp/FactorModels/issues) and identify the method, paper section, or convention involved.
 - **Contribution:** follow [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Citation
 
-A machine-readable citation is available in [`CITATION.cff`](CITATION.cff).
+A machine-readable citation is available in [`CITATION.cff`](https://github.com/ArturSepp/FactorModels/blob/main/CITATION.cff).
 
 If you use `factormodels` in academic work, please cite the software, the papers that define
 the model and its applications, and the estimator it builds on:
@@ -626,7 +637,7 @@ the model and its applications, and the estimator it builds on:
   author  = {Sepp, Artur},
   title   = {factormodels: Multi-Asset Factor Models in {Python}},
   year    = {2026},
-  version = {0.2.0},
+  version = {0.3.0},
   url     = {https://github.com/ArturSepp/FactorModels},
 }
 

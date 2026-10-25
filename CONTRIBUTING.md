@@ -1,11 +1,14 @@
 # Contributing
 
-*Author: [Artur Sepp](https://github.com/ArturSepp) / First recorded: [2026-10-18](https://github.com/ArturSepp/tradablefactors/commit/2e23f5a9334fe2c44a5acfa028e0ac3e368f93a0)*
+*Author: [Artur Sepp](https://github.com/ArturSepp) / First recorded: [2026-10-18](https://github.com/ArturSepp/FactorModels/commit/2e23f5a9334fe2c44a5acfa028e0ac3e368f93a0)*
+
+Implemented in [FactorModels](https://github.com/ArturSepp/FactorModels).
+Software citation: [CITATION.cff](https://github.com/ArturSepp/FactorModels/blob/main/CITATION.cff).
 
 Contribute to [FactorModels](https://github.com/ArturSepp/FactorModels) using a
 reviewed source checkout and the dependency versions in `uv.lock`. See
 [AGENTS.md](AGENTS.md) for numerical and package boundaries and
-[CITATION.cff](CITATION.cff) for software attribution.
+[CITATION.cff](https://github.com/ArturSepp/FactorModels/blob/main/CITATION.cff) for software attribution.
 
 ## Prepare an external checkout
 
@@ -68,6 +71,41 @@ The `test` and `lint` dependency groups supply the reviewed tools; the `docs`
 extra supplies Sphinx and its extensions. `--locked` rejects a stale lockfile
 instead of changing the dependency cohort. Keep intentional dependency updates
 separate from unrelated source changes.
+
+The source test suite runs `tools/check_architecture.py` through
+`tests/test_architecture.py`. It checks absolute, relative, nested and typing-only
+imports against the ownership matrix, resolves package re-exports and rejects
+implementation imports through the FM root facade. Standard-library imports are
+allowed separately from numerical dependencies. Module-initialization cycles fail;
+the model/risk deferred cycle is listed explicitly.
+
+The final boundary is enforced without transition permissions: GLS/CMA and
+opportunity/uncertainty live in `gls_diagnostic`. Its only FactorLasso imports are
+the four named calibration functions in the three named modules. Estimation owns
+FL fitting and materialization. The local-method cycle between completed models
+and risk export remains permitted because neither side needs the other during
+module initialization. Shipped tests live beside their component and use
+`tests/test_*.py`; package-wide acceptance checks can remain in the shared tests.
+
+Production signatures select Ruff `ANN001`, `ANN002`, `ANN003`, `ANN201`, `ANN202`
+and `ANN204`. Every production signature is annotated; there are no temporary
+production exceptions. `tools/architecture_debt.json` retains empty annotation
+and header inventories, and the tests require them to remain empty.
+Tests (including their initializers), examples and tooling are exempt from these
+six annotation rules only. Correctness and import rules continue to apply.
+
+Numerical module headers must contain substantive `Purpose:`, `Inputs:`, `Outputs:`,
+`Units:`, `Conditioning:` and `Ownership:` fields. These fields describe the actual
+mathematical contract; automated checks cannot establish semantic correctness.
+Export-only initializers and tests are exempt; the path resolver and version lookup
+have named infrastructure exemptions. Every numerical implementation module complies;
+new modules must comply immediately. Keep controlled-defect tests for the guards.
+
+Estimation orchestration lives in `_pipeline`, with cadence fitting in `_frequency`,
+cluster schedules in `_clustering` and residual preparation/reuse in `_residuals`.
+These private stages preserve the estimator's operation order and FL/QIS ownership.
+Both CMA renderers use `reports._pdf` for atomic export, figure closure and failure
+cleanup; `utils.local_path` remains responsible only for settings and path resolution.
 
 Build the source distribution and then its wheel with the default `build`
 sequence, and build HTML with warnings treated as errors. On Linux or macOS:

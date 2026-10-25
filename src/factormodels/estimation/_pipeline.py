@@ -4,344 +4,48 @@ FactorLasso owns fitting, clustering and covariance containers; QIS supplies
 return preparation and EWMA kernels. Public cutoff/configuration/result contracts
 are implemented in :mod:`factormodels.estimation`. These implementation
 details are not compatibility entry points.
+
+Purpose: Orchestrate native-cadence fits and annual covariance assembly in their original order.
+Inputs: Observed factor prices, per-cadence asset returns, FL configuration and output schedule.
+Outputs: _FactorCovarPipeline produces current or rolling FL intermediates for FM materialisation.
+Units: B is in native coordinates; F, residual variances and intercepts are annualised by cadence.
+Conditioning: Preserve ordered fits, residual scaling and cutoff semantics; frequency, clustering and residual stages are separate.
+Ownership: FM orchestrates; FL owns estimation and covariance containers, QIS owns return and covariance kernels.
 """
 from __future__ import annotations
+
 
 import numpy as np
 import pandas as pd
 import qis as qis
-from qis.perfstats.returns import to_factor_returns
 from typing import Union, Optional, Dict, Any, List
-from dataclasses import dataclass, asdict, fields, replace
+from dataclasses import dataclass, asdict, fields
 
+from factormodels.estimation._frequency import _fit_lasso_frequency, _model_for_frequency
+from factormodels.estimation._clustering import _current_cluster_inputs, _rolling_cluster_paths
+from factormodels.estimation._residuals import (
+    _validate_residual_type, _prepare_residual_correlation, _reuse_residual_correlation,
+)
 from factormodels.estimation._preparation import estimate_factor_covariance
 from factorlasso import (
-    ClusterSmootherType,
     CurrentFactorCovarData,
     LassoModel,
     LassoModelType,
     RollingFactorCovarData,
     VarianceColumns,
-    compute_rolling_smoothed_clusters,
 )
 
 
-def _validate_residual_type(residual_type: str) -> None:
-    """Validate the four supported residual covariance policies."""
-    choices = ('orthogonal', 'empirical', 'exposure_cluster', 'residual_cluster')
-    if residual_type not in choices:
-        raise ValueError(f"residual_type must be one of {choices}")
 
 
-def _model_for_frequency(lasso_model: LassoModel, freq: str) -> LassoModel:
-    """Resolve regression and clustering spans for one return cadence.
-
-    Args:
-        lasso_model: FactorLasso configuration, optionally carrying cadence maps.
-        freq: Asset-return frequency code used to look up each configured map.
-
-    Returns:
-        A model copy with span overrides when maps are present; otherwise the
-        supplied model itself. Spans count observations at the requested cadence.
-
-    Raises:
-        KeyError: If a configured regression or clustering span map lacks freq.
-    """
-    overrides = {}
-    if lasso_model.span_freq_dict is not None:
-        if freq not in lasso_model.span_freq_dict:
-            raise KeyError(f"no span for freq={freq} in lasso_model.span_freq_dict")
-        overrides['span'] = lasso_model.span_freq_dict[freq]
-    cluster_span_map = getattr(
-        lasso_model, 'cluster_correlation_span_freq_dict', None
-    )
-    if cluster_span_map is not None:
-        if freq not in cluster_span_map:
-            raise KeyError(
-                f"no cluster correlation span for freq={freq} in "
-                "lasso_model.cluster_correlation_span_freq_dict"
-            )
-        overrides['cluster_correlation_span'] = cluster_span_map[freq]
-    prior_hac_map = getattr(lasso_model, 'expert_prior_hac_lags_freq_dict', None)
-    if (prior_hac_map is not None
-            and getattr(lasso_model, 'expert_prior_bound_n_std', None) is not None):
-        if freq not in prior_hac_map:
-            raise KeyError(f"no expert prior HAC bandwidth for freq={freq}")
-        overrides['expert_prior_hac_lags'] = prior_hac_map[freq]
-    return lasso_model.copy(kwargs=overrides) if overrides else lasso_model
 
 
-def _validate_recluster_frequency(recluster_freq: str, rebalancing_freq: str) -> None:
-    """Check that the reclustering frequency generates fewer calendar anchors.
-
-    The check compares counts over a fixed 2000-2029 calendar interval. It checks
-    relative cadence, not whether every recluster date is a covariance date.
-
-    Args:
-        recluster_freq: Pandas frequency string for reclustering anchors.
-        rebalancing_freq: Pandas frequency string for covariance output dates.
-
-    Raises:
-        ValueError: If either frequency is invalid or reclustering generates at
-            least as many anchors as covariance rebalancing.
-    """
-    sample_start = pd.Timestamp('2000-01-01')
-    sample_end = pd.Timestamp('2029-12-31')
-    try:
-        recluster_count = len(pd.date_range(sample_start, sample_end, freq=recluster_freq))
-        rebalancing_count = len(pd.date_range(sample_start, sample_end, freq=rebalancing_freq))
-    except (TypeError, ValueError) as exc:
-        raise ValueError(
-            f"invalid recluster_freq={recluster_freq!r} or "
-            f"rebalancing_freq={rebalancing_freq!r}"
-        ) from exc
-    if recluster_count >= rebalancing_count:
-        raise ValueError(
-            f"recluster_freq={recluster_freq!r} must be coarser than "
-            f"rebalancing_freq={rebalancing_freq!r}"
-        )
 
 
-# FactorLasso's get_linkage_array extracts a whole tree but cannot restrict its leaves.
-# This reporting adapter retains the discovered merge heights; it never reclusters assets.
-def _restrict_linkage(linkage: np.ndarray, labels: pd.Index,
-                      assets: pd.Index) -> np.ndarray:
-    """Remove reference leaves from a discovered clustering tree.
-
-    The adapter retains discovered merge heights and the requested asset order;
-    it does not recluster the retained assets.
-
-    Args:
-        linkage: SciPy-style linkage array for the complete discovered tree.
-        labels: Leaf labels in the order used by linkage.
-        assets: Ordered subset of leaf labels to retain.
-
-    Returns:
-        Four-column linkage array over retained assets; zero or one retained
-        leaf gives no merge rows.
-
-    Raises:
-        ValueError: If any requested asset label is absent from labels.
-    """
-    positions = labels.get_indexer(assets)
-    if np.any(positions < 0):
-        raise ValueError('clustering linkage is missing fitted asset labels')
-    nodes = {int(old): (new, 1) for new, old in enumerate(positions)}
-    rows = []
-    for step, (left, right, height, _) in enumerate(linkage):
-        lhs, rhs = nodes.get(int(left)), nodes.get(int(right))
-        parent = len(labels) + step
-        if lhs is not None and rhs is not None:
-            count = lhs[1] + rhs[1]
-            nodes[parent] = (len(assets) + len(rows), count)
-            rows.append((lhs[0], rhs[0], height, count))
-        elif lhs is not None or rhs is not None:
-            nodes[parent] = lhs if lhs is not None else rhs
-    return np.asarray(rows, dtype=float).reshape(-1, 4)
 
 
-def _factor_cluster_path(risk_factor_prices: pd.DataFrame, returns: pd.DataFrame,
-                         schedule: List[pd.Timestamp], model: LassoModel, factor_return_types=None):
-    """Build factor-assisted cluster paths and retain asset-only reporting trees.
 
-    Factor prices are forward-filled to the return index and converted to log
-    returns. FactorLasso discovers clusters on assets plus renamed factor
-    references. References are then removed from assignments and linkages.
-    Missing asset assignments receive distinct groups; warm-up-eligible asset
-    leaves determine each reported tree.
-
-    Args:
-        risk_factor_prices: Date-by-factor prices for clustering references.
-        returns: One cadence's date-by-asset log returns.
-        schedule: Estimation dates passed to FactorLasso's cluster-path builder.
-        model: Configuration with spans resolved for this return cadence.
-
-    Returns:
-        FactorLasso cluster-path container with asset assignments and restricted
-        linkages. Its cutoff records remain those of the discovered reference tree.
-
-    Raises:
-        ValueError: If asset/factor columns are not unique, asset names collide
-            with reserved factor-anchor labels, or retained linkage labels are missing.
-    """
-    if not returns.columns.is_unique or not risk_factor_prices.columns.is_unique:
-        raise ValueError('factor clustering requires unique asset and factor columns')
-    prices = risk_factor_prices.reindex(index=returns.index, method='ffill').ffill()
-    factors = to_factor_returns(
-        prices, return_types=factor_return_types, is_first_zero=False, drop_first=False, freq=None,
-    )
-    factors.columns = pd.Index([f'__factor_anchor__:{i}' for i in range(len(factors.columns))])
-    if not returns.columns.intersection(factors.columns).empty:
-        raise ValueError('asset names collide with reserved __factor_anchor__: labels')
-    panel = pd.concat([returns, factors], axis=1, sort=True)
-    path = compute_rolling_smoothed_clusters(y=panel, estimation_dates=schedule, lasso_model=model)
-    for date in schedule:
-        discovered = path.clusters[date]
-        assignments = discovered.reindex(returns.columns).copy()
-        # A common-mode transform may omit not-yet-eligible assets from discovery. Give each
-        # missing response its own solver group; FactorLasso still zeroes/drops it at warmup.
-        next_group = int(discovered.max()) + 1
-        for asset in assignments.index[assignments.isna()]:
-            assignments.loc[asset] = next_group
-            next_group += 1
-        active = returns.columns
-        if model.warmup_period is not None:
-            active = active[returns.loc[:date].notna().sum() >= model.warmup_period]
-        path.linkages[date] = _restrict_linkage(path.linkages[date], discovered.index, active)
-        path.clusters[date] = assignments.astype(int)
-    return path
-
-
-@dataclass(frozen=True)
-class _FrequencyFitResult:
-    """Unannualized components from one asset-return cadence.
-
-    Attributes:
-        betas: Asset-by-factor loadings from the fitted model.
-        ewma_variances: Per-asset total variation reported by the fit.
-        residual_variances: Per-asset residual variation reported by the fit.
-        alphas: Per-asset fitted intercepts.
-        r2: Dimensionless fit R-squared diagnostics.
-        clusters: Optional per-asset fitted cluster assignments.
-        linkage: Optional SciPy-style tree for this cadence.
-        cutoff: Optional dendrogram cut distance.
-        residuals: Supplied asset returns minus fitted factor returns times betas;
-            the fitted intercept is not subtracted.
-        derived_signs: Optional asset-by-factor sign requirements; NaN is unconstrained.
-    """
-
-    betas: pd.DataFrame
-    ewma_variances: pd.Series
-    residual_variances: pd.Series
-    alphas: pd.Series
-    r2: pd.Series
-    clusters: Optional[pd.Series]
-    linkage: Optional[np.ndarray]
-    cutoff: Optional[float]
-    residuals: pd.DataFrame
-    derived_signs: Optional[pd.DataFrame]
-
-
-def _fit_lasso_frequency(
-        *,
-        freq: str,
-        asset_returns: pd.DataFrame,
-        risk_factor_prices: pd.DataFrame,
-        lasso_model: LassoModel,
-        verbose: bool,
-        precomputed_clusters: Optional[Dict[str, pd.Series]] = None,
-        precomputed_linkages: Optional[Dict[str, np.ndarray]] = None,
-        precomputed_cutoffs: Optional[Dict[str, float]] = None,
-        reg_lambda: Optional[float] = None,
-        factor_return_types: Optional[dict] = None,
-) -> _FrequencyFitResult:
-    """Fit one return cadence and collect unannualized model components.
-
-    Factor prices are aligned with historical forward-filling to asset dates,
-    then converted to log returns. Cadence maps override regression/clustering
-    spans for the fit. The original LassoModel receives the fitted state; a
-    combined multi-cadence result must be read from the returned containers.
-
-    Args:
-        freq: Frequency code for this asset-return bucket.
-        asset_returns: Date-by-asset log returns at the bucket's observation cadence.
-        risk_factor_prices: Date-by-factor prices covering the observation history.
-        lasso_model: Configured model to fit in place.
-        verbose: Whether to print solver diagnostics.
-        precomputed_clusters: Optional cadence-to-assignment map. A matching key
-            supplies external memberships without replacing the configured model type.
-        precomputed_linkages: Corresponding linkage map, required when memberships
-            are supplied for this cadence.
-        precomputed_cutoffs: Corresponding cut-distance map, required when memberships
-            are supplied for this cadence.
-        reg_lambda: Optional fixed penalty for this cadence. The model's scalar
-            configuration is restored after fitting, including on solver failure.
-
-    Returns:
-        Unannualized fit components. Residual time series exclude only the fitted
-        factor contribution, not the regression intercept.
-
-    Raises:
-        ValueError: If supplied cluster assignments are missing for any fitted asset.
-        KeyError: If required cadence spans, linkages or cutoffs are absent.
-    """
-    factor_prices = risk_factor_prices.reindex(index=asset_returns.index, method='ffill').ffill()
-    factor_returns = to_factor_returns(
-        prices=factor_prices,
-        return_types=factor_return_types,
-        is_first_zero=False,
-        drop_first=False,
-        freq=None,
-    )
-
-    frequency_model = _model_for_frequency(lasso_model=lasso_model, freq=freq)
-    span = frequency_model.span
-    cluster_correlation_span = getattr(
-        frequency_model, 'cluster_correlation_span', None
-    )
-
-    use_precomputed = precomputed_clusters is not None and freq in precomputed_clusters
-    external_clusters = None
-    if use_precomputed:
-        external_clusters = precomputed_clusters[freq].reindex(asset_returns.columns)
-        if external_clusters.isna().any():
-            missing = external_clusters[external_clusters.isna()].index.tolist()
-            raise ValueError(
-                f"precomputed_clusters[{freq!r}] is missing assignments "
-                f"for {len(missing)} assets: {missing}"
-            )
-
-    # Preserve the public function's fitted-state contract: callers receive their original
-    # LassoModel back with the final cadence's fit attached. A fresh model copy would be a separate
-    # numerical and behavioural change, even though clustering schedules use that pattern safely.
-    fit_model = lasso_model
-    cluster_span_kwargs = {}
-    if hasattr(fit_model, 'cluster_correlation_span'):
-        cluster_span_kwargs['cluster_correlation_span'] = cluster_correlation_span
-    original_lambda = fit_model.reg_lambda
-    original_prior_hac_lags = getattr(fit_model, 'expert_prior_hac_lags', None)
-    if original_prior_hac_lags is not None:
-        fit_model.expert_prior_hac_lags = frequency_model.expert_prior_hac_lags
-    if reg_lambda is not None:
-        fit_model.reg_lambda = reg_lambda
-    try:
-        fit_model.fit(
-            x=factor_returns,
-            y=asset_returns,
-            verbose=verbose,
-            span=span,
-            external_clusters=external_clusters,
-            external_linkage=precomputed_linkages[freq] if use_precomputed else None,
-            external_cutoff=precomputed_cutoffs[freq] if use_precomputed else None,
-            **cluster_span_kwargs,
-        )
-    finally:
-        fit_model.reg_lambda = original_lambda
-        if original_prior_hac_lags is not None:
-            fit_model.expert_prior_hac_lags = original_prior_hac_lags
-
-    # Match the regression's missing-predictor treatment when constructing the
-    # factor contribution. A late-starting factor must not propagate NaN through
-    # every response, including those with zero exposure to that factor. Keep
-    # wholly unavailable factor rows and missing asset observations unavailable.
-    factor_contribution = factor_returns.fillna(0.0) @ fit_model.estimated_betas.T
-    factor_contribution.loc[factor_returns.isna().all(axis=1), :] = np.nan
-
-    estimation_result = fit_model.estimation_result_
-    linkage = precomputed_linkages[freq] if use_precomputed else fit_model.linkage
-    cutoff = precomputed_cutoffs[freq] if use_precomputed else fit_model.cutoff
-    return _FrequencyFitResult(
-        betas=fit_model.estimated_betas,
-        ewma_variances=pd.Series(estimation_result.ss_total, index=asset_returns.columns),
-        residual_variances=pd.Series(estimation_result.ss_res, index=asset_returns.columns),
-        alphas=pd.Series(estimation_result.alpha, index=asset_returns.columns),
-        r2=pd.Series(estimation_result.r2, index=asset_returns.columns),
-        clusters=fit_model.clusters,
-        linkage=linkage,
-        cutoff=cutoff,
-        residuals=asset_returns - factor_contribution,
-        derived_signs=fit_model.derived_signs_,
-    )
+__all__ = []
 
 
 @dataclass
@@ -486,7 +190,7 @@ class _FactorCovarPipeline:
             self.factor_clustering_freqs is None or freq in self.factor_clustering_freqs
         )
 
-    def copy(self, **overrides) -> _FactorCovarPipeline:
+    def copy(self, **overrides: Any) -> _FactorCovarPipeline:
         """Create a replacement estimator with supplied field overrides.
 
         The copy is shallow: unchanged nested objects, including LassoModel, remain
@@ -670,48 +374,12 @@ class _FactorCovarPipeline:
             asset_returns_dict = {
                 freq: returns.loc[:estimation_date] for freq, returns in asset_returns_dict.items()
             }
-        smoother_type = ClusterSmootherType(self.lasso_model.cluster_smoother_type)
-        if (smoother_type != ClusterSmootherType.NONE or self.include_factors_in_clustering
-                ) and precomputed_clusters is None:
-            estimation_date = estimation_date or max(
-                returns.index[-1] for returns in asset_returns_dict.values()
-            )
-            precomputed_clusters = {}
-            precomputed_linkages = {}
-            precomputed_cutoffs = {}
-            for freq, returns in asset_returns_dict.items():
-                if (smoother_type == ClusterSmootherType.NONE
-                        and not self._use_factor_references(freq)):
-                    continue
-                fit_model = _model_for_frequency(self.lasso_model, freq)
-                start_position = min((fit_model.warmup_period or 1) - 1, len(returns.index) - 1)
-                start_date = returns.index[start_position]
-                schedule = qis.generate_dates_schedule(
-                    time_period=qis.TimePeriod(start_date, estimation_date),
-                    freq=self.rebalancing_freq,
-                    include_start_date=False,
-                    include_end_date=True,
-                )
-                final_date = pd.Timestamp(estimation_date)
-                if smoother_type == ClusterSmootherType.NONE:
-                    schedule = [final_date]
-                if final_date not in schedule:
-                    # Not covered, and currently unreachable: the schedule above is generated with
-                    # include_end_date=True and estimation_date as the end, so qis always returns
-                    # it whether or not the date falls on the rebalancing grid. Kept as a guard in
-                    # case that flag or its semantics change -- the lookups below index the
-                    # smoother output by final_date and would raise if it were ever absent.
-                    schedule = sorted([*schedule, final_date])  # pragma: no cover
-                rolling_clusters = (
-                    _factor_cluster_path(risk_factor_prices, returns, schedule, fit_model,
-                                         self.factor_return_types)
-                    if self._use_factor_references(freq) else compute_rolling_smoothed_clusters(
-                        y=returns, estimation_dates=schedule, lasso_model=fit_model,
-                    )
-                )
-                precomputed_clusters[freq] = rolling_clusters.clusters[final_date]
-                precomputed_linkages[freq] = rolling_clusters.linkages[final_date]
-                precomputed_cutoffs[freq] = rolling_clusters.cutoffs[final_date]
+        estimation_date, precomputed_clusters, precomputed_linkages, precomputed_cutoffs = _current_cluster_inputs(
+            risk_factor_prices, asset_returns_dict, self.lasso_model, estimation_date,
+            self.rebalancing_freq, self.include_factors_in_clustering,
+            self._use_factor_references, self.factor_return_types,
+            precomputed_clusters, precomputed_linkages, precomputed_cutoffs,
+        )
 
         residual_options = ({
             'residual_type': self.residual_type,
@@ -783,28 +451,12 @@ class _FactorCovarPipeline:
             include_start_date=False,
             include_end_date=False
         )
-        smoother_type = ClusterSmootherType(self.lasso_model.cluster_smoother_type)
-        rolling_clusters_by_freq = None
-        if smoother_type != ClusterSmootherType.NONE or self.include_factors_in_clustering:
-            if self.lasso_model.recluster_freq is not None:
-                _validate_recluster_frequency(
-                    recluster_freq=str(self.lasso_model.recluster_freq),
-                    rebalancing_freq=effective_rebalancing_freq,
-                )
-            rolling_clusters_by_freq = {
-                freq: (
-                    _factor_cluster_path(
-                        risk_factor_prices, returns, rebalancing_schedule,
-                        _model_for_frequency(self.lasso_model, freq),
-                        self.factor_return_types,
-                    ) if self._use_factor_references(freq) else compute_rolling_smoothed_clusters(
-                        y=returns, estimation_dates=rebalancing_schedule,
-                        lasso_model=_model_for_frequency(self.lasso_model, freq),
-                    )
-                )
-                for freq, returns in asset_returns_dict.items()
-                if smoother_type != ClusterSmootherType.NONE or self._use_factor_references(freq)
-            }
+        rolling_clusters_by_freq = _rolling_cluster_paths(
+            risk_factor_prices, asset_returns_dict, self.lasso_model,
+            rebalancing_schedule, effective_rebalancing_freq,
+            self.include_factors_in_clustering, self._use_factor_references,
+            self.factor_return_types,
+        )
 
         covar_datas: Dict[pd.Timestamp, CurrentFactorCovarData] = {}
         previous_residual = None
@@ -845,20 +497,11 @@ class _FactorCovarPipeline:
                 **cluster_kwargs,
             )
             if self.residual_type != 'orthogonal':
-                current = covar_datas[estimation_date]
-                prepared = current.residual_correlation
-                if (previous_residual is not None
-                        and prepared.observation_date == previous_residual.observation_date
-                        and prepared.frequency == previous_residual.frequency
-                        and prepared.span == previous_residual.span
-                        and prepared.correlation.index.equals(previous_residual.correlation.index)
-                        and prepared.asset_metadata.equals(previous_residual.asset_metadata)):
-                    prepared = previous_residual
-                    covar_datas[estimation_date] = replace(current, residual_correlation=prepared)
-                previous_residual = prepared
+                covar_datas[estimation_date], previous_residual = _reuse_residual_correlation(
+                    covar_datas[estimation_date], previous_residual,
+                )
 
         return RollingFactorCovarData(data=covar_datas)
-
 
 def _estimate_factor_covar_data(risk_factor_prices: pd.DataFrame,
                                      asset_returns_dict: Dict[str, pd.DataFrame],
@@ -1166,34 +809,10 @@ def _estimate_factor_covar_data(risk_factor_prices: pd.DataFrame,
     metadata = pd.concat(residual_metadata).reindex(asset_last_betas.index)
     cfcd_kwargs['residual_metadata'] = metadata
     if residual_type != 'orthogonal':
-        from factorlasso import estimate_residual_correlation
-
-        annualisation = (qis.get_annualisation_conversion_factor(residual_covar_freq, 'YE')
-                         if residual_covar_freq is not None else None)
-        # A reindexed output universe can contain assets with no fitted history. Their
-        # zero marginal residual variance makes correlation undefined but contributes no
-        # covariance; estimate the supported block and keep those assets independent.
-        positive_risk = last_residual_vars.index[last_residual_vars.gt(0)]
-        if positive_risk.empty:
-            raise ValueError('Empirical residual correlation needs positive residual risk')
-        has_zero_risk = len(positive_risk) != len(residuals.columns)
-        fitted_correlation = estimate_residual_correlation(
-            residuals=residuals[positive_risk] if has_zero_risk else residuals,
-            metadata=metadata.loc[positive_risk] if has_zero_risk else metadata,
-            estimation_date=estimation_date,
-            frequency=residual_covar_freq, span=residual_covar_span,
-            periods_per_year=annualisation,
+        fitted_correlation = _prepare_residual_correlation(
+            residuals, metadata, last_residual_vars, estimation_date,
+            residual_covar_freq, residual_covar_span,
         )
-        if has_zero_risk:
-            names = residuals.columns
-            correlation = pd.DataFrame(np.eye(len(names)), index=names, columns=names)
-            correlation.loc[positive_risk, positive_risk] = fitted_correlation.correlation
-            fitted_correlation = replace(
-                fitted_correlation, correlation=correlation,
-                residual_returns=fitted_correlation.residual_returns.reindex(
-                    columns=names, fill_value=0.0),
-                asset_metadata=metadata,
-            )
         cfcd_kwargs['residual_correlation'] = fitted_correlation
     covar_data = CurrentFactorCovarData(**cfcd_kwargs)
     return covar_data

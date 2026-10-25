@@ -1,61 +1,67 @@
 """
 Report clustering of covar matrix.
 
-Uses FactorCovarEstimator.fit_rolling() for rolling estimation
-and CurrentFactorCovarData for per-date diagnostics.
+Consumes completed FM risk and explicitly prepared per-date diagnostics.
+Fitting and historical-alpha preparation belong to the caller.
 
 Reference:
     Sepp A., Ossa I., and Kastenholz M. (2026),
     "Robust Optimization of Strategic and Tactical Asset Allocation for Multi-Asset Portfolios",
     The Journal of Portfolio Management, 52(4), 86-120.
     Available at https://papers.ssrn.com/sol3/papers.cfm?abstract_id=5250221
+
+Purpose: Render completed covariance, cluster and residual diagnostics.
+Inputs: Completed snapshots or RollingFactorModel plus plotting and output settings.
+Outputs: Snapshot and rolling report functions produce QIS-based figures for the supplied results.
+Units: Covariances are annual squared native-return coordinates; displayed volatility is annual decimal.
+Conditioning: Use prepared linkage and selected residual risk without fitting or calling FL from reports.
+Ownership: FM arranges method-specific views; QIS owns plotting primitives and estimation prepares all statistical inputs.
 """
+from __future__ import annotations
+from typing import Any
+
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import qis as qis
 from qis.plots.utils import get_table_lines_for_group_data, set_suptitle
 from matplotlib.colors import ListedColormap
-from typing import List, Dict, Tuple, Optional, Union
+from typing import List, Dict, Tuple, Mapping
 
-from factorlasso import (
-    get_clusters_by_freq,
-    get_cutoffs_by_freq,
-    get_linkages_by_freq,
+from factormodels.analytics.models import (
+    FactorModelSnapshot, RollingFactorModel, PreparedSnapshotDiagnostics,
 )
-from factormodels.estimation import FactorCovarEstimator
-from factormodels.estimation.models import FactorModelSnapshot
 
-def _snapshot_table(snapshot: FactorModelSnapshot) -> pd.DataFrame:
-    """Retain fit diagnostics and report the selected residual-risk scaling."""
-    table = snapshot.data.get_snapshot()
-    table['total_vol'] = np.sqrt(np.diag(snapshot.asset_covariance))
-    table['resid_vol'] = np.sqrt(np.diag(snapshot.residual_covariance))
-    return table
+__all__ = [
+    'plot_covariance_snapshot',
+    'plot_hcgl_covar_data',
+    'run_rolling_covar_report',
+]
 
-def plot_covariance_snapshot(snapshot: FactorModelSnapshot,
-                            **kwargs
-                            ) -> List[plt.Figure]:
 
-    """Plot fitted diagnostics and the selected covariance of one FM snapshot."""
-    covar_data = snapshot.data
-    df = _snapshot_table(snapshot)
-    clusters = get_clusters_by_freq(covar_data.clusters)
-    linkages = get_linkages_by_freq(covar_data.linkages)
-    cutoffs = get_cutoffs_by_freq(covar_data.cutoffs)
-    figs = plot_hcgl_covar_data(x_covar=covar_data.x_covar,
-                                y_covar=snapshot.asset_covariance,
-                                betas=covar_data.y_betas,
-                                r2=df['r2'],
-                                total_vol=df['total_vol'],
-                                residual_vol=df['resid_vol'],
-                                alpha=df['stat_alpha'],
-                                clusters=clusters,
-                                linkages=linkages,
-                                cutoffs=cutoffs,
-                                date=covar_data.estimation_date,
-                                **kwargs)
-    return figs
+def _snapshot_table(snapshot: FactorModelSnapshot,
+                    diagnostics: PreparedSnapshotDiagnostics) -> pd.DataFrame:
+    """Validate and retrieve explicitly prepared display inputs."""
+    return diagnostics.for_snapshot(snapshot)
+
+
+def plot_covariance_snapshot(snapshot: FactorModelSnapshot, *,
+                             diagnostics: PreparedSnapshotDiagnostics,
+                             **kwargs: object) -> List[plt.Figure]:
+    """Render selected covariance using explicitly prepared historical alpha."""
+    df = _snapshot_table(snapshot, diagnostics)
+    required = {'r2', 'total_vol', 'resid_vol', 'stat_alpha'}
+    if not required.issubset(df.columns):
+        raise ValueError('covariance plot requires full prepared fit diagnostics')
+    if snapshot.clusters_by_frequency is None:
+        raise ValueError('covariance plot requires prepared cluster diagnostics')
+    return plot_hcgl_covar_data(
+        x_covar=snapshot.factor_covariance, y_covar=snapshot.asset_covariance,
+        betas=snapshot.loadings, r2=df['r2'], total_vol=df['total_vol'],
+        residual_vol=df['resid_vol'], alpha=df['stat_alpha'],
+        clusters=snapshot.clusters_by_frequency, linkages=snapshot.linkages_by_frequency,
+        cutoffs=snapshot.cutoffs_by_frequency, date=snapshot.cutoff, **kwargs,
+    )
 
 
 def plot_hcgl_covar_data(x_covar: pd.DataFrame,
@@ -71,7 +77,7 @@ def plot_hcgl_covar_data(x_covar: pd.DataFrame,
                          alpha: pd.Series = None,
                          figsize: Tuple[float, float] = (14, 10),
                          is_align_to_clusters_index: bool = True,
-                         **kwargs
+                         **kwargs: Any
                          ) -> List[plt.Figure]:
     """
     Plot covariance analysis for a single date.
@@ -143,68 +149,29 @@ def plot_hcgl_covar_data(x_covar: pd.DataFrame,
     return figs
 
 
-def run_rolling_covar_report(risk_factor_prices: pd.DataFrame,
-                             prices: pd.DataFrame,
-                             covar_estimator: FactorCovarEstimator,
-                             time_period: qis.TimePeriod,
-                             asset_returns_dict: Dict[str, pd.DataFrame],
-                             assets: Union[List[str], pd.Index] = None,
-                             rebalancing_freq: Optional[str] = None,
-                             figsize: Tuple[float, float] = (14, 10),
-                             is_plot: bool = True,
-                             is_align_to_clusters_index: bool = True
-                             ) -> Tuple[List[plt.Figure], Dict[str, pd.DataFrame]]:
+def run_rolling_covar_report(
+    model: RollingFactorModel, *, diagnostics: Mapping[pd.Timestamp, PreparedSnapshotDiagnostics],
+    figsize: Tuple[float, float] = (14, 10), is_plot: bool = True,
+    is_align_to_clusters_index: bool = True,
+) -> Tuple[List[plt.Figure], Dict[str, pd.DataFrame]]:
+    """Render completed rolling models and prepared dated diagnostics.
+
+    The caller fits once, then explicitly prepares alpha with its chosen span and
+    cadence settings. Exact date and asset alignment is checked before rendering.
+    Returns figures and date-labelled table copies, without estimation or FL calls.
     """
-    Run rolling covariance analysis and generate reports.
-
-    Uses FactorCovarEstimator.fit_rolling() to produce
-    rolling CurrentFactorCovarData at each rebalancing date, then
-    generates per-date diagnostic plots.
-
-    Args:
-        risk_factor_prices: Factor price panel. Index=dates, columns=factors.
-        prices: Asset price panel (used only for asset universe inference if assets is None).
-        covar_estimator: Configured FactorCovarEstimator instance.
-        time_period: Period over which to generate the rebalancing schedule.
-        asset_returns_dict: Dict[freq_str, DataFrame] of asset returns at different
-            frequencies, computed via qis.compute_asset_returns_dict().
-        assets: Asset universe to estimate. If None, inferred from prices.columns.
-        rebalancing_freq: Override rebalancing frequency. If None, uses estimator default.
-        figsize: Figure size for plots.
-        is_plot: If True, generate matplotlib figures.
-        is_align_to_clusters_index: If True, reorder covar matrices by cluster membership.
-
-    Returns:
-        Tuple of (list of figures, dict of per-date beta+diagnostics DataFrames).
-    """
-    if assets is None:
-        assets = prices.columns
-
-    # fit rolling factor covars using the new API
-    rolling_covar_data = covar_estimator.fit_rolling(
-        risk_factor_prices=risk_factor_prices,
-        asset_returns_dict=asset_returns_dict,
-        assets=assets,
-        time_period=time_period,
-        rebalancing_freq=rebalancing_freq,
-    )
-
-    figs = []
-    dfs = {}
-
-    for date, snapshot in rolling_covar_data.snapshots.items():
-        # get_snapshot returns betas + r2, alpha, insample_alpha, vols in one DataFrame
-        df = _snapshot_table(snapshot)
-
+    if not isinstance(model, RollingFactorModel):
+        raise TypeError('model must be a completed RollingFactorModel')
+    if set(diagnostics) != set(model.snapshots):
+        raise ValueError('prepared diagnostics dates must match the rolling snapshots')
+    tables = {date: _snapshot_table(snapshot, diagnostics[date])
+              for date, snapshot in model.snapshots.items()}
+    figs, dfs = [], {}
+    for date, snapshot in model.snapshots.items():
         if is_plot:
-            date_figs = plot_covariance_snapshot(
-                snapshot=snapshot,
-                figsize=figsize,
-                is_align_to_clusters_index=is_align_to_clusters_index
-            )
-            figs.extend(date_figs)
+            figs.extend(plot_covariance_snapshot(
+                snapshot, diagnostics=diagnostics[date], figsize=figsize,
+                is_align_to_clusters_index=is_align_to_clusters_index))
             plt.close('all')
-
-        dfs[date.strftime('%d%b%Y')] = df
-
+        dfs[date.strftime('%d%b%Y')] = tables[date]
     return figs, dfs

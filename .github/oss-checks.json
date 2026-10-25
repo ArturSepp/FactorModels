@@ -3,13 +3,103 @@
   "repository": "FactorModels",
   "package": "factormodels",
   "python_environment": "FactorModels312",
-  "lint_paths": ["src/factormodels/*.py", "tests/*.py", "examples/*.py"],
+  "lint_paths": [
+    "src/factormodels/*.py",
+    "tests/*.py",
+    "examples/*.py"
+  ],
   "preflight": [],
-  "docs": [["-m", "sphinx", "-E", "-W", "--keep-going", "-b", "html", "docs", "{output}/html"]],
-  "tests": [["-m", "pytest", "-o", "cache_dir={output}/pytest"]],
-  "remote_only": ["supported Python/OS matrix", "live documentation links", "optional public acquisition"],
-  "required_jobs": ["test", "wheel", "docs"],
-  "workflow_inventory": {},
+  "docs": [
+    [
+      "-m",
+      "sphinx",
+      "-E",
+      "-W",
+      "--keep-going",
+      "-b",
+      "html",
+      "docs",
+      "{output}/html"
+    ]
+  ],
+  "tests": [
+    [
+      "-m",
+      "pytest",
+      "-o",
+      "cache_dir={output}/pytest"
+    ]
+  ],
+  "remote_only": [
+    "supported Python/OS matrix",
+    "clean core environments",
+    "wheel and sdist",
+    "dependency floors and live compatibility",
+    "OptimalPortfolios composed consumer verification",
+    "online link and security health"
+  ],
+  "required_jobs": [
+    "preflight",
+    "ci",
+    "docs",
+    "references"
+  ],
+  "workflow_inventory": {
+    "ci": {
+      "test": [
+        "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+        "Install uv and Python ${{ matrix.python-version }}",
+        "Sync the test environment",
+        "Verify imports",
+        "Run tests"
+      ],
+      "lint": [
+        "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+        "Install uv and Python",
+        "Check lint and stack invariants"
+      ],
+      "wheel": [
+        "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+        "Install uv and Python",
+        "Build the wheel from the source distribution",
+        "Assert distribution contents",
+        "Install the wheel into a clean environment",
+        "Exercise the installed wheel from outside the checkout"
+      ],
+      "stack-policy": [
+        "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+        "astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884",
+        "Exercise policy regressions",
+        "Check stack imports and optional adapter isolation"
+      ],
+      "lowest-dependencies": [
+        "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+        "astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884",
+        "Keep the test environment outside the checkout",
+        "Resolve a fresh lowest-direct test environment",
+        "Record installed versions",
+        "Check optional dependencies stay outside package-root import",
+        "Test declared dependency floors"
+      ]
+    },
+    "docs": {
+      "docs": [
+        "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+        "Install uv and Python",
+        "Sync documentation environment",
+        "Build documentation with the shared profile",
+        "Check documentation links"
+      ]
+    }
+  },
   "audit": false,
-  "consumers": []
+  "consumers": [
+    {
+      "repository": "ArturSepp/OptimalPortfolios",
+      "module": "optimalportfolios",
+      "extra": "riskbudget",
+      "sdk": false,
+      "commit": "42f38ef9eeb27156b2f8997b701677ed4c1836e4"
+    }
+  ]
 }

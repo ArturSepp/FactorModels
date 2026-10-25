@@ -1,6 +1,6 @@
 """Optional composed example: completed FM model -> OP solve -> existing QIS risk.
 
-Install optimalportfolios explicitly alongside factormodels. Neither package
+Install the OP development candidate with optimization.opportunity alongside FM. Neither package
 imports the other in its library. All data and forecasts here are synthetic.
 """
 import numpy as np
@@ -13,7 +13,7 @@ def run_local_test(case: int = 1) -> dict:
     """Inspect a supplied-input optimum and its QIS tracking error without refitting."""
     if case != 1:
         raise ValueError("Only the synthetic composed case 1 is available")
-    from optimalportfolios.matf.opportunity import OpportunityModel, solve_opportunity
+    from optimalportfolios.optimization.opportunity import OpportunityModel, solve_opportunity
     from optimalportfolios.optimization.portfolio_result import PortfolioOptimisationResult
 
     snapshot = fit_example()["snapshot"]

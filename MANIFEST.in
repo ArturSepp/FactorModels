@@ -4,7 +4,9 @@ recursive-include examples *.py
 recursive-include tests *.py *.json
 recursive-include tools *.py
 include tools/navigation_refs.json
+include tools/architecture_debt.json
 recursive-include src *.md
 prune agents
+prune papers
 global-exclude *.pyc
 global-exclude *.pyo

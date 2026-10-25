@@ -11,12 +11,14 @@ myst:
 
 # Factor covariance with HCGL
 
-*Author: [Artur Sepp](https://github.com/ArturSepp) / First recorded: [2026-09-14](https://github.com/ArturSepp/OptimalPortfolios/commit/bdcbc350a2699eb6cf8769f9af7c15aba38c545a)*
+*Author: [Artur Sepp](https://github.com/ArturSepp) / First recorded: [2026-10-18](https://github.com/ArturSepp/FactorModels/commit/91f424eeabc1cd99880aef829feb6af9c61b046b)*
+
+Implemented in [FactorModels](https://github.com/ArturSepp/FactorModels).
+Software citation: [CITATION.cff](https://github.com/ArturSepp/FactorModels/blob/main/CITATION.cff).
 
 FactorModels produces a completed factor model with loadings, selected covariance,
 diagnostics and provenance. Consumers such as
 [OptimalPortfolios](https://github.com/ArturSepp/OptimalPortfolios) use its selected covariance.
-Implemented in [FactorModels](https://github.com/ArturSepp/FactorModels). Software citation: [CITATION.cff](https://github.com/ArturSepp/FactorModels/blob/main/CITATION.cff).
 
 ## Overview
 
@@ -57,7 +59,7 @@ The notation follows the [conventions page](https://github.com/ArturSepp/Optimal
 | Symbol | Meaning |
 |---|---|
 | $\Sigma_y$ | The assembled annual asset covariance, the $\Sigma$ of the conventions page; FactorLasso calls it `y_covar` |
-| $\Sigma_F$ | Annual factor covariance, stored as `x_covar` |
+| $\Sigma_F$ | Annual factor covariance, stored as `factor_covariance` |
 | $f_t$ | Vector of the $M$ factor log returns over the period ending at $t$ |
 | $c$, $\mathrm{af}_c$ | A return frequency, the key of a bucket such as `'ME'` or `'QE'`, and its periods per year |
 | $v_i$ | Annual residual variance of asset $i$ |
@@ -274,7 +276,7 @@ estimator = FactorCovarEstimator(
     lasso_model=hcgl_model(), factor_returns_freq='ME', factor_covar_span=36,
     rebalancing_freq='QE')
 snapshot = estimator.fit_current(**history)
-data, covariance = snapshot.data, snapshot.asset_covariance
+data, covariance = snapshot, snapshot.asset_covariance
 ```
 
 #### A completed model at an explicit cutoff
@@ -294,7 +296,7 @@ variances, and direct matrix multiplication verifies the assembled asset covaria
 ```python
 empirical = replace(estimator, residual_type='empirical', residual_corr_weight=.5)
 correlated = empirical.fit_current(**history)
-fitted = correlated.data
+fitted = correlated
 ```
 
 The selected covariance retains half of the empirical residual correlation. The
@@ -309,9 +311,9 @@ The [historical synthetic exhibit](https://github.com/ArturSepp/OptimalPortfolio
 ### Supplied factor covariance has availability metadata
 
 ```python
-supplied = DatedFactorCovariance(data.x_covar * 1.7, as_of, as_of)
+supplied = DatedFactorCovariance(data.factor_covariance * 1.7, as_of, as_of)
 external = estimator.fit_current(**history, factor_covariance=supplied)
-pd.testing.assert_frame_equal(external.data.x_covar, data.x_covar * 1.7)
+pd.testing.assert_frame_equal(external.factor_covariance, data.factor_covariance * 1.7)
 ```
 
 The supplied covariance is annual and is not scaled a second time. Its observation
@@ -342,8 +344,8 @@ factor-estimator and report exports are removed.
 
 | FM entry point | Completed output and use |
 |---|---|
-| `FactorCovarEstimator.fit_current(..., cutoff=...)` | `FactorModelSnapshot`: FL diagnostics in `.data`, selected full `.asset_covariance`, `.residual_covariance`, cutoff, return coordinates, policy and provenance. |
-| `FactorCovarEstimator.fit_rolling(..., time_period=...)` | `RollingFactorModel`: dated `.snapshots`, selected `.covariances` for OP and `.data` for FL statistical diagnostics. |
+| `FactorCovarEstimator.fit_current(..., cutoff=...)` | `FactorModelSnapshot`: FM-owned `.fit_statistics`, histories and cluster diagnostics, selected full `.asset_covariance`, `.residual_covariance`, cutoff, return coordinates, policy and provenance. |
+| `FactorCovarEstimator.fit_rolling(..., time_period=...)` | `RollingFactorModel`: dated `.snapshots`, selected `.covariances` for OP and completed per-date fields for statistical diagnostics. |
 | `snapshot.to_risk_model()` / `rolling.to_risk_model()` | QIS interchange retaining selected covariance and supported factor metadata. It does not replace the complete fitted result. |
 | `DatedFactorCovariance` | Supplied annual factor covariance with observation/availability dates and coordinate types. |
 | `factormodels.reports.covariance.plot_covariance_snapshot` | Plots a completed snapshot using its selected covariance and existing QIS plotting primitives. |

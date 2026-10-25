@@ -1,6 +1,13 @@
+---
+myst:
+  html_meta:
+    description: >-
+      The completed factormodels snapshot: labelled loadings, factor, residual and asset covariance, units, cutoff, residual policy, provenance and table export.
+---
+
 # The completed factor model
 
-*Author: [Artur Sepp](https://github.com/ArturSepp)*
+*Author: [Artur Sepp](https://github.com/ArturSepp) / First recorded: [2026-10-18](https://github.com/ArturSepp/FactorModels/commit/91f424eeabc1cd99880aef829feb6af9c61b046b)*
 
 Implemented in [FactorModels](https://github.com/ArturSepp/FactorModels).
 Software citation: [CITATION.cff](https://github.com/ArturSepp/FactorModels/blob/main/CITATION.cff).
@@ -38,7 +45,11 @@ and residual histories to assess its statistical adequacy.
 | `snapshot.factor_covariance` | Independent labelled copy of annual factor covariance in declared native coordinates |
 | `snapshot.residual_covariance` | Selected annual asset residual covariance, including residual variance/correlation policy |
 | `snapshot.asset_covariance` | Annual asset log-return covariance, preserving the full selected residual block |
-| `snapshot.data` | FL `CurrentFactorCovarData`: loadings, covariance, variances, residuals and available cluster/fit diagnostics; not the mutable `LassoModel` estimator itself |
+| `snapshot.raw_diagonal_reference_covariance` | Annual orthogonal covariance with unit raw residual-variance weight; used for GLS reference risk |
+| `snapshot.fit_statistics`, `snapshot.fit_diagnostics` | Raw fit statistics and optional span-free display table; no implicit historical-alpha span |
+| `snapshot.residuals`, `snapshot.residual_metadata` | Native residual history and per-asset cadence, beta span, annualisation and stored/raw scale |
+| `snapshot.residual_correlation`, `snapshot.residual_correlation_metadata` | Plain dimensionless correlation plus common residual returns, metadata, frequency/span and separate observation/estimation dates |
+| `snapshot.clusters`, `.linkages`, `.cutoffs`, `.derived_signs` | Available fit diagnostics; per-frequency cluster/linkage/cutoff views are materialized too |
 | `snapshot.cutoff`, `snapshot.provenance` | Information cutoff, latest observations, conventions and producer settings; retain caller-specific recipe, currency, units and source evidence separately |
 
 Factor and asset labels and their ordering are substantive. Monthly covariance is
@@ -56,15 +67,39 @@ CSV panel alone does not retain an executable reconstruction of its recipe.
 
 ## Ownership, mutability and persistence
 
-Configuration dataclasses are frozen. `FactorModelSnapshot`
-copies supplied model data; rolling containers retain their snapshots. Nested pandas tables in completed results remain
-mutable. Treat them as result data: use `.copy()` for analysis and construct a new
-result for a revised model. Freezing a dataclass does not make its DataFrames immutable.
-The `loadings` and `factor_covariance` accessors return independent copies for
-analysis. Their backing tables remain available as `data.y_betas` and
-`data.x_covar` for advanced FL use. Inspection and `to_risk_model()` do not rerun
-the estimator. The repository example's `synthetic_prices()` input factory provides
-deterministic offline inputs for these inspection workflows.
+In the **unreleased 0.3.0 candidate**, completed FM results own plain data and retain
+no FL containers. All public pandas/NumPy fields and nested metadata are defensive
+copies. Rolling map retrieval returns a new map of immutable completed snapshots.
+Inspection and `to_risk_model()` perform neither fitting nor FL covariance assembly.
+There is no `.data` view. Prepare another snapshot to change its residual policy;
+changing a policy label alone cannot reassemble stored covariance.
+Use `snapshot.with_provenance({...})` to attach caller currency, units or source
+declarations while retaining the same completed moments and independent metadata.
+
+Historical alpha is an explicit estimation operation:
+
+```python
+from factormodels import estimate_historical_alpha, prepare_snapshot_diagnostics
+from factormodels import prepare_portfolio_context
+
+alpha = estimate_historical_alpha(snapshot, alpha_span={"ME": 120, "QE": 40})
+diagnostics = prepare_snapshot_diagnostics(snapshot, alpha_span={"ME": 120, "QE": 40})
+context = prepare_portfolio_context(snapshot, diagnostics=diagnostics)
+```
+
+Scalar spans and frequency maps retain FL's existing missing-observation and scaling
+semantics. Without history, full fit diagnostics retain the in-sample-alpha fallback.
+Minimal supplied moments do not invent history, R-squared or in-sample alpha:
+prepared diagnostics mark alpha unavailable, while direct alpha estimation raises.
+Report consumers verify the prepared cutoff and asset order and do not choose a span.
+Omitting diagnostics from portfolio context returns available span-free fields only.
+
+Use `snapshots_from_factorlasso(raw, residual_type="empirical")` for existing raw FL
+fits (a dated `RollingFactorModel` is returned even for a single raw fit), or
+`snapshot_from_moments(betas, factor_covariance, residual_variances, date=cutoff)`
+for supplied moments. Both prepare risk through FL before returning FM-owned fields.
+The raw diagonal reference is distinct from `to_risk_model(diagonal_reference=True)`,
+whose decomposition uses the diagonal of selected R and retains full selected Sigma.
 
 Input loading and persistence belong to the caller. There is no package input
 serializer or promised fitted checkpoint serializer. Export individual result tables with pandas `to_csv` or

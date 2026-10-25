@@ -2,7 +2,7 @@
 
 from factormodels.utils.version import __version__
 
-from factormodels.premia import (
+from factormodels.gls_diagnostic import (
     GlsGeometry,
     GlsPremiaResult,
     GlsResolutionResult,
@@ -39,7 +39,7 @@ from factormodels.premia import (
     tangency_access_split,
 )
 
-from factormodels.cma import (
+from factormodels.gls_diagnostic import (
     annual_arithmetic_from_log,
     AdmissionPolicy,
     CmaDiagnosticInputs,
@@ -57,17 +57,23 @@ from factormodels.estimation import (
     FactorCovarEstimator,
 )
 
-from factormodels.estimation.models import (
+from factormodels.analytics.models import (
     DatedFactorCovariance,
     FactorModelSnapshot,
     RollingFactorModel,
+    PreparedSnapshotDiagnostics,
 )
 
-from factormodels.estimation.risk import (
+from factormodels.estimation._results import (
+    snapshots_from_factorlasso, snapshot_from_moments,
+    estimate_historical_alpha, prepare_snapshot_diagnostics,
+)
+
+from factormodels.analytics.risk import (
     build_risk_model,
 )
 
-from factormodels.spec import (
+from factormodels.analytics.definitions import (
     DEFAULT_VOL_WARMUP_PERIOD,
     RiskFactors,
     FactorFamily,
@@ -78,7 +84,7 @@ from factormodels.spec import (
     normalise_factor_labels,
 )
 
-from factormodels.spec.construction import (
+from factormodels.analytics.construction import (
     DEFAULT_RETURNS_FREQ,
     build_factor_panel,
     build_factor_catalogue_panel,
@@ -89,11 +95,11 @@ from factormodels.spec.construction import (
     compute_volatility_targeted_portfolio,
 )
 
-from factormodels.estimation.beta_constraints import (
+from factormodels.analytics.beta_constraints import (
     compute_beta_loading_signs,
 )
 
-from factormodels.analytics import (
+from factormodels.gls_diagnostic import (
     FactorOpportunityModel,
     alpha_dispersion,
     factor_access_metrics,
@@ -110,11 +116,22 @@ from factormodels.analytics import (
     sample_universe_dispersion,
 )
 from factormodels.analytics.portfolio_context import prepare_portfolio_context
-from factormodels.analytics.signals import extract_rolling_clusters, prepare_cluster_scores
-from factormodels.utils import get_paths, get_resource_path, get_output_path
+from factormodels.estimation.cluster_scores import extract_rolling_clusters, prepare_cluster_scores
+from factormodels.utils import (
+    get_paths, get_resource_path, get_output_path,
+    resolve_resource_path, resolve_output_path, create_output_directory,
+)
 
 __all__ = [
+    "PreparedSnapshotDiagnostics",
+    "snapshots_from_factorlasso",
+    "snapshot_from_moments",
+    "estimate_historical_alpha",
+    "prepare_snapshot_diagnostics",
     "get_paths",
+    "resolve_resource_path",
+    "resolve_output_path",
+    "create_output_directory",
     "get_resource_path",
     "get_output_path",
     "FactorOpportunityModel",

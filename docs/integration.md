@@ -1,23 +1,33 @@
+---
+myst:
+  html_meta:
+    description: >-
+      Consume a completed factormodels model downstream: export to a qis RiskModel and hand the fitted covariance to optimalportfolios without refitting.
+---
+
 # Consume a completed model
 
-*Author: [Artur Sepp](https://github.com/ArturSepp)*
+*Author: [Artur Sepp](https://github.com/ArturSepp) / First recorded: [2026-10-18](https://github.com/ArturSepp/FactorModels/commit/91f424eeabc1cd99880aef829feb6af9c61b046b)*
 
 Implemented in [FactorModels](https://github.com/ArturSepp/FactorModels).
 Software citation: [CITATION.cff](https://github.com/ArturSepp/FactorModels/blob/main/CITATION.cff).
 
 The [composed runnable example](https://github.com/ArturSepp/FactorModels/blob/main/examples/downstream_handoff.py)
 fits a synthetic model, supplies covariance and explicitly chosen alphas to OP,
-then uses QIS to inspect the accepted portfolio's annual tracking error. It installs
+then uses QIS to inspect the accepted portfolio's annual tracking error. Install
 OP explicitly; the FM library has no optimiser dependency.
 
 ```console
-python -m pip install factormodels "optimalportfolios @ git+https://github.com/ArturSepp/OptimalPortfolios.git@42f38ef9eeb27156b2f8997b701677ed4c1836e4"
 python examples/downstream_handoff.py
 ```
 
-The example uses OP's supplied-input API at the reviewed public revision pinned
-above. FactorModels itself installs from PyPI and does not require OP. Run the
-example from a FactorModels source checkout.
+This development example requires matching candidate installations of FM and OP:
+it imports `OpportunityModel` and `solve_opportunity` from
+`optimalportfolios.optimization.opportunity`. The old `optimalportfolios.matf`
+package has been removed from the OP development source. Build and install candidate
+wheels using each repository's contributor instructions; the published OP release
+does not yet expose this path. Run the example from the matching FactorModels source
+checkout. No runtime fallback to the historical module is supplied.
 
 | Package boundary | Completed object passed onward |
 |---|---|

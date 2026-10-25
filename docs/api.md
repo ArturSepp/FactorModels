@@ -1,8 +1,18 @@
+---
+myst:
+  html_meta:
+    description: >-
+      Canonical numerical API of factormodels: the public entry points for factor construction, estimation, residual policies, GLS premia, CMA diagnostics and supplied histories.
+---
+
 # Canonical numerical API
 
-*Author: [Artur Sepp](https://github.com/ArturSepp)*
+*Author: [Artur Sepp](https://github.com/ArturSepp) / First recorded: [2026-10-18](https://github.com/ArturSepp/FactorModels/commit/2e23f5a9334fe2c44a5acfa028e0ac3e368f93a0)*
 
-Use the [FactorModels package](https://github.com/ArturSepp/FactorModels) directly. Software citation: [CITATION.cff](../CITATION.cff). The root `factormodels.__all__` export list is authoritative. Parameters and full mathematical contracts are in each callable’s docstring.
+Implemented in [FactorModels](https://github.com/ArturSepp/FactorModels).
+Software citation: [CITATION.cff](https://github.com/ArturSepp/FactorModels/blob/main/CITATION.cff).
+
+Use the [FactorModels package](https://github.com/ArturSepp/FactorModels) directly. The root `factormodels.__all__` export list is authoritative. Parameters and full mathematical contracts are in each callable’s docstring.
 
 ## Choose an entry point
 
@@ -18,7 +28,7 @@ with their own conditional assumptions. This grouping guides discovery within
 the same public API. It does not change exports or imply a separate stability
 guarantee for a pre-release package.
 
-## `factormodels.spec`
+## `factormodels.analytics.definitions`
 
 - `RiskFactors`
 - `FactorFamily`
@@ -29,7 +39,7 @@ guarantee for a pre-release package.
 - `assemble_factor_model`
 - `normalise_factor_labels`
 
-## `factormodels.spec.construction`
+## `factormodels.analytics.construction`
 
 - `build_factor_panel`
 - `build_factor_catalogue_panel`
@@ -40,13 +50,18 @@ guarantee for a pre-release package.
 - `compute_volatility_targeted_portfolio`
 - `DEFAULT_RETURNS_FREQ`
 
-## `factormodels.estimation.beta_constraints`
+## `factormodels.analytics.beta_constraints`
 
 - `compute_beta_loading_signs`
 
 The [construction guide](construction.md) states the completed definition/panel/constraint outputs and their downstream use. Catalogue and alias mappings are supplied by the caller; the library does not select a production model.
 
-## `factormodels.premia`
+## GLS geometry, inference and Sharpe accounting
+
+Exported by `factormodels.gls_diagnostic`. Canonical implementations live in
+`geometry`, `inference`, `resolution`, `forecast_uncertainty`, `loading_stability`,
+`residual_opportunity` and `sharpe_accounting`; validation and whitening are shared
+below geometry and accounting.
 
 - `GlsGeometry`
 - `GlsPremiaResult`
@@ -83,7 +98,10 @@ The [construction guide](construction.md) states the completed definition/panel/
 - `partial_overlay_value`
 - `tangency_access_split`
 
-## `factormodels.cma`
+## CMA diagnostics and conditional inference
+
+Exported by `factormodels.gls_diagnostic`; implementations live in
+`cma_moments`, `cma_diagnostics`, `cma_identification` and `cma_inference`.
 
 - `annual_arithmetic_from_log`
 - `AdmissionPolicy`
@@ -108,7 +126,7 @@ intercept in isolation. See the [complete mean bridge](gls_factor_premia.md).
 
 - `FactorCovarEstimator`
 
-## `factormodels.estimation.models`
+## `factormodels.analytics.models`
 
 - `DatedFactorCovariance`
 - `FactorModelSnapshot`
@@ -123,23 +141,36 @@ no estimation.
 
 `synthetic_prices()` lives in `examples/reference_workflows.py`; it is excluded from the installed library.
 
-Also exported from the package root in the development version. It returns two
+This repository-only helper returns two
 fresh deterministic DataFrames: factor NAVs and asset total-return prices.
 It performs no fitting, downloading or saving. Prepare log returns with
 `qis.to_returns(..., is_log_returns=True)` and pass the histories directly to
 `FactorCovarEstimator`. See the [reference workflow](reference_workflows.md).
 
-## `factormodels.estimation.risk`
+## `factormodels.estimation._results`
+
+New root exports in the unreleased 0.3.0 candidate:
+
+- `snapshots_from_factorlasso`
+- `snapshot_from_moments`
+- `estimate_historical_alpha`
+- `prepare_snapshot_diagnostics`
+
+`PreparedSnapshotDiagnostics` is exported from the root and `analytics.models`.
+It contains a copied table, cutoff, alpha settings, source and availability.
+Reports consume this payload explicitly. Supplied moments do not invent fit evidence.
+
+## `factormodels.analytics.risk`
 
 - `build_risk_model`
 
 ## Completed model contract
 
-The [completed-output guide](completed_model.md) describes actual fields, mutable
+The [completed-output guide](completed_model.md) describes actual fields, defensive copies of
 pandas contents, supported inspection/export and the exact point at which fitting
 is finished. [Reference workflows](reference_workflows.md) run without providers.
 
-`FactorCovarEstimator.fit_current` requires `cutoff` and returns a `FactorModelSnapshot`; `fit_rolling` returns `RollingFactorModel`. Fitted FL diagnostics remain in `.data`. The selected total/residual covariance and native-factor metadata travel with the result. Export through `.to_risk_model()` or `build_risk_model` for existing QIS consumers. The risk view does not replace the complete fit.
+`FactorCovarEstimator.fit_current` requires `cutoff` and returns a `FactorModelSnapshot`; `fit_rolling` returns `RollingFactorModel`. Fit statistics, residual histories and diagnostic fields are owned by FM; `.data` is removed in the unreleased 0.3.0 candidate. The selected total/residual covariance and native-factor metadata travel with the result. Export through `.to_risk_model()` or `build_risk_model` for existing QIS consumers. The risk view does not replace the complete fit.
 
 Current fitting clips all historical inputs before estimation and does not mutate the caller’s FL configuration. `DatedFactorCovariance` declares upstream observation/availability dates; it is rejected when unavailable at the cutoff. Supplied dates are provenance declarations, not independently verified publication evidence.
 
@@ -150,9 +181,11 @@ GLS/CMA results condition on their supplied loadings/error model. Their interval
 - `prepare_portfolio_context`
 
 The returned dictionary completes the risk/table handoff for a downstream portfolio
-result. It contains no optimiser object and performs no portfolio solve.
+result. Pass `diagnostics=prepare_snapshot_diagnostics(snapshot, alpha_span=...)`
+when historical alpha is needed. Without that payload the context remains span-free.
+It contains no optimiser object and performs no portfolio solve.
 
-## `factormodels.analytics.signals`
+## `factormodels.estimation.cluster_scores`
 
 - `extract_rolling_clusters`
 - `prepare_cluster_scores`
@@ -160,7 +193,10 @@ result. It contains no optimiser object and performs no portfolio solve.
 Completed mappings and pooled score panels can be consumed independently of the
 fitted model. Scoring preserves the supplied point-in-time cluster schedule.
 
-## `factormodels.analytics`
+## Opportunity and alpha uncertainty
+
+Exported by `factormodels.gls_diagnostic`; implementations live in
+`opportunity`, `alpha_uncertainty` and `universe_diagnostics`.
 
 - `FactorOpportunityModel`
 - `alpha_dispersion`
@@ -177,6 +213,10 @@ fitted model. Scoring preserves the supplied point-in-time cluster schedule.
 - `compare_universe_dispersion`
 - `sample_universe_dispersion`
 
+Construct with `FactorOpportunityModel.from_snapshot(snapshot, alpha)` or explicit
+`betas`, raw `residual_variances`, `factor_covariance`, `alpha`, `date` and keyword-only
+`residual_covariance`, `asset_covariance`, `raw_diagonal_reference_covariance`.
+These matrices are prepared before GLS diagnostics; the constructor never assembles risk.
 `FactorOpportunityModel.optimisation_inputs()` produces copied labelled arrays;
 `prepare_alpha_covariance` prepares the chosen objective's estimation covariance.
 Statistical result tables remain FM outputs. Constrained portfolio solving is a
@@ -188,3 +228,10 @@ geometry even when the selected full covariance includes residual correlation.
 `get_paths` reads YAML settings. `get_resource_path` resolves input storage;
 `get_output_path` creates and resolves output storage. See the
 [local path configuration](reference_workflows.md).
+
+The root and `factormodels.utils` also export `resolve_resource_path`,
+`resolve_output_path` and `create_output_directory`. Resolution does not create
+directories; `create_output_directory` creates a fresh directory and rejects an
+existing destination. Absolute paths bypass settings, while relative names use
+the configured roots. CMA renderers share an internal atomic PDF writer that
+preserves an existing report on failure and closes their generated figures.

@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-from factormodels.cma import CmaDiagnosticInputs, compute_cma_diagnostics
+from factormodels.gls_diagnostic import CmaDiagnosticInputs, compute_cma_diagnostics
 from factormodels.reports.cma_diagnostics import render_cma_diagnostics
 
 

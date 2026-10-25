@@ -4,8 +4,8 @@ import pandas as pd
 import pytest
 import qis
 
-from factormodels.estimation.models import DatedFactorCovariance
-from factormodels.tests._estimation_fixture import estimator, panels
+from factormodels.analytics.models import DatedFactorCovariance
+from factormodels.estimation.tests._fixtures import estimator, panels
 
 
 @pytest.mark.parametrize("policy", ["orthogonal", "empirical", "residual_cluster"])
@@ -21,8 +21,8 @@ def test_future_observations_cannot_change_current_model(policy):
         panel.loc[panel.index > cutoff] = 9.
     changed = estimator(residual_type=policy).fit_current(changed_factors, changed_returns, cutoff=cutoff)
     pd.testing.assert_frame_equal(reference.asset_covariance, changed.asset_covariance)
-    pd.testing.assert_frame_equal(reference.data.residuals, changed.data.residuals)
-    assert reference.data.residuals.index.max() <= cutoff
+    pd.testing.assert_frame_equal(reference.residuals, changed.residuals)
+    assert reference.residuals.index.max() <= cutoff
     assert all(date <= cutoff for date in reference.provenance["asset_observation_dates"].values())
 
 
@@ -47,7 +47,7 @@ def test_supplied_covariance_provenance_is_checked_before_fit():
     matrix = pd.DataFrame(np.diag([.04, .03]), index=factors.columns, columns=factors.columns)
     supplied = DatedFactorCovariance(matrix, cutoff, cutoff)
     fitted = estimator().fit_current(factors, returns, cutoff=cutoff, factor_covariance=supplied)
-    pd.testing.assert_frame_equal(fitted.data.x_covar, matrix)
+    pd.testing.assert_frame_equal(fitted.factor_covariance, matrix)
     with pytest.raises(ValueError, match="available at cutoff"):
         estimator().fit_current(
             factors, returns, cutoff=cutoff,

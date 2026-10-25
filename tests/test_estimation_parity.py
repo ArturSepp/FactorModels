@@ -6,7 +6,7 @@ import pandas as pd
 import pytest
 import qis
 
-from factormodels.tests._estimation_fixture import estimator, panels
+from factormodels.estimation.tests._fixtures import estimator, panels
 
 
 def test_factor_covariance_sampling_and_annualisation_match_explicit_weights():
@@ -19,7 +19,7 @@ def test_factor_covariance_sampling_and_annualisation_match_explicit_weights():
     decay = 1. - 2. / 37.
     weights = (1. - decay) * decay ** np.arange(len(deviations) - 1, -1, -1)
     reference = 12. * np.einsum("t,ti,tj->ij", weights, deviations, deviations)
-    np.testing.assert_allclose(fitted.data.x_covar, reference, rtol=1e-12, atol=1e-14)
+    np.testing.assert_allclose(fitted.factor_covariance, reference, rtol=1e-12, atol=1e-14)
 
 
 def test_completed_covariance_matches_independent_factor_pair_sum():
@@ -27,7 +27,7 @@ def test_completed_covariance_matches_independent_factor_pair_sum():
     factors, returns = panels()
     fitted = estimator(residual_var_weight=.35).fit_current(
         factors, returns, cutoff=factors.index[-1])
-    beta, factor = fitted.data.y_betas, fitted.data.x_covar
+    beta, factor = fitted.loadings, fitted.factor_covariance
     residual = fitted.residual_covariance
     reference = np.empty((len(beta), len(beta)))
     for i, a in enumerate(beta.index):
@@ -38,9 +38,9 @@ def test_completed_covariance_matches_independent_factor_pair_sum():
             ) + residual.at[a, b]
     np.testing.assert_allclose(fitted.asset_covariance, reference, rtol=1e-12, atol=1e-14)
     np.testing.assert_allclose(
-        np.diag(residual), .35 * fitted.data.y_variances.residual_var, rtol=1e-14)
-    assert fitted.data.residual_metadata.frequency.to_dict() == {"a": "ME", "b": "ME", "c": "QE"}
-    assert fitted.data.residual_metadata.annualisation_factor.to_dict() == {"a": 12., "b": 12., "c": 4.}
+        np.diag(residual), .35 * fitted.fit_statistics.residual_var, rtol=1e-14)
+    assert fitted.residual_metadata.frequency.to_dict() == {"a": "ME", "b": "ME", "c": "QE"}
+    assert fitted.residual_metadata.annualisation_factor.to_dict() == {"a": 12., "b": 12., "c": 4.}
 
 
 def test_empirical_result_owns_selected_full_residual_risk():
@@ -48,13 +48,13 @@ def test_empirical_result_owns_selected_full_residual_risk():
     factors, returns = panels()
     fitted = estimator(residual_type="empirical", residual_corr_weight=.6).fit_current(
         factors, returns, cutoff=factors.index[-1])
-    variances = fitted.data.y_variances.residual_var.to_numpy()
-    corr = fitted.data.residual_correlation.correlation.to_numpy()
+    variances = fitted.fit_statistics.residual_var.to_numpy()
+    corr = fitted.residual_correlation.to_numpy()
     reference = .6 * corr * np.sqrt(variances[:, None] * variances[None, :])
     np.fill_diagonal(reference, variances)
     np.testing.assert_allclose(fitted.residual_covariance, reference, rtol=1e-13, atol=1e-15)
     assert np.any(np.abs(reference - np.diag(variances)) > 1e-7)
-    beta, factor = fitted.data.y_betas.to_numpy(), fitted.data.x_covar.to_numpy()
+    beta, factor = fitted.loadings.to_numpy(), fitted.factor_covariance.to_numpy()
     np.testing.assert_allclose(fitted.asset_covariance, beta @ factor @ beta.T + reference)
 
 
@@ -68,16 +68,16 @@ def test_current_and_rolling_results_have_the_same_explicit_date_contract(policy
     assert len(rolling.snapshots) > 1
     for date, snapshot in rolling.snapshots.items():
         current = configured.fit_current(factors, returns, cutoff=date)
-        pd.testing.assert_frame_equal(snapshot.data.y_betas, current.data.y_betas)
-        pd.testing.assert_frame_equal(snapshot.data.x_covar, current.data.x_covar)
+        pd.testing.assert_frame_equal(snapshot.loadings, current.loadings)
+        pd.testing.assert_frame_equal(snapshot.factor_covariance, current.factor_covariance)
         np.testing.assert_allclose(np.diag(snapshot.asset_covariance), np.diag(current.asset_covariance))
-        if policy == "orthogonal" or snapshot.data.residual_correlation.estimation_date == date:
+        if policy == "orthogonal" or snapshot.residual_correlation_metadata['estimation_date'] == date:
             pd.testing.assert_frame_equal(snapshot.asset_covariance, current.asset_covariance)
         else:
-            assert snapshot.data.residual_correlation.estimation_date < date
-            assert snapshot.data.residual_correlation.observation_date <= date
+            assert snapshot.residual_correlation_metadata['estimation_date'] < date
+            assert snapshot.residual_correlation_metadata['observation_date'] <= date
         assert snapshot.cutoff == date
-    assert len(rolling.data.data) == len(rolling.covariances)
+    assert len(rolling.snapshots) == len(rolling.covariances)
 
 
 def test_fits_do_not_mutate_model_configuration_or_previous_result():
@@ -86,11 +86,11 @@ def test_fits_do_not_mutate_model_configuration_or_previous_result():
     configured = estimator()
     assert configured.lasso_model.estimated_betas is None
     first = configured.fit_current(factors, returns, cutoff=factors.index[-12])
-    expected = first.data.y_betas.copy()
+    expected = first.loadings.copy()
     second = configured.fit_current(factors, returns, cutoff=factors.index[-1])
     assert configured.lasso_model.estimated_betas is None
-    pd.testing.assert_frame_equal(first.data.y_betas, expected)
-    assert first.data is not second.data
+    pd.testing.assert_frame_equal(first.loadings, expected)
+    assert first is not second
     changed = replace(configured, residual_var_weight=0.)
     factor_only = changed.fit_current(factors, returns, cutoff=factors.index[-12])
     np.testing.assert_allclose(factor_only.residual_covariance, 0.)

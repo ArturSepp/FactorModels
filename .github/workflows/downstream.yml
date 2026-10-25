@@ -1,0 +1,282 @@
+name: OP consumer verification
+
+# Verify the reviewed public OSS consumer pair from FactorModels (OptimalPortfolios composed
+# source, installed wheels, documentation bundle). Called by required.yml when src/ changes;
+# this workflow does not publish packages or replace OP's existing required checks.
+on:
+  workflow_call:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  MPLBACKEND: Agg
+  OP_SOURCE_SHA: 42f38ef9eeb27156b2f8997b701677ed4c1836e4
+  FM_SOURCE_SHA: ${{ github.sha }}
+
+jobs:
+  composed:
+    name: OP composed source and installed wheels
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Check out the reviewed OP source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ArturSepp/OptimalPortfolios
+          ref: ${{ env.OP_SOURCE_SHA }}
+          persist-credentials: false
+      - name: Check out the reviewed FM source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ArturSepp/FactorModels
+          ref: ${{ env.FM_SOURCE_SHA }}
+          path: .integration/factormodels
+          token: ${{ github.token }}
+          persist-credentials: false
+      - name: Assert the repository and exact source identities
+        shell: bash
+        run: |
+          test "$GITHUB_REPOSITORY" = "ArturSepp/FactorModels"
+          test "$(git rev-parse HEAD)" = "$OP_SOURCE_SHA"
+          test "$(git -C .integration/factormodels rev-parse HEAD)" = "$FM_SOURCE_SHA"
+          printf 'OP=%s\nFM=%s\nWORKFLOW=%s\n' "$OP_SOURCE_SHA" "$FM_SOURCE_SHA" "$GITHUB_SHA" | tee "$RUNNER_TEMP/source-identities.txt"
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          python-version: "3.12"
+      - name: Build both candidates and install composed source lane
+        shell: bash
+        run: |
+          uv build --out-dir "$RUNNER_TEMP/op-dist"
+          uv build .integration/factormodels --out-dir "$RUNNER_TEMP/tf-dist"
+          uv venv "$RUNNER_TEMP/composed-source"
+          uv pip install --python "$RUNNER_TEMP/composed-source/bin/python" -e ".[riskbudget]" \
+            "$(ls "$RUNNER_TEMP"/tf-dist/*.whl)" pytest
+      - name: Run composed source contracts
+        env:
+          OP_REQUIRE_FACTOR_INTEGRATION: "1"
+        run: |
+          "$RUNNER_TEMP/composed-source/bin/python" -m pytest -m factor_integration \
+            --junitxml="$RUNNER_TEMP/source-handoff.xml"
+          "$RUNNER_TEMP/composed-source/bin/python" -c "import os, xml.etree.ElementTree as E; s=E.parse(os.path.join(os.environ['RUNNER_TEMP'], 'source-handoff.xml')).getroot(); cases=list(s.iter('testcase')); assert cases; assert not list(s.iter('skipped')); assert not list(s.iter('failure')); assert not list(s.iter('error'))"
+          "$RUNNER_TEMP/composed-source/bin/python" .github/scripts/run_examples.py --lane composed
+      - name: Install both candidate wheels into a fresh environment
+        run: |
+          uv venv "$RUNNER_TEMP/composed-wheel"
+          uv pip install --python "$RUNNER_TEMP/composed-wheel/bin/python" \
+            "$(ls "$RUNNER_TEMP"/op-dist/*.whl)[riskbudget]" "$(ls "$RUNNER_TEMP"/tf-dist/*.whl)" pytest
+      - name: Enforce nonempty installed handoff tests without skips
+        env:
+          OP_REQUIRE_FACTOR_INTEGRATION: "1"
+        run: |
+          cd "$RUNNER_TEMP"
+          "$RUNNER_TEMP/composed-wheel/bin/python" -m pytest \
+            --pyargs optimalportfolios.tests.factor_integration_test --junitxml=handoff.xml
+          "$RUNNER_TEMP/composed-wheel/bin/python" -c "import xml.etree.ElementTree as E; s=E.parse('handoff.xml').getroot(); cases=list(s.iter('testcase')); assert cases; assert not list(s.iter('skipped')); assert not list(s.iter('failure')); assert not list(s.iter('error'))"
+      - name: Retain composed verification evidence
+        if: always() && github.repository == 'ArturSepp/FactorModels'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: op-composed-evidence
+          path: |
+            ${{ runner.temp }}/source-identities.txt
+            ${{ runner.temp }}/source-handoff.xml
+            ${{ runner.temp }}/handoff.xml
+          if-no-files-found: warn
+          retention-days: 7
+
+  docs:
+    name: OP documentation
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out the reviewed OP source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ArturSepp/OptimalPortfolios
+          ref: ${{ env.OP_SOURCE_SHA }}
+          persist-credentials: false
+      - name: Check out the reviewed FM source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ArturSepp/FactorModels
+          ref: ${{ env.FM_SOURCE_SHA }}
+          path: .integration/factormodels
+          token: ${{ github.token }}
+          persist-credentials: false
+      - name: Assert the repository and exact source identities
+        shell: bash
+        run: |
+          test "$GITHUB_REPOSITORY" = "ArturSepp/FactorModels"
+          test "$(git rev-parse HEAD)" = "$OP_SOURCE_SHA"
+          test "$(git -C .integration/factormodels rev-parse HEAD)" = "$FM_SOURCE_SHA"
+          printf 'OP=%s\nFM=%s\nWORKFLOW=%s\n' "$OP_SOURCE_SHA" "$FM_SOURCE_SHA" "$GITHUB_SHA" | tee "$RUNNER_TEMP/source-identities.txt"
+      - name: Keep documentation state outside the checkout
+        run: |
+          echo "AGENT_LOCAL_ROOT=$RUNNER_TEMP/documentation" >> "$GITHUB_ENV"
+          echo "UV_PROJECT_ENVIRONMENT=$RUNNER_TEMP/documentation/venv" >> "$GITHUB_ENV"
+          echo "PYTHONPYCACHEPREFIX=$RUNNER_TEMP/documentation/cache/python" >> "$GITHUB_ENV"
+          echo "NUMBA_CACHE_DIR=$RUNNER_TEMP/documentation/cache/numba" >> "$GITHUB_ENV"
+          echo "MPLCONFIGDIR=$RUNNER_TEMP/documentation/cache/matplotlib" >> "$GITHUB_ENV"
+      - name: Install uv and Python
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          python-version: "3.12"
+          version: "0.12.23"
+      - name: Sync documentation environment
+        run: uv sync --locked --extra docs --extra riskbudget --group test
+      - name: Install the selected FM candidate for the complete analytical bundle
+        run: uv pip install --python "$UV_PROJECT_ENVIRONMENT/bin/python" .integration/factormodels
+      - name: Check every human-authored source
+        run: uv run --no-sync python tools/check_docs.py --source-all
+      - name: Test documentation, examples and installation contracts
+        run: >-
+          uv run --no-sync python -m pytest
+          src/optimalportfolios/tests/documentation_standard_test.py
+          src/optimalportfolios/tests/examples_documentation_test.py
+          src/optimalportfolios/tests/installation_documentation_test.py
+          -o cache_dir="$AGENT_LOCAL_ROOT/cache/pytest"
+          --basetemp="$AGENT_LOCAL_ROOT/tests"
+          --junitxml="$RUNNER_TEMP/documentation-regressions.xml"
+      - name: Check displayed-image registration
+        run: uv run --no-sync python -m tools.docs_analytics.run --list
+      - name: Verify published preview integrity and teaching exhibits
+        run: uv run --no-sync python -m tools.docs_analytics.run --verify
+      - name: Generate and validate the complete offline analytics bundle
+        run: >-
+          uv run --no-sync python -m tools.docs_analytics.run --all
+          --output-root "$AGENT_LOCAL_ROOT/bundle"
+      - name: Build documentation with the shared profile
+        run: uv run --no-sync python .github/oss_checks.py docs --working-tree --output-dir "$RUNNER_TEMP/oss-docs"
+      - name: Test external-link failure classification
+        run: uv run --no-sync python .github/scripts/test_external_links.py
+      - name: Check documentation links
+        run: >-
+          uv run --no-sync python .github/scripts/check_external_links.py
+          --output-dir "$AGENT_LOCAL_ROOT/linkcheck"
+      - name: Confirm the reviewed lockfile was preserved
+        run: git diff --exit-code -- pyproject.toml uv.lock
+      - name: Retain external-link health evidence
+        if: always() && github.repository == 'ArturSepp/FactorModels'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: external-link-health
+          path: ${{ runner.temp }}/documentation/linkcheck/*.json
+          if-no-files-found: error
+          retention-days: 7
+      - name: Retain documentation verification evidence
+        if: always() && github.repository == 'ArturSepp/FactorModels'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: op-documentation-evidence
+          path: |
+            ${{ runner.temp }}/source-identities.txt
+            ${{ runner.temp }}/documentation-regressions.xml
+            ${{ runner.temp }}/oss-docs/html/
+            ${{ runner.temp }}/documentation/bundle/*.json
+          if-no-files-found: warn
+          retention-days: 7
+
+  network:
+    name: OP network examples (advisory)
+    continue-on-error: true
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    outputs:
+      execution: ${{ steps.run.outcome }}
+    steps:
+      - name: Check out the reviewed OP source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ArturSepp/OptimalPortfolios
+          ref: ${{ env.OP_SOURCE_SHA }}
+          persist-credentials: false
+      - name: Check out the reviewed FM source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ArturSepp/FactorModels
+          ref: ${{ env.FM_SOURCE_SHA }}
+          path: .integration/factormodels
+          token: ${{ github.token }}
+          persist-credentials: false
+      - name: Assert the repository and exact source identities
+        shell: bash
+        run: |
+          test "$GITHUB_REPOSITORY" = "ArturSepp/FactorModels"
+          test "$(git rev-parse HEAD)" = "$OP_SOURCE_SHA"
+          test "$(git -C .integration/factormodels rev-parse HEAD)" = "$FM_SOURCE_SHA"
+          printf 'OP=%s\nFM=%s\nWORKFLOW=%s\n' "$OP_SOURCE_SHA" "$FM_SOURCE_SHA" "$GITHUB_SHA" | tee "$RUNNER_TEMP/source-identities.txt"
+      - name: Install uv and Python
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          python-version: "3.12"
+      - name: Sync with the data extra
+        run: uv sync --locked --extra data --extra riskbudget
+      - name: Install FM explicitly for network examples that compose the factor pipeline
+        run: uv pip install --python .venv/bin/python .integration/factormodels
+      - name: Run the network examples
+        id: run
+        shell: bash
+        run: |
+          set -o pipefail
+          uv run --no-sync python .github/scripts/run_examples.py \
+            --lane network --jobs 4 | tee "$RUNNER_TEMP/network.log"
+      - name: Summarise
+        if: ${{ !cancelled() }}
+        shell: bash
+        env:
+          NETWORK_OUTCOME: ${{ steps.run.outcome }}
+        run: |
+          {
+            echo "## Network examples"
+            echo
+            if [ "$NETWORK_OUTCOME" = "success" ]; then
+              echo "All network examples passed."
+            else
+              echo "**Network execution outcome: $NETWORK_OUTCOME.** This lane is advisory."
+              echo "Check checkout/install errors and live-provider failures in the job log."
+            fi
+            echo
+            echo '```'
+            grep -E "^  (PASS|FAIL)|[0-9]+/[0-9]+ passed" "$RUNNER_TEMP/network.log" || echo "no results parsed"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Retain network evidence
+        if: always() && github.repository == 'ArturSepp/FactorModels'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: op-network-evidence
+          path: |
+            ${{ runner.temp }}/source-identities.txt
+            ${{ runner.temp }}/network.log
+          if-no-files-found: warn
+          retention-days: 7
+
+  required:
+    name: OP consumer verification result
+    if: always()
+    needs: [composed, docs, network]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Require composed and documentation checks and report network outcome
+        env:
+          COMPOSED_RESULT: ${{ needs.composed.result }}
+          DOCS_RESULT: ${{ needs.docs.result }}
+          NETWORK_RESULT: ${{ needs.network.result }}
+          NETWORK_EXECUTION: ${{ needs.network.outputs.execution }}
+        run: |
+          test "$GITHUB_REPOSITORY" = "ArturSepp/FactorModels"
+          {
+            echo "## OP consumer verification"
+            echo "OP source: $OP_SOURCE_SHA"
+            echo "FM source: $FM_SOURCE_SHA"
+            echo "Required composed source/wheels: $COMPOSED_RESULT"
+            echo "Required documentation: $DOCS_RESULT"
+            echo "Advisory network job: $NETWORK_RESULT; execution: ${NETWORK_EXECUTION:-unavailable}"
+            echo "This public FM/OP check verifies the composed OSS source and installed wheels."
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+          test "$COMPOSED_RESULT" = "success"
+          test "$DOCS_RESULT" = "success"

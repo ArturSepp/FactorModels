@@ -17,3 +17,10 @@ outputs/
 data/
 !tests/data/
 docs/_build/
+
+# Paper workspaces are private by default; relocation grants no publication rights.
+/papers/*
+!/papers/AGENTS.md
+!/papers/README.md
+/papers/matf_cma_jpm_2026/
+/papers/achievable_sharpe_faj_2026/
