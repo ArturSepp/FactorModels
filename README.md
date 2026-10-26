@@ -26,7 +26,7 @@ fitted covariance and is not required to complete a fit.
 [![PyPI](https://img.shields.io/pypi/v/factormodels?style=flat-square)](https://pypi.org/project/factormodels/)
 [![Python](https://img.shields.io/pypi/pyversions/factormodels?style=flat-square)](https://pypi.org/project/factormodels/)
 [![CI](https://github.com/ArturSepp/FactorModels/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/ArturSepp/FactorModels/actions/workflows/ci.yml)
-[![Docs](https://img.shields.io/badge/docs-GitHub-blue?style=flat-square)](https://github.com/ArturSepp/FactorModels/blob/main/docs/index.md)
+[![Docs](https://readthedocs.org/projects/factormodels/badge/?version=latest)](https://factormodels.readthedocs.io/en/latest/)
 [![License](https://img.shields.io/github/license/ArturSepp/FactorModels.svg?style=flat-square)](LICENSE)
 [![Downloads](https://static.pepy.tech/badge/factormodels)](https://pepy.tech/project/factormodels)
 [![Monthly](https://static.pepy.tech/badge/factormodels/month)](https://pepy.tech/project/factormodels)
@@ -38,7 +38,7 @@ Allocation Using Multi-Asset Tradable Factors* · **Estimator:** Sepp, A. and Ka
 (2026), *factorlasso*. See [Statement of need](#statement-of-need) for what each paper
 contributes and [Citation](#citation) for the BibTeX entries.
 
-**Documentation:** [completed model](docs/completed_model.md) ·
+**Documentation:** [Read the Docs](https://factormodels.readthedocs.io/en/latest/) · [completed model](docs/completed_model.md) ·
 [reference workflows](docs/reference_workflows.md) · [API reference](docs/api.md)
 
 ---

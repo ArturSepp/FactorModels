@@ -44,7 +44,7 @@ docs = ["sphinx>=7.2", "myst-parser>=2.0", "furo>=2024.1.29"]
 
 [project.urls]
 Homepage = "https://github.com/ArturSepp/FactorModels"
-Documentation = "https://github.com/ArturSepp/FactorModels/blob/main/docs/index.md"
+Documentation = "https://factormodels.readthedocs.io"
 Repository = "https://github.com/ArturSepp/FactorModels"
 Issues = "https://github.com/ArturSepp/FactorModels/issues"
 Changelog = "https://github.com/ArturSepp/FactorModels/blob/main/CHANGELOG.md"
