@@ -52,6 +52,7 @@ Changelog = "https://github.com/ArturSepp/FactorModels/blob/main/CHANGELOG.md"
 [dependency-groups]
 test = ["pytest>=8", "pytest-cov>=4", "build>=1.2", "packaging>=24"]
 lint = ["ruff==0.16.9", "interrogate==1.7.0", "deptry==0.25.1"]
+audit = ["pip-audit==2.10.1"]
 
 [tool.setuptools.package-data]
 factormodels = ["settings.yaml"]
