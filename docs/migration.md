@@ -34,7 +34,7 @@ Old OP exports are removed; there are no forwarding modules or compatibility ext
 
 ## Removing the input bundle API
 
-The development version removes `factormodels.bundle`, `BundleSettings`,
+The current 0.3.0 interface has no `factormodels.bundle`, `BundleSettings`,
 `FactorBundle`, `BUNDLE_SCHEMA_VERSION`, `load_bundle`, `fit_bundle`, `save_bundle`
 and `synthetic_bundle`. There is no forwarding adapter. Use plain DataFrames,
 configure `LassoModel` and `FactorCovarEstimator` explicitly, then call
@@ -44,7 +44,9 @@ input loading, currency preparation and persistence at the caller boundary.
 Preserve historical six-file inputs and use their recorded environment when
 reproducing old runs; this removal does not rewrite those files.
 
-## Unreleased 0.3.0 completed-result migration
+<a id="unreleased-0-3-0-completed-result-migration"></a>
+
+## 0.3.0 completed-result migration
 
 | Previous call | Replacement |
 |---|---|
@@ -84,7 +86,7 @@ their original source and environment; this migration does not rewrite them.
 | Passing a fitted FactorLasso object as OP `covar_data` | Supply `factormodels.prepare_portfolio_context(snapshot)` or explicit covariance/RiskModel context |
 
 Keep the completed FactorModels model when downstream code needs the selected covariance,
-cutoff, return coordinates or provenance. The unreleased 0.3.0 candidate removes `.data`;
+cutoff, return coordinates or provenance. The 0.3.0 release removes `.data`;
 inspect FM-owned fields and prepare historical alpha explicitly. See the [completed-model guide](completed_model.md)
 and the runnable [downstream handoff](../examples/downstream_handoff.py).
 
@@ -187,7 +189,7 @@ does not rewrite saved fits or install compatibility packages.
 ## Volatility targeting belongs to the factor
 
 `compute_factor_nav` reads the factor's configured volatility policy. The `INHERIT`
-sentinel and call-time `vol_target` argument are removed in the development API.
+sentinel and call-time `vol_target` argument are absent from the 0.3.0 API.
 
 | Intended behaviour | Factor configuration |
 |---|---|

@@ -18,6 +18,7 @@ def test_atomic_export_closes_only_owned_figures_and_restores_style(tmp_path, mo
     seen = []
 
     def export(figures, name, *, local_path, orientation, add_current_date):
+        """Inspect export arguments and simulate success or a partial write."""
         assert figures == [owned]
         assert orientation == 'portrait' and add_current_date is False
         assert plt.rcParams['pdf.fonttype'] == 42
@@ -31,6 +32,7 @@ def test_atomic_export_closes_only_owned_figures_and_restores_style(tmp_path, mo
             raise OSError('export failure')
 
     def fail_replace(self, destination):
+        """Simulate failure of the atomic replacement after PDF creation."""
         assert self == seen[0] and destination == target
         raise OSError('replace failure')
 

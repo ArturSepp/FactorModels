@@ -11,6 +11,7 @@ from factormodels.gls_diagnostic._validation import _labelled, _whiten_loadings
 
 @pytest.fixture
 def moments():
+    """Supply aligned labelled moments for three assets and two factors."""
     assets = pd.Index(["a", "b", "c"])
     factors = pd.Index(["equity", "rates"])
     b = pd.DataFrame([[1., .2], [.3, 1.], [-.4, .6]], index=assets, columns=factors)
@@ -22,6 +23,7 @@ def moments():
 
 @pytest.mark.parametrize("missing", [None, np.nan])
 def test_matching_missing_factor_labels_are_rejected(moments, missing):
+    """Matching missing labels are invalid even when both axes agree."""
     lam, f, _, _ = moments
     labels = pd.Index(["equity", missing])
     lam.index = labels
@@ -32,6 +34,7 @@ def test_matching_missing_factor_labels_are_rejected(moments, missing):
 
 @pytest.mark.parametrize("axis", ["assets", "factors", "residuals"])
 def test_missing_loading_and_covariance_labels_are_rejected(moments, axis):
+    """Reject missing labels on either loading axis or the residual covariance."""
     lam, f, b, d = moments
     if axis == "assets":
         b.index = d.index = pd.Index(["a", "b", np.nan])
@@ -46,6 +49,7 @@ def test_missing_loading_and_covariance_labels_are_rejected(moments, axis):
 
 @pytest.mark.parametrize("position", [0, 1, 2, 3])
 def test_labelled_object_numeric_inputs_are_rejected(moments, position):
+    """Require numerical pandas dtypes at every labelled accounting input."""
     inputs = list(moments)
     inputs[position] = inputs[position].astype(object)
     with pytest.raises(ValueError, match="finite real values"):
@@ -53,6 +57,7 @@ def test_labelled_object_numeric_inputs_are_rejected(moments, position):
 
 
 def test_geometry_and_forecast_vectors_share_dtype_validation(moments):
+    """Geometry and inference reject string or object arrays with pandas labels."""
     _, _, b, d = moments
     with pytest.raises(ValueError, match="finite real values"):
         compute_gls_geometry(b.astype(str), d)
@@ -63,6 +68,7 @@ def test_geometry_and_forecast_vectors_share_dtype_validation(moments):
 
 
 def test_unlabelled_conversion_and_descriptive_tables_remain_supported(moments):
+    """Keep explicit array coercion and nonnumerical metadata contracts intact."""
     lam, f, b, d = moments
     expected = sa.achievable_sharpe2(lam, f, b, d)
     actual = sa.achievable_sharpe2(lam.astype(str).tolist(), f.to_numpy().astype(str),
@@ -73,6 +79,7 @@ def test_unlabelled_conversion_and_descriptive_tables_remain_supported(moments):
 
 
 def test_established_alignment_error_messages_survive_consolidation(moments):
+    """Retain each public operation's existing alignment error text."""
     lam, f, b, d = moments
     with pytest.raises(ValueError) as exc:
         sa.achievable_sharpe2(lam.iloc[::-1], f, b, d)
@@ -86,10 +93,12 @@ def test_established_alignment_error_messages_survive_consolidation(moments):
 
 
 def test_accounting_does_not_call_svd_or_truncate_whitened_loadings(monkeypatch, moments):
+    """Accounting preserves tiny directions and agrees with an asset-space solve."""
     lam, f, b, d = moments
     mean = b.to_numpy() @ lam.to_numpy()
     expected = mean @ np.linalg.solve(b.to_numpy() @ f.to_numpy() @ b.to_numpy().T + np.diag(d), mean)
     def forbidden(*args, **kwargs):
+        """Fail if accounting delegates whitening to rank-revealing geometry."""
         raise AssertionError("accounting validation must not call the geometry SVD")
     monkeypatch.setattr(np.linalg, "svd", forbidden)
     assert sa.achievable_sharpe2(lam, f, b, d) == pytest.approx(expected, abs=1e-12, rel=1e-12)
@@ -99,6 +108,7 @@ def test_accounting_does_not_call_svd_or_truncate_whitened_loadings(monkeypatch,
 
 
 def test_geometry_rank_cutoff_does_not_change_accounting_preparation():
+    """A geometric rank cutoff must not remove accounting loading directions."""
     b = np.zeros((4, 2))
     b[0, 0], b[1, 1] = 1., 1e-18
     assert compute_gls_geometry(b, np.ones(4)).rank == 1

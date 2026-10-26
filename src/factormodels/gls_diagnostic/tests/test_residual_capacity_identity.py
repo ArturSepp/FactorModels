@@ -12,6 +12,7 @@ from factormodels.gls_diagnostic.tests._fixtures import opportunity_from_moments
 
 @pytest.mark.parametrize("duplicate_factor", [False, True])
 def test_capacity_and_noise_floor_match_with_explicit_funding(duplicate_factor):
+    """Independent projections agree with both full and duplicated factor designs."""
     rng = np.random.default_rng(20261025)
     ids, factors = pd.Index([f"a{i}" for i in range(12)]), pd.Index(["equity", "rates"])
     b = pd.DataFrame(rng.normal(size=(12, 2)), index=ids, columns=factors)

@@ -28,6 +28,34 @@ forecasts using an explicit mean bridge and log-risk approximation. Read the Doc
 the [online documentation](https://factormodels.readthedocs.io/en/latest/). Committed-source
 links identify their stated revision; the local guides describe the checked-out source.
 
+## Installation and documentation versions
+
+The completed-result interfaces in this handbook require **FactorModels 0.3.0**
+or later and **Python 3.11** or later:
+
+```console
+python -m pip install "factormodels>=0.3.0"
+```
+
+The [stable handbook](https://factormodels.readthedocs.io/en/stable/) follows the
+released documentation; [latest](https://factormodels.readthedocs.io/en/latest/)
+follows the development branch and can include changes after a release. Check
+your installed version with `python -m pip show factormodels` and consult the
+[changelog](https://github.com/ArturSepp/FactorModels/blob/main/CHANGELOG.md).
+The 0.3.0 release removes `.data` and retired deep imports; use the
+[migration table](migration.md) when upgrading from 0.2.0.
+
+Library APIs are installed by pip. Scripts under `examples/` belong to the
+[source checkout](https://github.com/ArturSepp/FactorModels), so run their commands
+from that checkout. The [README quickstart](https://github.com/ArturSepp/FactorModels#five-minute-quickstart)
+also supplies its inputs and works with the installed package alone. See
+[CONTRIBUTING.md](https://github.com/ArturSepp/FactorModels/blob/main/CONTRIBUTING.md)
+for an external build environment; keep environments and generated output outside
+OneDrive on Windows. The optional [OP handoff](integration.md) has its own
+explicit dependency requirement.
+
+## Handbook
+
 ```{toctree}
 :maxdepth: 2
 

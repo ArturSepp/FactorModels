@@ -1,6 +1,7 @@
 """Build the public FactorModels documentation with MyST."""
 
 import os
+import tomllib
 from html.parser import HTMLParser
 from pathlib import Path
 from typing import Any
@@ -8,11 +9,15 @@ from urllib.parse import quote, urljoin
 from xml.etree import ElementTree
 
 project = "FactorModels"
+release = tomllib.loads(
+    (Path(__file__).resolve().parents[1] / "pyproject.toml").read_text(encoding="utf-8")
+)["project"]["version"]
+version = release
 author = "Artur Sepp"
 copyright = "2026, Artur Sepp"
 extensions = ["myst_parser"]
 html_theme = "furo"
-html_title = "factormodels - factor-model construction, estimation and GLS analytics"
+html_title = f"factormodels {release} - factor-model construction, estimation and GLS analytics"
 exclude_patterns = ["_build"]
 myst_enable_extensions = ["dollarmath"]
 

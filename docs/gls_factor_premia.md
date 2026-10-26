@@ -273,6 +273,9 @@ September 2006 through September 2026. It is a teaching example, not a productio
 MATF calibration. It provides a direct arithmetic reference for checking GLS,
 separate from the fitted-model pipeline above.
 
+The following is an excerpt inside `arithmetic_example()`; the script supplies
+`x`, `y`, `assets` and imports. Run the full script with the commands below.
+
 ```python
     model = LassoModel(model_type=LassoModelType.LASSO, reg_lambda=1e-5,
                        span=None, demean=True, solver="CLARABEL").fit(x=x, y=y)
@@ -331,7 +334,8 @@ not a fitted-object checkpoint. See [CMA report interpretation](cma_diagnostics.
 The supported inference import is now `factormodels.gls_diagnostic`; the old OP
 analytics imports have been removed. Install FactorModels for
 this offline example. Its [GLS contracts guide](gls_contracts.md) describes module responsibilities
-and contributor checks; `_inference.py` is private. OP consumes the resulting
+and contributor checks; `gls_diagnostic.inference` implements premium inference
+and `gls_diagnostic.geometry` implements its geometry. OP consumes the resulting
 expected returns and covariance for constrained optimisation.
 
 The mean bridge `annual_arithmetic_from_log` is exported from

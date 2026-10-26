@@ -15,19 +15,22 @@ Software citation: [CITATION.cff](https://github.com/ArturSepp/FactorModels/blob
 The [composed runnable example](https://github.com/ArturSepp/FactorModels/blob/main/examples/downstream_handoff.py)
 fits a synthetic model, supplies covariance and explicitly chosen alphas to OP,
 then uses QIS to inspect the accepted portfolio's annual tracking error. Install
-OP explicitly; the FM library has no optimiser dependency.
+OP explicitly; the FM library has no optimiser dependency. The example is
+supported with **FM 0.3.0 and OP 9.0.1** (or later compatible releases):
 
 ```console
+python -m pip install "factormodels>=0.3.0" "optimalportfolios>=9.0.1"
 python examples/downstream_handoff.py
 ```
 
-This development example requires matching candidate installations of FM and OP:
-it imports `OpportunityModel` and `solve_opportunity` from
-`optimalportfolios.optimization.opportunity`. The old `optimalportfolios.matf`
-package has been removed from the OP development source. Build and install candidate
-wheels using each repository's contributor instructions; the published OP release
-does not yet expose this path. Run the example from the matching FactorModels source
-checkout. No runtime fallback to the historical module is supplied.
+Run the script from the matching FactorModels source checkout; examples are not
+installed with the library. It imports `OpportunityModel` and `solve_opportunity`
+from `optimalportfolios.optimization.opportunity`, available in the published
+[OP 9.0.1 release](https://pypi.org/project/optimalportfolios/9.0.1/). This is a
+verified support floor, not a claim about the first release of each symbol.
+The example uses CLARABEL and does not require OP's optional `riskbudget` or
+`exact` extras. No runtime fallback to the historical `optimalportfolios.matf`
+module is supplied.
 
 | Package boundary | Completed object passed onward |
 |---|---|

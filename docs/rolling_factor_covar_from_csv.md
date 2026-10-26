@@ -15,7 +15,7 @@ Implemented in [FactorModels](https://github.com/ArturSepp/FactorModels).
 Software citation: [CITATION.cff](https://github.com/ArturSepp/FactorModels/blob/main/CITATION.cff).
 
 Load ordinary DataFrames with pandas and call `FactorCovarEstimator` directly.
-The development version removes the six-file input API; it does not impose a
+The 0.3.0 interface has no six-file input API; it does not impose a
 replacement serialization schema. Historical experiments keep their original
 files and recorded package environments. See the [migration guide](migration.md).
 

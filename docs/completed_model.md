@@ -67,7 +67,7 @@ CSV panel alone does not retain an executable reconstruction of its recipe.
 
 ## Ownership, mutability and persistence
 
-In the **unreleased 0.3.0 candidate**, completed FM results own plain data and retain
+From **0.3.0**, completed FM results own plain data and retain
 no FL containers. All public pandas/NumPy fields and nested metadata are defensive
 copies. Rolling map retrieval returns a new map of immutable completed snapshots.
 Inspection and `to_risk_model()` perform neither fitting nor FL covariance assembly.

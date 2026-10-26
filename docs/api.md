@@ -26,7 +26,9 @@ For forecast analysis, use `infer_factor_premia`, `CmaDiagnosticInputs` and
 identification, uncertainty and opportunity functions expose advanced analyses
 with their own conditional assumptions. This grouping guides discovery within
 the same public API. It does not change exports or imply a separate stability
-guarantee for a pre-release package.
+guarantee. This guide targets the 0.3.0 interface; minor releases in the 0.x
+series can require migration, as the [changelog](https://github.com/ArturSepp/FactorModels/blob/main/CHANGELOG.md)
+and [migration guide](migration.md) record.
 
 ## `factormodels.analytics.definitions`
 
@@ -147,9 +149,12 @@ It performs no fitting, downloading or saving. Prepare log returns with
 `qis.to_returns(..., is_log_returns=True)` and pass the histories directly to
 `FactorCovarEstimator`. See the [reference workflow](reference_workflows.md).
 
-## `factormodels.estimation._results`
+<a id="factormodels-estimation-results"></a>
 
-New root exports in the unreleased 0.3.0 candidate:
+## Explicit adapters and diagnostic preparation
+
+These public operations are available from `factormodels` and
+`factormodels.estimation` in 0.3.0. Their `_results` implementation module is private:
 
 - `snapshots_from_factorlasso`
 - `snapshot_from_moments`
@@ -170,7 +175,7 @@ The [completed-output guide](completed_model.md) describes actual fields, defens
 pandas contents, supported inspection/export and the exact point at which fitting
 is finished. [Reference workflows](reference_workflows.md) run without providers.
 
-`FactorCovarEstimator.fit_current` requires `cutoff` and returns a `FactorModelSnapshot`; `fit_rolling` returns `RollingFactorModel`. Fit statistics, residual histories and diagnostic fields are owned by FM; `.data` is removed in the unreleased 0.3.0 candidate. The selected total/residual covariance and native-factor metadata travel with the result. Export through `.to_risk_model()` or `build_risk_model` for existing QIS consumers. The risk view does not replace the complete fit.
+`FactorCovarEstimator.fit_current` requires `cutoff` and returns a `FactorModelSnapshot`; `fit_rolling` returns `RollingFactorModel`. Fit statistics, residual histories and diagnostic fields are owned by FM; `.data` was removed in 0.3.0. The selected total/residual covariance and native-factor metadata travel with the result. Export through `.to_risk_model()` or `build_risk_model` for existing QIS consumers. The risk view does not replace the complete fit.
 
 Current fitting clips all historical inputs before estimation and does not mutate the caller’s FL configuration. `DatedFactorCovariance` declares upstream observation/availability dates; it is rejected when unavailable at the cutoff. Supplied dates are provenance declarations, not independently verified publication evidence.
 
@@ -218,10 +223,27 @@ Construct with `FactorOpportunityModel.from_snapshot(snapshot, alpha)` or explic
 `residual_covariance`, `asset_covariance`, `raw_diagonal_reference_covariance`.
 These matrices are prepared before GLS diagnostics; the constructor never assembles risk.
 `FactorOpportunityModel.optimisation_inputs()` produces copied labelled arrays;
-`prepare_alpha_covariance` prepares the chosen objective's estimation covariance.
+`model.prepare_alpha_covariance(...)` prepares the chosen objective's estimation covariance;
+it is a method of `FactorOpportunityModel`, not a root-level function.
 Statistical result tables remain FM outputs. Constrained portfolio solving is a
 separate OP call. GLS diagnostics retain the stated diagonal-residual reference
 geometry even when the selected full covariance includes residual correlation.
+
+## Method reports
+
+Report entry points live in `factormodels.reports`, rather than the root export list:
+
+| Import module | Entry points and completed inputs |
+|---|---|
+| `factormodels.reports.covariance` | `plot_covariance_snapshot(snapshot, diagnostics=prepared)` and `run_rolling_covar_report(rolling, diagnostics=by_date)` require explicitly prepared diagnostics; neither fits a model. |
+| `factormodels.reports.cma_diagnostics` | `render_cma_diagnostics(result, output_path, ...)` renders a completed `CmaDiagnosticResult`. |
+| `factormodels.reports.cma_inference` | `CmaInferenceView`, `CmaInferenceReport`, `validate_cma_inference_report` and `render_cma_inference` consume completed audits and explicitly selected inference scenarios. |
+
+The [covariance example](factor_covariance_hcgl.md) shows preparation by cutoff;
+the [CMA guide](cma_diagnostics.md) describes report inputs and persistence.
+Inspect exact callable signatures and full docstrings in the installed version
+with `help(...)`, for example `help(FactorCovarEstimator.fit_current)` after
+importing `FactorCovarEstimator` from `factormodels`.
 
 ## Local paths
 

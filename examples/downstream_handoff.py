@@ -1,6 +1,6 @@
 """Optional composed example: completed FM model -> OP solve -> existing QIS risk.
 
-Install the OP development candidate with optimization.opportunity alongside FM. Neither package
+Install OP >=9.0.1 alongside FM >=0.3.0 for this example. Neither package
 imports the other in its library. All data and forecasts here are synthetic.
 """
 import numpy as np

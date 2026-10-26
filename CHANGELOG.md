@@ -6,6 +6,19 @@ The first public release is 0.1.0; earlier entries record unpublished developmen
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/): a behaviour
 change leads each release, then `Added`, `Changed`, `Fixed`, `Removed`.
 
+## [Unreleased]
+
+### Fixed
+
+- Update the handbook for the released 0.3.0 completed-model interface: FM-owned
+  diagnostics, selected residual policy, explicit report preparation and current
+  GLS module paths. Make the covariance guide's excerpts executable in sequence.
+- Document released FM 0.3.0 / OP 9.0.1 requirements for the optional solver handoff,
+  distinguish installed APIs from checkout examples, and show the documentation
+  build version with links to the stable and development channels.
+- Restore complete docstring coverage for existing validation and report-lifecycle
+  tests without changing their calculations or assertions.
+
 ## [0.3.0] - 2026-10-25
 
 This breaking release removes snapshot/rolling `.data` views. Read completed

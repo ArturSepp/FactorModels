@@ -590,7 +590,7 @@ Runnable examples in [`examples/`](examples/), all offline:
   prices → LASSO loadings and alpha → provider-implied GLS premia, teaching the two stages on
   monthly excess-return NAVs.
 - [`downstream_handoff.py`](examples/downstream_handoff.py): fitted model to an
-  `optimalportfolios` solve to `qis` tracking error. Requires the OP development candidate with `optimization.opportunity`.
+  `optimalportfolios` solve to `qis` tracking error. Requires OP >=9.0.1 alongside FM >=0.3.0; see the [installation and handoff guide](docs/integration.md).
 
 Method documentation: [completed model](docs/completed_model.md),
 [factor construction](docs/construction.md),
@@ -601,6 +601,11 @@ Method documentation: [completed model](docs/completed_model.md),
 [downstream integration](docs/integration.md) and the [API reference](docs/api.md).
 
 ## Testing
+
+First follow the external-checkout and environment setup in
+[CONTRIBUTING.md](CONTRIBUTING.md). The commands below assume that setup, including
+`UV_PROJECT_ENVIRONMENT`; do not run them with uv's default environment inside a
+OneDrive checkout.
 
 ```bash
 uv sync --locked --group test --group lint
