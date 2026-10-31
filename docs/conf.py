@@ -1,6 +1,7 @@
 """Build the public FactorModels documentation with MyST."""
 
 import os
+import re
 import tomllib
 from html.parser import HTMLParser
 from pathlib import Path
@@ -100,6 +101,7 @@ def _github_linkcheck_anchor(app: Any, uri: str) -> str | None:
         and parts.netloc == "github.com"
         and parts.fragment
         and not parts.fragment.startswith("user-content-")
+        and not re.fullmatch(r"L\d+(?:C\d+)?(?:-L\d+(?:C\d+)?)?", parts.fragment)
         and ("/blob/" in parts.path or len(parts.path.strip("/").split("/")) == 2)
     ):
         return urlunsplit(parts._replace(fragment="user-content-" + parts.fragment))

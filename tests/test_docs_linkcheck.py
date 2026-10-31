@@ -38,6 +38,8 @@ def test_github_heading_checks_use_static_ids_without_dropping_fragments(uri):
 @pytest.mark.parametrize("uri", [
     "https://github.com/ArturSepp/FactorModels/blob/main/README.md#user-content-five-minute-quickstart",
     "https://github.com/ArturSepp/FactorModels/blob/main/README.md",
+    "https://github.com/ArturSepp/FactorModels/blob/main/examples/reference_workflows.py#L28",
+    "https://github.com/ArturSepp/FactorModels/blob/main/README.md?plain=1#L28-L50",
     "https://github.com/ArturSepp/FactorModels/issues/1#issuecomment-123",
     "https://github.com/ArturSepp/FactorModels/commit/" + "1" * 40 + "#diff-123",
     "https://www.sphinx-doc.org/en/master/usage/configuration.html#linkcheck-anchors",
