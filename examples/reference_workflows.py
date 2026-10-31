@@ -44,7 +44,7 @@ def synthetic_prices() -> tuple[pd.DataFrame, pd.DataFrame]:
     levels = pd.DataFrame(100 * np.exp(np.vstack([np.zeros(2), x.cumsum(axis=0)])),
                           index=dates, columns=["Equity", "Rates"])
     prices = pd.DataFrame(100 * np.exp(np.vstack([np.zeros(4), y.cumsum(axis=0)])),
-                          index=dates, columns=["Asset A", "Asset B", "Asset C", "Asset D"])
+                          index=dates.copy(deep=True), columns=["Asset A", "Asset B", "Asset C", "Asset D"])
     return levels, prices
 
 

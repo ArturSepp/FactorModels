@@ -5,7 +5,7 @@ import tomllib
 from html.parser import HTMLParser
 from pathlib import Path
 from typing import Any
-from urllib.parse import quote, urljoin
+from urllib.parse import quote, urljoin, urlsplit, urlunsplit
 from xml.etree import ElementTree
 
 project = "FactorModels"
@@ -20,6 +20,15 @@ html_theme = "furo"
 html_title = f"factormodels {release} - factor-model construction, estimation and GLS analytics"
 exclude_patterns = ["_build"]
 myst_enable_extensions = ["dollarmath"]
+
+# These two publishers return HTTP 403 to automated checks. Keep the references
+# visible for manual verification, without excluding other publisher URLs.
+linkcheck_ignore = [
+    r"https://doi\.org/10\.2469/faj\.v51\.n3\.1904$",
+    r"https://papers\.ssrn\.com/sol3/papers\.cfm\?abstract_id=6785958$",
+]
+linkcheck_retries = 3
+linkcheck_timeout = 20
 
 # Keep development, stable and tagged sources under their own canonical URLs.
 html_baseurl = (
@@ -83,7 +92,22 @@ def _use_root_canonical(
         context["pageurl"] = app.config.html_baseurl
 
 
+def _github_linkcheck_anchor(app: Any, uri: str) -> str | None:
+    """Check GitHub heading IDs with their static user-content prefix."""
+    parts = urlsplit(uri)
+    if (
+        parts.scheme == "https"
+        and parts.netloc == "github.com"
+        and parts.fragment
+        and not parts.fragment.startswith("user-content-")
+        and ("/blob/" in parts.path or len(parts.path.strip("/").split("/")) == 2)
+    ):
+        return urlunsplit(parts._replace(fragment="user-content-" + parts.fragment))
+    return None
+
+
 def setup(app: Any) -> None:
     """Register canonical page metadata and the matching sitemap producer."""
     app.connect("html-page-context", _use_root_canonical)
     app.connect("build-finished", _write_canonical_sitemap)
+    app.connect("linkcheck-process-uri", _github_linkcheck_anchor)
