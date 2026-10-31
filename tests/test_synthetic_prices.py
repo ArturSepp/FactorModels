@@ -8,6 +8,7 @@ import socket
 import numpy as np
 import pandas as pd
 import factormodels as tf
+import pytest
 
 synthetic_prices = runpy.run_path(str(
     Path(__file__).resolve().parents[1] / "examples/reference_workflows.py"))["synthetic_prices"]
@@ -26,6 +27,16 @@ def test_synthetic_factory_is_reproducible_and_returns_fresh_inputs():
     assert second[0].shape == (121, 2)
     assert second[1].shape == (121, 4)
     assert second[0].index[[0, -1]].tolist() == [pd.Timestamp("2014-01-31"), pd.Timestamp("2024-01-31")]
+
+
+@pytest.mark.parametrize("position", [0, 1])
+def test_synthetic_tables_have_independent_index_metadata(position):
+    """Renaming either table's index must leave the other table unchanged."""
+    tables = synthetic_prices()
+    sibling = tables[1 - position]
+    before = sibling.copy(deep=True)
+    tables[position].index.name = "changed index"
+    pd.testing.assert_frame_equal(sibling, before, check_exact=True)
 
 
 def test_synthetic_factory_needs_no_fit_network_or_files_and_preserves_global_rng(monkeypatch):
