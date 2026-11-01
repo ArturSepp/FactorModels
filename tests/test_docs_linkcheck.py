@@ -65,3 +65,24 @@ def test_only_the_two_observed_publisher_blocks_are_excluded():
         "https://www.gnu.org/licenses/gcc-exception-3.1.html",
     ):
         assert not ignored(uri)
+
+
+def test_docs_workflow_confirms_link_failures_and_retains_evidence():
+    """An unreachable publisher is reported; confirmed missing targets still gate docs."""
+    import yaml
+
+    root = Path(__file__).resolve().parents[1]
+    workflow = yaml.safe_load((root / ".github/workflows/docs.yml").read_text(encoding="utf-8"))
+    steps = workflow["jobs"]["docs"]["steps"]
+    build = next(step for step in steps if step.get("name") == "Build documentation with the shared profile")
+    links = next(step for step in steps if step.get("name") == "Check documentation links")
+    assert "oss_checks.py docs" in build["run"]
+    assert "check_external_links.py" in links["run"]
+    assert "--output-dir" in links["run"]
+    assert "continue-on-error" not in links
+    tests = next(step for step in steps if step.get("name") == "Test external-link failure classification")
+    assert "test_external_links.py" in tests["run"]
+    evidence = next(step for step in steps if step.get("name") == "Retain external-link health evidence")
+    assert evidence["if"].startswith("always()")
+    assert evidence["with"]["path"] == "${{ runner.temp }}/external-link-health/*.json"
+    assert evidence["with"]["if-no-files-found"] == "error"
