@@ -47,7 +47,7 @@ jobs:
           test "$(git rev-parse HEAD)" = "$OP_SOURCE_SHA"
           test "$(git -C .integration/factormodels rev-parse HEAD)" = "$FM_SOURCE_SHA"
           printf 'OP=%s\nFM=%s\nWORKFLOW=%s\n' "$OP_SOURCE_SHA" "$FM_SOURCE_SHA" "$GITHUB_SHA" | tee "$RUNNER_TEMP/source-identities.txt"
-      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
           python-version: "3.12"
       - name: Build both candidates and install composed source lane
@@ -125,7 +125,7 @@ jobs:
           echo "NUMBA_CACHE_DIR=$RUNNER_TEMP/documentation/cache/numba" >> "$GITHUB_ENV"
           echo "MPLCONFIGDIR=$RUNNER_TEMP/documentation/cache/matplotlib" >> "$GITHUB_ENV"
       - name: Install uv and Python
-        uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
           python-version: "3.12"
           version: "0.12.23"
@@ -213,7 +213,7 @@ jobs:
           test "$(git -C .integration/factormodels rev-parse HEAD)" = "$FM_SOURCE_SHA"
           printf 'OP=%s\nFM=%s\nWORKFLOW=%s\n' "$OP_SOURCE_SHA" "$FM_SOURCE_SHA" "$GITHUB_SHA" | tee "$RUNNER_TEMP/source-identities.txt"
       - name: Install uv and Python
-        uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
           python-version: "3.12"
       - name: Sync with the data extra
