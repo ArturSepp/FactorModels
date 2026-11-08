@@ -26,7 +26,7 @@ For forecast analysis, use `infer_factor_premia`, `CmaDiagnosticInputs` and
 identification, uncertainty and opportunity functions expose advanced analyses
 with their own conditional assumptions. This grouping guides discovery within
 the same public API. It does not change exports or imply a separate stability
-guarantee. This guide targets the 0.3.0 interface; minor releases in the 0.x
+guarantee. This guide includes the equity/FX and SIMPLE payoff research additions; minor releases in the 0.x
 series can require migration, as the [changelog](https://github.com/ArturSepp/FactorModels/blob/main/CHANGELOG.md)
 and [migration guide](migration.md) record.
 
@@ -257,3 +257,31 @@ directories; `create_output_directory` creates a fresh directory and rejects an
 existing destination. Absolute paths bypass settings, while relative names use
 the configured roots. CMA renderers share an internal atomic PDF writer that
 preserves an existing report on failure and closes their generated figures.
+
+## `factormodels.estimation.equity_fx`
+
+- `EquityFxRiskSpec`: explicit cadence, common-sample moments, local-block and cross-block policies.
+- `EquityFxRiskSnapshot`: owned joint moments, full/ablated asset covariance and QIS risk export.
+- `build_currency_exposure`: opening quote-currency incidence times one minus the additional hedge.
+- `augment_equity_fx_model`: augment a completed local model without silently replacing its residual policy.
+
+See [Equity FX risk](equity_fx_risk.md) for native coordinates, PSD compatibility,
+nonlinear-error validation and the executable offline example.
+
+
+## `factormodels.estimation.equity_payoff`
+
+Research-only exact SIMPLE-payoff assembly, separately from the local LOG approximation above:
+
+- `EquityPayoffRiskSpec`: one cadence, complete sample, centering and moment kernel.
+- `EquityPayoffRiskSnapshot`: full joint moments, fixed-H forecast and dated-H historical covariance.
+- `build_funded_currency_exposure`: opening incidence times local cash gross growth minus hedge.
+- `compute_payoff_factor_returns`: arithmetic baskets with explicit opening-notional weight panels.
+- `assemble_equity_payoff_risk`: full covariance of translated excess responses and FX payoffs,
+  retaining factor/residual, factor/FX and residual/FX cross covariance.
+
+`FactorCovarEstimator(asset_return_type="simple_payoff", ...)` fits prepared arithmetic
+responses on a single common factor/response/residual cadence. The default remains `"log"`.
+The coordinate is recorded in the completed snapshot and checked by payoff assembly.
+See [Equity FX risk](equity_fx_risk.md) and the executable
+[payoff example](https://github.com/ArturSepp/FactorModels/blob/main/examples/equity_payoff_risk.py).

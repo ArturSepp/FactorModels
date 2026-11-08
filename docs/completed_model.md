@@ -26,7 +26,7 @@ checks GLS on simple-return inputs.
 | Producer | Explicit inputs | Completed output |
 |---|---|---|
 | `assemble_factor_model`, `build_factor_panel` | Catalogue, recipe, component histories, construction cadence | `FactorModelSpec` and ordered NAV/observed-level DataFrame |
-| `FactorCovarEstimator.fit_current` | Factor histories, prepared log asset returns, FL settings, cutoff | `FactorModelSnapshot` |
+| `FactorCovarEstimator.fit_current` | Factor histories, prepared asset observations in the declared coordinate, FL settings, cutoff | `FactorModelSnapshot` |
 | `FactorCovarEstimator.fit_rolling` | Same information plus rolling dates | `RollingFactorModel.snapshots`, keyed by cutoff |
 | `compute_cma_diagnostics` | Supplied forecasts and fitted arrays | Separate `CmaDiagnosticResult` tables; does not revise the model |
 
@@ -41,10 +41,10 @@ and residual histories to assess its statistical adequacy.
 |---|---|
 | Caller configuration and `FactorCovarEstimator` | Recipe identity, currency/hedging preparation, cadences, transformations, loss scaling and residual policy |
 | `risk_factor_prices` | Ordered NAVs or typed observed levels; LOG uses dimensionless returns, DIFFERENCE retains native points |
-| `snapshot.loadings` | Independent labelled copy, assets × factors; decimal asset log return per factor return unit |
+| `snapshot.loadings` | Independent labelled copy, assets × factors; declared decimal asset coordinate per factor return unit |
 | `snapshot.factor_covariance` | Independent labelled copy of annual factor covariance in declared native coordinates |
 | `snapshot.residual_covariance` | Selected annual asset residual covariance, including residual variance/correlation policy |
-| `snapshot.asset_covariance` | Annual asset log-return covariance, preserving the full selected residual block |
+| `snapshot.asset_covariance` | Annual asset covariance in the declared coordinate, preserving the full selected residual block |
 | `snapshot.raw_diagonal_reference_covariance` | Annual orthogonal covariance with unit raw residual-variance weight; used for GLS reference risk |
 | `snapshot.fit_statistics`, `snapshot.fit_diagnostics` | Raw fit statistics and optional span-free display table; no implicit historical-alpha span |
 | `snapshot.residuals`, `snapshot.residual_metadata` | Native residual history and per-asset cadence, beta span, annualisation and stored/raw scale |
@@ -55,8 +55,11 @@ and residual histories to assess its statistical adequacy.
 Factor and asset labels and their ordering are substantive. Monthly covariance is
 annualised with 12 observations per year; each supported cadence uses the existing
 QIS/FL annualisation. Annual covariance contains variance units, not percent
-volatility. Supplied asset returns must be log returns; total/excess basis must agree
-with the factor basis. Input timestamps declare availability; the estimator
+volatility. Supplied asset observations are LOG by default; total/excess basis must
+agree with the factor basis. Explicit `asset_return_type="simple_payoff"` accepts
+prepared arithmetic payoff increments on one common factor/response/residual
+cadence and records that coordinate in provenance. It performs no compounding
+or logarithm of a signed payoff. See [Equity FX payoff risk](equity_fx_risk.md). Input timestamps declare availability; the estimator
 cannot discover provider publication delays or restatements.
 
 The synthetic example produces two factors, four assets and a 4 × 4 annual asset

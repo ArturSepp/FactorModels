@@ -122,7 +122,21 @@ from factormodels.utils import (
     resolve_resource_path, resolve_output_path, create_output_directory,
 )
 
+from factormodels.estimation.equity_fx import (
+    EquityFxRiskSpec, EquityFxRiskSnapshot, build_currency_exposure, augment_equity_fx_model,
+)
+
+
+from factormodels.estimation.equity_payoff import (
+    EquityPayoffRiskSpec, EquityPayoffRiskSnapshot, build_funded_currency_exposure,
+    compute_payoff_factor_returns, assemble_equity_payoff_risk,
+)
+
+
 __all__ = [
+    "EquityPayoffRiskSpec", "EquityPayoffRiskSnapshot", "build_funded_currency_exposure",
+    "compute_payoff_factor_returns", "assemble_equity_payoff_risk",
+    'EquityFxRiskSpec', 'EquityFxRiskSnapshot', 'build_currency_exposure', 'augment_equity_fx_model',
     "PreparedSnapshotDiagnostics",
     "snapshots_from_factorlasso",
     "snapshot_from_moments",

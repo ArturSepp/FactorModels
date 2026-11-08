@@ -2,12 +2,12 @@
 Purpose: Fit complete current and rolling factor models from supplied historical data.
 Inputs: FL configuration, factor prices, per-cadence asset returns, cutoff and residual policy.
 Outputs: FactorCovarEstimator.fit_current and fit_rolling return completed FM contracts.
-Units: Asset observations are log returns; factor units are declared and output moments annualised by native cadence.
+Units: Asset observations are declared log returns or single-cadence SIMPLE payoffs; moments are annualised by native cadence.
 Conditioning: Truncate all histories at each cutoff, isolate fitting state and preserve the selected residual covariance.
 Ownership: FM orchestrates and owns completed results; FL fits loadings/residuals and QIS estimates factor covariance.
 """
 from __future__ import annotations
-from typing import Any
+from typing import Any, Literal
 from collections.abc import Mapping
 from datetime import date, datetime
 from factorlasso import CurrentFactorCovarData
@@ -71,10 +71,13 @@ class FactorCovarEstimator:
         reg_lambda_freq_dict: Optional fixed regression penalty per response cadence.
         factor_return_types: Exact factor coordinate map; None means LOG.
         factor_groups: Optional provider-neutral QIS factor groups.
+        asset_return_type: Log returns by default; simple_payoff accepts prepared arithmetic
+            increments on one common cadence without NAV construction or log conversion.
 
     Internal factor covariance is demeaned using the existing QIS EWMA contract.
     Regression demeaning remains a separate LassoModel choice. Asset return
-    observations must be supplied in log-return units on their declared cadence.
+    observations are supplied in the declared coordinate. SIMPLE payoff fitting is restricted
+    to one common factor/response/residual cadence; it does not compound signed payoffs.
     """
 
     lasso_model: LassoModel
@@ -92,6 +95,7 @@ class FactorCovarEstimator:
     reg_lambda_freq_dict: dict[str, float] | None = None
     factor_return_types: dict | None = None
     factor_groups: dict | None = None
+    asset_return_type: Literal["log", "simple_payoff"] = "log"
 
     def __post_init__(self) -> None:
         """Validate configuration before a numerical fit is attempted."""
@@ -99,6 +103,11 @@ class FactorCovarEstimator:
             raise TypeError("lasso_model must be a FactorLasso LassoModel configuration")
         if not np.isfinite(self.residual_var_weight) or self.residual_var_weight < 0:
             raise ValueError("residual_var_weight must be finite and nonnegative")
+        if self.asset_return_type not in ("log", "simple_payoff"):
+            raise ValueError("asset_return_type must be log or simple_payoff")
+        if (self.asset_return_type == "simple_payoff"
+                and self.residual_covar_freq not in (None, self.factor_returns_freq)):
+            raise ValueError("SIMPLE payoff residuals must use the factor cadence")
         self._pipeline()
 
     def _pipeline(self) -> _FactorCovarPipeline:
@@ -129,6 +138,8 @@ class FactorCovarEstimator:
             raise ValueError("asset_returns_dict must contain at least one cadence")
         returns = {freq: _historical_panel(panel, cutoff, f"returns[{freq}]")
                    for freq, panel in asset_returns_dict.items()}
+        if self.asset_return_type == "simple_payoff" and set(returns) != {self.factor_returns_freq}:
+            raise ValueError("SIMPLE payoffs require one common factor/response cadence")
         labels = [asset for panel in returns.values() for asset in panel.columns]
         if len(set(labels)) != len(labels):
             raise ValueError("assets must belong to exactly one return cadence")
@@ -145,7 +156,7 @@ class FactorCovarEstimator:
             "factor_covariance_demean": True if estimated else None,
             "factor_covariance_vol_normalised": (
                 self.is_apply_vol_normalised_returns if estimated else None),
-            "asset_return_type": "log",
+            "asset_return_type": self.asset_return_type,
             "reg_lambda": self.lasso_model.reg_lambda,
             "reg_lambda_freq_dict": deepcopy(self.reg_lambda_freq_dict),
         }

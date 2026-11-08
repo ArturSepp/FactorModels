@@ -154,7 +154,9 @@ working model. `reports.cma_diagnostics` renders the audit with `qis` plotting p
 - You need portfolio optimisation. Pass the fitted covariance to `optimalportfolios`.
 - You need non-linear or regime-switching factor dynamics.
 
-The current release is **0.3.0**. Completed-result callers
+The latest published release is **0.3.0**. The current source adds the
+[research equity/FX payoff risk](docs/equity_fx_risk.md); publication is separate.
+Completed-result callers
 should follow the [migration guide](docs/migration.md).
 
 ## Installation
@@ -642,7 +644,7 @@ the model and its applications, and the estimator it builds on:
   author  = {Sepp, Artur},
   title   = {factormodels: Multi-Asset Factor Models in {Python}},
   year    = {2026},
-  version = {0.3.0},
+  version = {0.5.0},
   url     = {https://github.com/ArturSepp/FactorModels},
 }
 

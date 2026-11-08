@@ -61,6 +61,7 @@ explicit dependency requirement.
 
 api
 completed_model
+equity_fx_risk
 reference_workflows
 rolling_factor_covar_from_csv
 integration

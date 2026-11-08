@@ -11,7 +11,8 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 EXAMPLES = [
-    ("minimal_model.py", 1), ("construct_factors.py", 1), ("gls_cma_workflow.py", 1),
+    ("equity_payoff_risk.py", 1),
+    ("equity_fx_risk.py", 1), ("minimal_model.py", 1), ("construct_factors.py", 1), ("gls_cma_workflow.py", 1),
     ("reference_workflows.py", 1), ("reference_workflows.py", 2),
     ("methods/factor_covariance_hcgl.py", 1), ("methods/gls_factor_premia.py", 1),
 ]
