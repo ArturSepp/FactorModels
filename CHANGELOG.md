@@ -6,14 +6,14 @@ The first public release is 0.1.0; earlier entries record unpublished developmen
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/): a behaviour
 change leads each release, then `Added`, `Changed`, `Fixed`, `Removed`.
 
-## [0.5.0] - Unreleased
+## [0.5.0] - 2026-11-08
 
 ### Added
 
 - Add research-only SIMPLE equity payoff risk with arithmetic basket
   factors, cash-aware opening currency exposure, and every factor/residual/FX
   cross block retained. Separate fixed-exposure forecasts from dated historical
-  reconstruction; no production activation or publication is included.
+  reconstruction; no production activation is included.
 
 - Add equity/FX risk augmentation of a completed local log-excess model,
   with native factor coordinates, dated structural exposures, full residual/FX
