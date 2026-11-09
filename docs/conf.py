@@ -18,6 +18,7 @@ author = "Artur Sepp"
 copyright = "2026, Artur Sepp"
 extensions = ["myst_parser"]
 html_theme = "furo"
+GOOGLE_SITE_VERIFICATION = "cddUZk3Gsd1MySw42Rwuq_rMzUDcMNkJWekObx-QS9Y"
 html_title = f"factormodels {release} - factor-model construction, estimation and GLS analytics"
 exclude_patterns = ["_build"]
 myst_enable_extensions = ["dollarmath"]
@@ -88,7 +89,11 @@ def _write_canonical_sitemap(app: Any, exception: Exception | None) -> None:
 def _use_root_canonical(
     app: Any, pagename: str, templatename: str, context: dict[str, Any], doctree: Any
 ) -> None:
-    """Use the version root as the homepage's canonical URL."""
+    """Set the homepage canonical URL and retain Google ownership metadata."""
+    context["metatags"] = (
+        context.get("metatags", "")
+        + f'<meta name="google-site-verification" content="{GOOGLE_SITE_VERIFICATION}" />\n'
+    )
     if pagename == "index":
         context["pageurl"] = app.config.html_baseurl
 

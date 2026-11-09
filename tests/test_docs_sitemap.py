@@ -22,11 +22,14 @@ class Head(HTMLParser):
     def __init__(self):
         super().__init__()
         self.canonicals = []
+        self.google_verifications = []
 
     def handle_starttag(self, tag, attrs):
         attributes = dict(attrs)
         if tag == "link" and attributes.get("rel") == "canonical":
             self.canonicals.append(attributes["href"])
+        if tag == "meta" and attributes.get("name") == "google-site-verification":
+            self.google_verifications.append(attributes.get("content"))
 
 
 @pytest.mark.parametrize("channel", [None, "latest", "stable", "0.1.0"],
@@ -77,6 +80,7 @@ def test_sitemap_agrees_with_rendered_canonicals(monkeypatch, tmp_path, channel)
         head = Head()
         head.feed((output / (name + ".html")).read_text(encoding="utf-8").split("</head>")[0])
         assert head.canonicals == [canonical]
+        assert head.google_verifications == ["cddUZk3Gsd1MySw42Rwuq_rMzUDcMNkJWekObx-QS9Y"]
     # An incremental build must retain unchanged pages, not just its new page.
     (source / "second.rst").write_text("Second\n======\n\nNew page.\n", encoding="utf-8")
     (source / "index.rst").write_text(index + "   second\n", encoding="utf-8")
