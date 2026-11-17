@@ -414,8 +414,9 @@ assumptions are in [GLS inference](gls_factor_premia.md).
 
 ## References
 
-- Sepp, A., Hansen, E. and Kastenholz, M. (2026). *Capital Market Assumptions and
-  Strategic Asset Allocation Using Multi-Asset Tradable Factors*. Working paper,
+- Sepp, A., Hansen, E. H. and Kastenholz, M. (2027). *Capital Market Assumptions and
+  Strategic Asset Allocation Using Multi-Asset Tradable Factors*. Forthcoming in
+  *The Journal of Portfolio Management*;
   [SSRN 6785958](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=6785958).
 - [Conventions](https://github.com/ArturSepp/OptimalPortfolios/blob/main/docs/conventions.md) and [portfolio risk analytics](https://github.com/ArturSepp/OptimalPortfolios/blob/main/docs/portfolio_risk_analytics.md).
 - [Statsmodels linear-restriction F tests](https://www.statsmodels.org/stable/generated/statsmodels.regression.linear_model.RegressionResults.f_test.html)

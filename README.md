@@ -21,7 +21,7 @@ return preparation and risk export to [qis](https://github.com/ArturSepp/QuantIn
 [OptimalPortfolios](https://github.com/ArturSepp/OptimalPortfolios) consumes the
 fitted covariance and is not required to complete a fit.
 
-**Install:** `pip install factormodels` · **Import:** `factormodels` · **Status:** Released
+**Install:** `pip install factormodels` · **Import:** `factormodels` · **Status:** Released beta (0.x)
 
 [![PyPI](https://img.shields.io/pypi/v/factormodels?style=flat-square)](https://pypi.org/project/factormodels/)
 [![Python](https://img.shields.io/pypi/pyversions/factormodels?style=flat-square)](https://pypi.org/project/factormodels/)
@@ -642,9 +642,9 @@ the model and its applications, and the estimator it builds on:
 ```bibtex
 @software{factormodels,
   author  = {Sepp, Artur},
-  title   = {factormodels: Multi-Asset Factor Models in {Python}},
+  title   = {factormodels: Factor construction, GLS premia, capital market assumptions and factor covariance estimation},
   year    = {2026},
-  version = {0.5.0},
+  version = {0.5.1.dev0},
   url     = {https://github.com/ArturSepp/FactorModels},
 }
 

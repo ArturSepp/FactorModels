@@ -140,6 +140,15 @@ Confirm `factormodels.__file__` resolves inside the installed environment.
 The wheel job in [.github/workflows/ci.yml](.github/workflows/ci.yml) records the
 installed execution contract.
 
+## Reviewed consumer releases
+
+When releasing FM, review `OP_SOURCE_SHA` in `.github/workflows/downstream.yml`
+and the FM wheel pins in OP's `ci.yml`, `docs.yml` and `examples.yml`. Record the
+reviewed pair and test both the FM candidate with OP and the published wheels.
+Update OP's released-FM pin after the new wheel is available. Keep the FM
+dependency-floor lane: consumer compatibility does not replace minimum-dependency
+verification. External link health remains owned by each documentation site.
+
 ## Numerical and contribution rules
 
 Keep tests deterministic and offline. Every numerical change needs an independent
@@ -176,3 +185,9 @@ checker validates the staged selection by default; for unstaged work use
 external `--output-dir`, after the helper. Builds use the existing external
 source-export path. These registered helpers are local conveniences, not
 prerequisites for the direct contributor commands above.
+
+New research APIs should begin in their owning subpackage. Promote a name to the root only
+when its stability, documentation, testing and support commitment justify the public contract;
+a production caller is useful evidence, not the sole admission criterion. Existing root exports
+remain supported. Offline examples use their local `LocalTests` enum; integer case values remain
+accepted for existing callers.

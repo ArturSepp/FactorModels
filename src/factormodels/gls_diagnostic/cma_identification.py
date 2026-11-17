@@ -3,9 +3,11 @@ Purpose: Diagnose conditional factor precision and fixed pair contrasts.
 Inputs: CMA inputs, a named factor pair, confidence coverage and optional economic precision thresholds.
 Outputs: compute_cma_identification returns individual precision, pair directions, contrasts and declared settings.
 Units: Premia and precision targets are annual decimals; volatility-normalised contrasts are dimensionless.
-Conditioning: Use full conditional covariance for c.T V c; hold B, D and factor volatilities fixed without pooling factors.
+Conditioning: Use full conditional covariance for c.T V c; hold B, D and factor volatilities fixed without pooling
+    factors.
 Ownership: FM computes second-stage diagnostics; risk fitting stays in estimation and presentation in reports.
 """
+
 from __future__ import annotations
 from typing import Any
 from collections.abc import Sequence
@@ -25,12 +27,20 @@ from factormodels.gls_diagnostic.geometry import compute_gls_geometry
 from factormodels.gls_diagnostic._validation import _align, _covariance
 
 
-__all__ = ['CmaIdentificationResult', 'compute_cma_identification']
+__all__ = ["CmaIdentificationResult", "compute_cma_identification"]
 
 
 @dataclass(frozen=True)
 class CmaIdentificationResult:
-    """Individual precision, pair geometry, linear contrasts and declared diagnostic settings."""
+    """Individual precision, pair geometry, linear contrasts and declared diagnostic settings.
+
+    Args:
+        factors: Individual factor precision and availability diagnostics.
+        contrasts: Common/spread and other declared linear contrast results.
+        directions: Pair-geometry directions in the declared normalization.
+        pair: Selected factor-pair metadata and joint tests.
+        summary: Conditional assumptions, rank and optional diagnostic thresholds.
+    """
 
     factors: pd.DataFrame
     contrasts: pd.DataFrame
@@ -42,10 +52,7 @@ class CmaIdentificationResult:
 def _positive_setting(value: float | np.integer | np.floating | None, name: str) -> None:
     """Accept an optional positive finite scalar threshold, never a boolean or container."""
     if value is not None and (
-        not np.isscalar(value)
-        or isinstance(value, (str, bool))
-        or not np.isfinite(value)
-        or value <= 0
+        not np.isscalar(value) or isinstance(value, (str, bool)) or not np.isfinite(value) or value <= 0
     ):
         raise ValueError(f"{name} must be a positive finite scalar or None")
 
@@ -74,7 +81,9 @@ def _contrast(weights: np.ndarray, ci: CmaConditionalGlsResult, units: str) -> d
     )
 
 
-def _pair_geometry(geometry: GlsGeometry, positions: Sequence[int], vol: np.ndarray) -> tuple[float, np.ndarray, np.ndarray, float]:
+def _pair_geometry(
+    geometry: GlsGeometry, positions: Sequence[int], vol: np.ndarray
+) -> tuple[float, np.ndarray, np.ndarray, float]:
     """Residualize a pair against all other columns, then use SVD in fixed risk units."""
     other = [j for j in range(geometry.white.shape[1]) if j not in positions]
     residualized = geometry.white[:, positions].copy()
@@ -96,10 +105,10 @@ def _pair_geometry(geometry: GlsGeometry, positions: Sequence[int], vol: np.ndar
 def compute_cma_identification(
     inputs: CmaDiagnosticInputs,
     *,
-    factor_pair: tuple[str, str] | list[str]=("Carry G10", "Carry EM"),
-    confidence_level: float | np.integer | np.floating=0.95,
-    precision_target: float | np.integer | np.floating | None=None,
-    equivalence_margin: float | np.integer | np.floating | None=None,
+    factor_pair: tuple[str, str] | list[str] = ("Carry G10", "Carry EM"),
+    confidence_level: float | np.integer | np.floating = 0.95,
+    precision_target: float | np.integer | np.floating | None = None,
+    equivalence_margin: float | np.integer | np.floating | None = None,
     spec: CmaDiagnosticSpec | None = None,
 ) -> CmaIdentificationResult:
     """Diagnose fixed-model identification without changing exposures, forecasts or factor count.
@@ -109,6 +118,19 @@ def compute_cma_identification(
     Common is half the sum; spread is first minus second. Both are unrestricted contrasts.
     Optional thresholds default to no assessment. TOST uses level 1-confidence_level and
     a 2*confidence_level-1 interval. All statistical statements condition on B, D and vol.
+
+    Args:
+        inputs: Owned CMA inputs with aligned annual arithmetic excess forecasts and declared risk
+            convention.
+        factor_pair: Ordered pair of factor labels for common and spread contrasts; defaults to Carry G10
+            and Carry EM.
+        confidence_level: Probability level strictly between zero and one for conditional intervals or
+            descriptive bands.
+        precision_target: Optional native annual-decimal CI half-width threshold; None omits the precision
+            assessment.
+        equivalence_margin: Optional bound on the difference of volatility-normalized premia; None omits
+            equivalence testing.
+        spec: Optional numerical rank and reconciliation settings; None uses CmaDiagnosticSpec defaults.
     """
     _positive_setting(precision_target, "precision_target")
     _positive_setting(equivalence_margin, "equivalence_margin")
@@ -185,9 +207,7 @@ def compute_cma_identification(
                 weights[positions] /= vol[positions]
                 contrasts["normalized_" + label] = _contrast(weights, ci, "premium_per_factor_vol")
         if vol is not None and full_rank:
-            rho, eigenvalues, vectors, mutual_vif = _pair_geometry(
-                geometry, positions, vol[positions]
-            )
+            rho, eigenvalues, vectors, mutual_vif = _pair_geometry(geometry, positions, vol[positions])
             pair.update(
                 geometry_status="identified",
                 partial_loading_cosine=rho,
@@ -233,9 +253,7 @@ def compute_cma_identification(
                     t.cdf((estimate - equivalence_margin) / se, df),
                 )
                 pair.update(
-                    equivalence_status="equivalent"
-                    if pvalue < 1 - confidence_level
-                    else "not_established",
+                    equivalence_status="equivalent" if pvalue < 1 - confidence_level else "not_established",
                     equivalence_p=float(pvalue),
                     equivalence_lower=float(lower),
                     equivalence_upper=float(upper),

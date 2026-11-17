@@ -91,6 +91,21 @@ def snapshots_from_factorlasso(
     A single FL result requires an estimation date; dated mappings may supply a
     missing date. Existing dates must agree with keys. Filtered FL block targets
     are consumed by FL before copying. No input container is mutated or retained.
+
+    Args:
+        raw: One fitted FL result, a rolling container, or a nonempty dated mapping.
+        residual_type: Required selected residual covariance policy.
+        residual_var_weight: Nonnegative multiplier on the selected residual block.
+        residual_corr_weight: Correlation retention for nonorthogonal policies.
+        factor_return_types: Exact native factor coordinate map; omitted means LOG.
+        factor_groups: Optional provider-neutral factor-group declarations.
+        provenance: Caller-owned plain metadata; absent information is not reconstructed.
+
+    Returns:
+        RollingFactorModel: Owned completed snapshots with selected annual covariance.
+
+    Raises:
+        ValueError: If data, dates, labels or the selected covariance policy are invalid.
     """
     if isinstance(raw, CurrentFactorCovarData):
         if raw.estimation_date is None:
@@ -124,6 +139,25 @@ def snapshot_from_moments(
     Optional prepared FL residual dependence is consumed here and stored as plain
     fields with separate observation and estimation dates. Select its policy
     explicitly. Cluster policies require the fuller raw-FL adapter instead.
+
+    Args:
+        betas: Asset-by-factor loadings in the declared native factor coordinates.
+        factor_covariance: Annual factor covariance aligned to the loading columns.
+        residual_variances: Raw annual variances aligned to the loading rows.
+        date: Information cutoff for these supplied moments.
+        residual_correlation: Optional prepared FL correlation with availability metadata.
+        residual_type: Orthogonal or empirical selected residual policy.
+        residual_var_weight: Nonnegative multiplier on the selected residual block.
+        residual_corr_weight: Correlation retention for empirical residual risk.
+        factor_return_types: Exact factor coordinate map; omitted means LOG.
+        factor_groups: Optional provider-neutral factor groups.
+        provenance: Plain caller-supplied units, dates and source metadata.
+
+    Returns:
+        FactorModelSnapshot: Completed annual moments with no invented fit history.
+
+    Raises:
+        ValueError: If labels, moments, dates or covariance policy are inconsistent.
     """
     data = CurrentFactorCovarData(
         x_covar=factor_covariance, y_betas=betas,
@@ -155,6 +189,19 @@ def estimate_historical_alpha(
     Scalar and cadence-map paths preserve FL semantics, including its native
     frequency metadata fallback. Without history, preserve FL get_snapshot's
     in-sample-alpha fallback; if neither source exists, raise ValueError.
+
+    Args:
+        snapshot: Completed model carrying residual history or full fit statistics.
+        alpha_span: EWMA observations, scalar or a map from cadence to span.
+        asset_frequencies: Optional common cadence or asset-indexed cadence overrides.
+        default_freq: Fallback cadence when native metadata and overrides are absent.
+
+    Returns:
+        pd.Series: Asset-indexed historical alpha in producer-declared annual return units.
+
+    Raises:
+        ValueError: If neither residual history nor in-sample alpha is available.
+        TypeError: If snapshot is not a completed FactorModelSnapshot.
     """
     raw = _alpha_inputs(snapshot)
     if raw.residuals is not None:
@@ -175,6 +222,19 @@ def prepare_snapshot_diagnostics(
     The table preserves FL's display column order when full fit diagnostics exist.
     Minimal moments expose their supplied statistics with unavailable stat_alpha
     as NaN. No fabricated R-squared, history, or in-sample alpha is added.
+
+    Args:
+        snapshot: Completed model supplying fit evidence and selected annual covariance.
+        alpha_span: EWMA observations, scalar or a map from cadence to span.
+        asset_frequencies: Optional common cadence or asset-indexed cadence overrides.
+        default_freq: Fallback cadence for assets without native metadata or overrides.
+
+    Returns:
+        PreparedSnapshotDiagnostics: Dated display table, alpha settings and source/
+        availability flags. Total and residual volatility use selected covariance.
+
+    Raises:
+        TypeError: If snapshot is not a completed FactorModelSnapshot.
     """
     raw = _alpha_inputs(snapshot)
     settings = dict(alpha_span=alpha_span, asset_frequencies=asset_frequencies, default_freq=default_freq)

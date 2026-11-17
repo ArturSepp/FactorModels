@@ -113,12 +113,19 @@ def compute_payoff_factor_returns(
     return pd.DataFrame(result, index=translated_payoffs.index)
 
 
-@dataclass(frozen=True, init=False)
+@dataclass(frozen=True, init=False, eq=False, repr=False)
 class EquityPayoffRiskSnapshot:
     """Owned research moments; forecast covariance and historical reconstruction are distinct.
 
     No diagonal residual decomposition is exported: the authoritative covariance includes
     factor/residual, factor/FX and residual/FX dependence. Diagnostic ablations are not models.
+
+    Args:
+        cutoff: Information date bounding every fitted observation and declared input availability.
+        reference_ccy: Currency in which SIMPLE excess payoffs and forecast risk are expressed.
+        fields: Completed field mapping prepared by assemble_equity_payoff_risk, including fixed-H
+            covariance, historical covariance, joint moments, exposures and provenance; copied on
+            construction.
     """
     cutoff: pd.Timestamp
     reference_ccy: str

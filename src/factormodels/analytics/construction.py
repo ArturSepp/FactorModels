@@ -149,7 +149,12 @@ def build_factor_catalogue_panel(factors: Mapping[str, Factor],
 
 
 def select_factor_prices(factor: Factor, futures_prices: pd.DataFrame) -> pd.DataFrame:
-    """Select basket legs and enforce a joint inception for inseparable hedged trackers."""
+    """Select basket legs and enforce a joint inception for inseparable hedged trackers.
+
+    Args:
+        factor: Declared basket, observed-index or composite factor whose source legs are selected.
+        futures_prices: Date-by-source observed price panel containing the required constituent columns.
+    """
     tickers = factor.signed_tickers()
     missing = [t for t in tickers if t not in futures_prices.columns]
     if missing:
@@ -301,7 +306,7 @@ def compute_live_strategic_weights(prices: pd.DataFrame,
     for a long-only basket that sums to one and wrong for a general long-short basket.
     A zero-net basket would divide by zero. Scaling each side to its own declared total
     preserves net and gross exposure, and reduces to the row-sum formula exactly when the
-    basket is long-only and sums to one.
+    basket is long-only and sums to one::
 
         w_i(t) = w_i * (W_long / W_long(t))   for w_i > 0,   W_long = sum of positive w
         w_i(t) = w_i * (W_short / W_short(t)) for w_i < 0,   W_short = |sum of negative w|
@@ -365,7 +370,9 @@ def compute_volatility_targeted_portfolio(prices: pd.DataFrame,
             initializes volatility; subsequent observations update the EWMA once each.
 
     Returns:
-        pd.DataFrame: Levered weights, indexed by rebalancing date.
+        pd.DataFrame: Levered weights at rebalancing labels within the price history.
+            A non-trading label executes on the next available price; trailing labels
+            beyond the last price are omitted.
     """
     returns = qis.to_returns(prices=prices, freq=returns_freq, is_log_returns=True)
     # liveness is read at the RETURN dates, so the vol estimate and the held weights see the same
@@ -382,7 +389,8 @@ def compute_volatility_targeted_portfolio(prices: pd.DataFrame,
     )
     risk_weights = strategic_weights.multiply(instrument_portfolio_leverages, axis=0)
     risk_weights = risk_weights.resample(rebalancing_freq).last()
-    return risk_weights
+    # A future period-end label cannot execute within the supplied price history.
+    return risk_weights if prices.empty else risk_weights.loc[:prices.index[-1]]
 
 
 def _compute_warmup_portfolio_vol(returns: pd.DataFrame,

@@ -5,6 +5,8 @@ uses weekly log returns, annualised decimal volatility and quarterly decisions;
 QIS holds units between decisions. These are teaching recipes, not market evidence.
 """
 
+from enum import IntEnum
+
 import numpy as np
 import pandas as pd
 
@@ -26,8 +28,15 @@ class TeachingFactors(RiskFactors):
     SPREAD = "Spread basket"
 
 
-def run_local_test(case: int = 1):
+class LocalTests(IntEnum):
+    """Named offline workflows; integer values remain accepted for existing callers."""
+
+    SYNTHETIC = 1
+
+
+def run_local_test(case: LocalTests | int = LocalTests.SYNTHETIC):
     """Return a complete definition, NAV panel and aligned loading constraints."""
+    case = LocalTests(case)
     if case != 1:
         raise ValueError("The construction example supports only case 1.")
     dates = pd.bdate_range("2023-01-02", periods=520)
@@ -66,4 +75,4 @@ def run_local_test(case: int = 1):
 
 
 if __name__ == "__main__":
-    run_local_test(case=1)
+    run_local_test(case=LocalTests.SYNTHETIC)

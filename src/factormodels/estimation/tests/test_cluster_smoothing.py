@@ -13,7 +13,7 @@ from factorlasso import (
     LassoModelType,
     compute_rolling_smoothed_clusters,
 )
-from factormodels.estimation._pipeline import _FactorCovarPipeline as FactorCovarEstimator
+from factormodels import FactorCovarEstimator
 
 
 def _inputs() -> tuple[pd.DataFrame, dict[str, pd.DataFrame]]:
@@ -67,20 +67,20 @@ def test_none_rolling_path_matches_explicit_current_fits_exactly() -> None:
         lasso_model=_model(), rebalancing_freq="ME",
         factor_returns_freq="ME", factor_covar_span=24,
     )
-    actual = estimator.fit_rolling_factor_covars(factors, returns, period)
+    actual = estimator.fit_rolling(factors, returns, time_period=period)
     schedule = qis.generate_dates_schedule(
         time_period=period, freq="ME", include_start_date=False, include_end_date=False,
     )
     expected = {}
     for date in schedule:
-        expected[date] = estimator.fit_current_factor_covars(
-            factors.loc[:date], {"ME": returns["ME"].loc[:date]}, estimation_date=date,
+        expected[date] = estimator.fit_current(
+            factors.loc[:date], {"ME": returns["ME"].loc[:date]}, cutoff=date,
         )
 
-    assert list(actual.data) == list(expected)
+    assert list(actual.snapshots) == list(expected)
     for date, fitted in expected.items():
-        pd.testing.assert_frame_equal(actual.data[date].y_betas, fitted.y_betas, check_exact=True)
-        pd.testing.assert_series_equal(actual.data[date].clusters, fitted.clusters, check_exact=True)
+        pd.testing.assert_frame_equal(actual.snapshots[date].loadings, fitted.loadings, check_exact=True)
+        pd.testing.assert_series_equal(actual.snapshots[date].clusters, fitted.clusters, check_exact=True)
 
 
 @pytest.mark.parametrize(
@@ -101,14 +101,14 @@ def test_smoothed_rolling_injects_independently_computed_partitions(
         lasso_model=model, rebalancing_freq="ME",
         factor_returns_freq="ME", factor_covar_span=24,
     )
-    actual = estimator.fit_rolling_factor_covars(factors, returns, period)
+    actual = estimator.fit_rolling(factors, returns, time_period=period)
     schedule = qis.generate_dates_schedule(
         time_period=period, freq="ME", include_start_date=False, include_end_date=False,
     )
     expected = compute_rolling_smoothed_clusters(returns["ME"], schedule, model)
 
     for date in schedule:
-        labels = actual.data[date].clusters.str.removeprefix("ME:").astype(int)
+        labels = actual.snapshots[date].clusters.str.removeprefix("ME:").astype(int)
         actual_partition = labels.to_numpy()
         expected_partition = expected.clusters[date].reindex(labels.index).to_numpy()
         np.testing.assert_array_equal(
@@ -135,10 +135,11 @@ def test_precomputed_clusters_preserve_fcgl_model_type() -> None:
         return original_fit(self, *args, **kwargs)
 
     with patch.object(LassoModel, "fit", capture_fit):
-        estimator.fit_current_factor_covars(
+        estimator.fit_current(
             factors,
             returns,
-            estimation_date=date,
+            precomputed_asof=date,
+            cutoff=date,
             precomputed_clusters={"ME": rolling.clusters[date]},
             precomputed_linkages={"ME": rolling.linkages[date]},
             precomputed_cutoffs={"ME": rolling.cutoffs[date]},
@@ -170,17 +171,17 @@ def test_smoothed_current_fit_reconstructs_the_trailing_partition(
     )
     start = returns['ME'].index[model.warmup_period - 1]
     end = returns['ME'].index[-1]
-    rolling = estimator.fit_rolling_factor_covars(
+    rolling = estimator.fit_rolling(
         factors,
         returns,
-        qis.TimePeriod(start, end + pd.Timedelta(days=1)),
+        time_period=qis.TimePeriod(start, end + pd.Timedelta(days=1)),
     )
-    current = estimator.fit_current_factor_covars(
-        factors, returns, estimation_date=end,
+    current = estimator.fit_current(
+        factors, returns, cutoff=end,
     )
 
     pd.testing.assert_series_equal(
-        current.clusters, rolling.data[end].clusters, check_exact=True,
+        current.clusters, rolling.snapshots[end].clusters, check_exact=True,
     )
 
 
@@ -205,15 +206,15 @@ def test_frequency_cluster_span_map_reaches_current_and_rolling_smoothers() -> N
             'compute_rolling_smoothed_clusters',
             wraps=compute_rolling_smoothed_clusters,
     ) as smoother:
-        estimator.fit_current_factor_covars(
+        estimator.fit_current(
             factors,
             returns,
-            estimation_date=factors.index[-1],
+            cutoff=factors.index[-1],
         )
-        estimator.fit_rolling_factor_covars(
+        estimator.fit_rolling(
             factors,
             returns,
-            _period(factors),
+            time_period=_period(factors),
         )
 
     assert len(smoother.call_args_list) == 2
@@ -237,7 +238,7 @@ def test_hold_frequency_must_be_coarser_than_rebalancing() -> None:
         factor_covar_span=24,
     )
     try:
-        estimator.fit_rolling_factor_covars(factors, returns, _period(factors))
+        estimator.fit_rolling(factors, returns, time_period=_period(factors))
     except ValueError as exc:
         assert "recluster_freq" in str(exc)
         assert "ME" in str(exc)

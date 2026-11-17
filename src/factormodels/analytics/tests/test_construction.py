@@ -45,6 +45,50 @@ def _weekly_prices(periods=60):
                         index=dates, columns=["A", "B"])
 
 
+def test_vol_target_preserves_empty_history_contract():
+    """An empty dated price panel returns empty weights without indexing a missing endpoint."""
+    prices = pd.DataFrame(index=pd.DatetimeIndex([]), columns=['A', 'B'], dtype=float)
+    result = compute_volatility_targeted_portfolio(prices, np.array([1., -.4]))
+    assert result.empty
+    assert result.columns.equals(prices.columns)
+
+
+@pytest.mark.parametrize('container', [list, pd.Index, iter])
+def test_factor_column_validation_accepts_one_shot_iterables(container):
+    """A valid generator covers every factor, just like a materialized list."""
+    class Factors(RiskFactors):
+        """Two required columns for iterable-consumption regression coverage."""
+        FIRST = 'first'
+        SECOND = 'second'
+
+    Factors.validate_columns(container(['first', 'second']))
+    with pytest.raises(ValueError, match='second'):
+        Factors.validate_columns(container(['first']))
+    Factors.validate_columns(container(['first']), require_all=False)
+
+
+@pytest.mark.parametrize('end', ['2026-10-27', '2026-10-30', '2026-11-02', '2026-12-31'])
+@pytest.mark.parametrize('frequency', ['ME', 'QE', 'W-WED'])
+def test_volatility_weights_include_only_usable_period_labels(end, frequency, monkeypatch):
+    """Keep in-history weekend labels but exclude future final-period decisions."""
+    import factormodels.analytics.construction as construction
+
+    dates = pd.bdate_range('2026-01-01', end)
+    prices = pd.DataFrame({'asset': np.exp(np.arange(len(dates)) * .001)}, index=dates)
+
+    def constant_risk(returns, weights, vol_span, vol_warmup_period):
+        """Isolate calendar selection from the volatility estimator."""
+        return pd.Series(.2, index=returns.index)
+
+    monkeypatch.setattr(construction, '_compute_warmup_portfolio_vol', constant_risk)
+    actual = compute_volatility_targeted_portfolio(
+        prices, [1.], portfolio_vol_target=.1, rebalancing_freq=frequency,
+    )
+    expected_dates = pd.date_range('2026-01-01', prices.index[-1], freq=frequency)
+    pd.testing.assert_index_equal(actual.index, expected_dates)
+    np.testing.assert_array_equal(actual.to_numpy(), np.full((len(expected_dates), 1), .5))
+
+
 def _daily_prices(periods=180):
     """Return daily prices whose unequal paths distinguish held units from weights."""
     x = np.arange(periods, dtype=float)

@@ -3,14 +3,23 @@
 Install OP >=9.0.1 alongside FM >=0.3.0 for this example. Neither package
 imports the other in its library. All data and forecasts here are synthetic.
 """
+
+from enum import IntEnum
 import numpy as np
 import pandas as pd
 
 from reference_workflows import run_local_test as fit_example
 
 
-def run_local_test(case: int = 1) -> dict:
+class LocalTests(IntEnum):
+    """Named offline workflows; integer values remain accepted for existing callers."""
+
+    SYNTHETIC = 1
+
+
+def run_local_test(case: LocalTests | int = LocalTests.SYNTHETIC) -> dict:
     """Inspect a supplied-input optimum and its QIS tracking error without refitting."""
+    case = LocalTests(case)
     if case != 1:
         raise ValueError("Only the synthetic composed case 1 is available")
     from optimalportfolios.optimization.opportunity import OpportunityModel, solve_opportunity

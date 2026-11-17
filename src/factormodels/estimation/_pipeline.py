@@ -9,9 +9,11 @@ Purpose: Orchestrate native-cadence fits and annual covariance assembly in their
 Inputs: Observed factor prices, per-cadence asset returns, FL configuration and output schedule.
 Outputs: _FactorCovarPipeline produces current or rolling FL intermediates for FM materialisation.
 Units: B is in native coordinates; F, residual variances and intercepts are annualised by cadence.
-Conditioning: Preserve ordered fits, residual scaling and cutoff semantics; frequency, clustering and residual stages are separate.
+Conditioning: Preserve ordered fits, residual scaling and cutoff semantics; frequency, clustering and residual
+    stages are separate.
 Ownership: FM orchestrates; FL owns estimation and covariance containers, QIS owns return and covariance kernels.
 """
+
 from __future__ import annotations
 
 
@@ -19,12 +21,14 @@ import numpy as np
 import pandas as pd
 import qis as qis
 from typing import Union, Optional, Dict, Any, List
-from dataclasses import dataclass, asdict, fields
+from dataclasses import dataclass
 
 from factormodels.estimation._frequency import _fit_lasso_frequency, _model_for_frequency
 from factormodels.estimation._clustering import _current_cluster_inputs, _rolling_cluster_paths
 from factormodels.estimation._residuals import (
-    _validate_residual_type, _prepare_residual_correlation, _reuse_residual_correlation,
+    _validate_residual_type,
+    _prepare_residual_correlation,
+    _reuse_residual_correlation,
 )
 from factormodels.estimation._preparation import estimate_factor_covariance
 from factorlasso import (
@@ -36,15 +40,6 @@ from factorlasso import (
 )
 
 
-
-
-
-
-
-
-
-
-
 __all__ = []
 
 
@@ -53,9 +48,9 @@ class _FactorCovarPipeline:
     """Configure sparse factor fitting and annual covariance assembly.
 
     QIS estimates factor covariance; FactorLasso estimates loadings and residual
-    variation. Plain covariance methods assemble the factor component plus a
-    weighted residual diagonal. Factor-specific methods retain diagnostics,
-    clusters and residual time series in FactorLasso containers.
+    variation. These private methods retain diagnostics, clusters and residual
+    histories in temporary FL containers. The public estimator owns input cutoff
+    validation, configuration copies and completed-result materialisation.
 
     An ordinary current fit uses supplied histories even when estimation_date
     is earlier. Rolling methods slice inputs through each output date. Optional
@@ -74,9 +69,6 @@ class _FactorCovarPipeline:
             default 52; not a half-life or hard lookback.
         is_apply_vol_normalised_returns: Select the normalized-return QIS kernel for
             internally estimated factor covariance. No identity shrinkage is applied.
-        demean: Stored configuration field currently not forwarded to the internal
-            factor-covariance helper, which always uses demean=True. Regression
-            demeaning is controlled separately by lasso_model.demean.
         include_factors_in_clustering: Add factor returns as clustering references
             for HCGL/FCGL. References are excluded from response fitting, pooled signs,
             group sizes, residuals and asset covariance. Explicit partitions take
@@ -106,33 +98,13 @@ class _FactorCovarPipeline:
             Omitted defaults to LOG. DIFFERENCE retains raw point units in regression,
             factor-reference clustering and covariance. Asset returns are unaffected.
 
-    Example:
-        Illustrative calls: supply factors, returns_dict and time_period first.
-        EwmaCovarEstimator provides runnable examples of the shared interface.
-
-        >>> from factorlasso import LassoModel, LassoModelType  # doctest: +SKIP
-        >>> estimator = _FactorCovarPipeline(  # doctest: +SKIP
-        ...     lasso_model=LassoModel(model_type=LassoModelType.HIERARCHICAL_CLUSTER_GROUP_LASSO,
-        ...                            reg_lambda=1e-5, span=36),
-        ...     factor_returns_freq='ME',
-        ...     rebalancing_freq='QE',
-        ... )
-        >>> # Shared interface — plain covar dict
-        >>> covar_dict = estimator.fit_rolling_covars(  # doctest: +SKIP
-        ...     risk_factor_prices=factors, asset_returns_dict=returns_dict,
-        ...     time_period=time_period)
-        >>> # Factor-specific — full decomposition
-        >>> rolling_data = estimator.fit_rolling_factor_covars(  # doctest: +SKIP
-        ...     risk_factor_prices=factors, asset_returns_dict=returns_dict,
-        ...     time_period=time_period)
-        >>> r2_panel = rolling_data.get_r2()  # doctest: +SKIP
     """
-    rebalancing_freq: str = 'QE'
+
+    rebalancing_freq: str = "QE"
     lasso_model: Optional[LassoModel] = None
-    factor_returns_freq: str = 'W-WED'
+    factor_returns_freq: str = "W-WED"
     factor_covar_span: int = 52
     is_apply_vol_normalised_returns: bool = False
-    demean: bool = True
     include_factors_in_clustering: bool = False
     factor_clustering_freqs: Optional[List[str]] = None
     residual_type: str = "orthogonal"
@@ -156,25 +128,25 @@ class _FactorCovarPipeline:
         _validate_residual_type(self.residual_type)
         if not np.isfinite(self.residual_corr_weight) or not 0 <= self.residual_corr_weight <= 1:
             raise ValueError("residual_corr_weight must be finite and in [0, 1]")
-        if self.residual_type == 'orthogonal' and self.residual_corr_weight != 1.:
+        if self.residual_type == "orthogonal" and self.residual_corr_weight != 1.0:
             raise ValueError("residual_corr_weight applies only to empirical residuals")
         if not isinstance(self.include_factors_in_clustering, bool):
-            raise TypeError('include_factors_in_clustering must be a bool')
+            raise TypeError("include_factors_in_clustering must be a bool")
         if self.factor_clustering_freqs is not None and (
-                not isinstance(self.factor_clustering_freqs, (list, tuple))
-                or not self.factor_clustering_freqs
-                or not all(
-                    isinstance(freq, str) and freq for freq in self.factor_clustering_freqs
-                )):
-            raise ValueError(
-                'factor_clustering_freqs must be a non-empty sequence of frequency names'
-            )
+            not isinstance(self.factor_clustering_freqs, (list, tuple))
+            or not self.factor_clustering_freqs
+            or not all(isinstance(freq, str) and freq for freq in self.factor_clustering_freqs)
+        ):
+            raise ValueError("factor_clustering_freqs must be a non-empty sequence of frequency names")
         if self.include_factors_in_clustering and (
-                self.lasso_model is None or self.lasso_model.model_type not in (
-                    LassoModelType.HIERARCHICAL_CLUSTER_GROUP_LASSO,
-                    LassoModelType.FACTOR_CLUSTER_GROUP_LASSO,
-                )):
-            raise ValueError('factor clustering references require HCGL or FCGL')
+            self.lasso_model is None
+            or self.lasso_model.model_type
+            not in (
+                LassoModelType.HIERARCHICAL_CLUSTER_GROUP_LASSO,
+                LassoModelType.FACTOR_CLUSTER_GROUP_LASSO,
+            )
+        ):
+            raise ValueError("factor clustering references require HCGL or FCGL")
 
     def _use_factor_references(self, freq: str) -> bool:
         """Check whether factor references are enabled for one response cadence.
@@ -190,139 +162,20 @@ class _FactorCovarPipeline:
             self.factor_clustering_freqs is None or freq in self.factor_clustering_freqs
         )
 
-    def copy(self, **overrides: Any) -> _FactorCovarPipeline:
-        """Create a replacement estimator with supplied field overrides.
-
-        The copy is shallow: unchanged nested objects, including LassoModel, remain
-        shared with the original estimator.
-
-        Args:
-            **overrides: Dataclass field names and replacement values.
-
-        Returns:
-            New _FactorCovarPipeline with constructor validation applied.
-        """
-        self_dict = {f.name: getattr(self, f.name) for f in fields(self)}
-        self_dict.update(overrides)
-        return _FactorCovarPipeline(**self_dict)
-
-    def to_dict(self) -> Dict[str, Any]:
-        """Return configuration fields with a fresh, unfitted nested model.
-
-        The dataclass conversion copies field values, then replaces a configured
-        LassoModel with one rebuilt from its public constructor parameters.
-        Fitted-state fields do not cross that model-configuration boundary.
-
-        Returns:
-            Dictionary containing estimator fields. Its lasso_model value is a
-            LassoModel instance or None, not a JSON configuration mapping.
-        """
-        this = asdict(self)
-        if self.lasso_model is not None:
-            this['lasso_model'] = LassoModel(**self.lasso_model.get_params())
-        return this
-
     # ── Shared interface (CovarEstimator) ────────────────────────────────
-
-    def fit_current_covar(self,
-                          risk_factor_prices: pd.DataFrame,
-                          asset_returns_dict: Dict[str, pd.DataFrame],
-                          assets: Union[List[str], pd.Index] = None,
-                          x_covar: Optional[pd.DataFrame] = None,
-                          estimation_date: Optional[pd.Timestamp] = None,
-                          residual_var_weight: float = 1.0,
-                          ) -> pd.DataFrame:
-        """Fit a factor model and return its annual asset covariance matrix.
-
-        Delegates to fit_current_factor_covars(), then asks FactorLasso to assemble
-        the factor component plus residual_var_weight times the selected annual
-        residual covariance. Both choices assume zero factor-residual covariance.
-
-        Args:
-            risk_factor_prices: Ordered date-by-factor total-return prices.
-            asset_returns_dict: Frequency-code-to-log-return-panel mapping. Each asset
-                belongs to exactly one cadence bucket.
-            assets: Optional ordered output universe. Missing fitted asset rows are
-                zero-filled by the factor-data helper.
-            x_covar: Optional already annualized factor covariance with consistent
-                factor labels and axis order. It is used without further scaling.
-            estimation_date: Result label and optional clustering endpoint. In the
-                ordinary current path it does not truncate inputs; slice histories
-                explicitly. Enabled factor references or empirical residuals truncate histories.
-            residual_var_weight: Multiplier on the selected annual residual covariance, default
-                1.0. Values numerically close to zero omit that term.
-
-        Returns:
-            Square annual asset covariance DataFrame in fractional log-return-squared
-            units when the supplied returns and factor covariance obey that convention.
-        """
-        factor_data = self.fit_current_factor_covars(
-            risk_factor_prices=risk_factor_prices,
-            asset_returns_dict=asset_returns_dict,
-            assets=assets,
-            x_covar=x_covar,
-            estimation_date=estimation_date,
-        )
-        options = ({'residual_type': self.residual_type,
-                    'residual_corr_weight': self.residual_corr_weight}
-                   if self.residual_type != 'orthogonal' else {})
-        return factor_data.get_y_covar(residual_var_weight=residual_var_weight,
-                                       assets=assets, **options)
-
-    def fit_rolling_covars(self,
-                           risk_factor_prices: pd.DataFrame,
-                           asset_returns_dict: Dict[str, pd.DataFrame],
-                           time_period: qis.TimePeriod,
-                           assets: Union[List[str], pd.Index] = None,
-                           rebalancing_freq: Optional[str] = None,
-                           residual_var_weight: float = 1.0,
-                           ) -> Dict[pd.Timestamp, pd.DataFrame]:
-        """Return annual asset covariance matrices from scheduled factor fits.
-
-        Delegates to fit_rolling_factor_covars(), which slices every input through
-        each scheduled date, then extracts plain matrices through FactorLasso.
-
-        Args:
-            risk_factor_prices: Ordered date-by-factor total-return prices.
-            asset_returns_dict: Frequency-code-to-log-return-panel mapping; buckets
-                partition the asset universe.
-            time_period: Period for the calendar estimation schedule, not a lower
-                bound on the histories used by each fit.
-            assets: Optional ordered output universe for every matrix.
-            rebalancing_freq: Calendar output-frequency override; None uses the
-                estimator's inherited rebalancing_freq.
-            residual_var_weight: Multiplier on the selected annual residual covariance in each
-                assembled matrix. Values numerically close to zero omit that term.
-
-        Returns:
-            Dictionary from calendar estimation dates to annual asset covariance
-            DataFrames. Keys need not match the direct EWMA estimator's return grid.
-        """
-        rolling_data = self.fit_rolling_factor_covars(
-            risk_factor_prices=risk_factor_prices,
-            asset_returns_dict=asset_returns_dict,
-            time_period=time_period,
-            assets=assets,
-            rebalancing_freq=rebalancing_freq,
-        )
-        options = ({'residual_type': self.residual_type,
-                    'residual_corr_weight': self.residual_corr_weight}
-                   if self.residual_type != 'orthogonal' else {})
-        return rolling_data.get_y_covars(residual_var_weight=residual_var_weight,
-                                         assets=assets, **options)
 
     # ── Factor-model-specific API ────────────────────────────────────────
 
     def fit_current_factor_covars(
-            self,
-            risk_factor_prices: pd.DataFrame,
-            asset_returns_dict: Dict[str, pd.DataFrame],
-            assets: Union[List[str], pd.Index] = None,
-            x_covar: Optional[pd.DataFrame] = None,
-            estimation_date: Optional[pd.Timestamp] = None,
-            precomputed_clusters: Optional[Dict[str, pd.Series]] = None,
-            precomputed_linkages: Optional[Dict[str, np.ndarray]] = None,
-            precomputed_cutoffs: Optional[Dict[str, float]] = None,
+        self,
+        risk_factor_prices: pd.DataFrame,
+        asset_returns_dict: Dict[str, pd.DataFrame],
+        assets: Union[List[str], pd.Index] = None,
+        x_covar: Optional[pd.DataFrame] = None,
+        estimation_date: Optional[pd.Timestamp] = None,
+        precomputed_clusters: Optional[Dict[str, pd.Series]] = None,
+        precomputed_linkages: Optional[Dict[str, np.ndarray]] = None,
+        precomputed_cutoffs: Optional[Dict[str, float]] = None,
     ) -> CurrentFactorCovarData:
         """Fit a current factor decomposition and retain its diagnostics.
 
@@ -366,28 +219,35 @@ class _FactorCovarPipeline:
             Its residual panel is annual-scaled by cadence and excludes factor
             contributions without subtracting the fitted intercept.
         """
-        if self.include_factors_in_clustering or self.residual_type != 'orthogonal':
-            estimation_date = estimation_date or max(
-                returns.index[-1] for returns in asset_returns_dict.values()
-            )
+        if self.include_factors_in_clustering or self.residual_type != "orthogonal":
+            estimation_date = estimation_date or max(returns.index[-1] for returns in asset_returns_dict.values())
             risk_factor_prices = risk_factor_prices.loc[:estimation_date]
-            asset_returns_dict = {
-                freq: returns.loc[:estimation_date] for freq, returns in asset_returns_dict.items()
-            }
+            asset_returns_dict = {freq: returns.loc[:estimation_date] for freq, returns in asset_returns_dict.items()}
         estimation_date, precomputed_clusters, precomputed_linkages, precomputed_cutoffs = _current_cluster_inputs(
-            risk_factor_prices, asset_returns_dict, self.lasso_model, estimation_date,
-            self.rebalancing_freq, self.include_factors_in_clustering,
-            self._use_factor_references, self.factor_return_types,
-            precomputed_clusters, precomputed_linkages, precomputed_cutoffs,
+            risk_factor_prices,
+            asset_returns_dict,
+            self.lasso_model,
+            estimation_date,
+            self.rebalancing_freq,
+            self.include_factors_in_clustering,
+            self._use_factor_references,
+            self.factor_return_types,
+            precomputed_clusters,
+            precomputed_linkages,
+            precomputed_cutoffs,
         )
 
-        residual_options = ({
-            'residual_type': self.residual_type,
-            'residual_covar_freq': self.residual_covar_freq,
-            'residual_covar_span': self.residual_covar_span,
-        } if self.residual_type != 'orthogonal' else {})
+        residual_options = (
+            {
+                "residual_type": self.residual_type,
+                "residual_covar_freq": self.residual_covar_freq,
+                "residual_covar_span": self.residual_covar_span,
+            }
+            if self.residual_type != "orthogonal"
+            else {}
+        )
         if self.reg_lambda_freq_dict is not None:
-            residual_options['reg_lambda_freq_dict'] = self.reg_lambda_freq_dict
+            residual_options["reg_lambda_freq_dict"] = self.reg_lambda_freq_dict
         factor_covar_data = _estimate_factor_covar_data(
             factor_return_types=self.factor_return_types,
             risk_factor_prices=risk_factor_prices,
@@ -407,12 +267,12 @@ class _FactorCovarPipeline:
         return factor_covar_data
 
     def fit_rolling_factor_covars(
-            self,
-            risk_factor_prices: pd.DataFrame,
-            asset_returns_dict: Dict[str, pd.DataFrame],
-            time_period: qis.TimePeriod,
-            assets: Union[List[str], pd.Index] = None,
-            rebalancing_freq: Optional[str] = None,
+        self,
+        risk_factor_prices: pd.DataFrame,
+        asset_returns_dict: Dict[str, pd.DataFrame],
+        time_period: qis.TimePeriod,
+        assets: Union[List[str], pd.Index] = None,
+        rebalancing_freq: Optional[str] = None,
     ) -> RollingFactorCovarData:
         """Fit factor decompositions using expanding histories at calendar dates.
 
@@ -446,15 +306,16 @@ class _FactorCovarPipeline:
         """
         effective_rebalancing_freq = rebalancing_freq or self.rebalancing_freq
         rebalancing_schedule = qis.generate_dates_schedule(
-            time_period=time_period,
-            freq=effective_rebalancing_freq,
-            include_start_date=False,
-            include_end_date=False
+            time_period=time_period, freq=effective_rebalancing_freq, include_start_date=False, include_end_date=False
         )
         rolling_clusters_by_freq = _rolling_cluster_paths(
-            risk_factor_prices, asset_returns_dict, self.lasso_model,
-            rebalancing_schedule, effective_rebalancing_freq,
-            self.include_factors_in_clustering, self._use_factor_references,
+            risk_factor_prices,
+            asset_returns_dict,
+            self.lasso_model,
+            rebalancing_schedule,
+            effective_rebalancing_freq,
+            self.include_factors_in_clustering,
+            self._use_factor_references,
             self.factor_return_types,
         )
 
@@ -467,25 +328,21 @@ class _FactorCovarPipeline:
                 return_t = returns.loc[:estimation_date]
                 if len(return_t.index) < self.lasso_model.warmup_period:
                     raise ValueError(
-                        f"too early time_period.start={time_period.start} "
-                        f"for return {returns.index}: increase start"
+                        f"too early time_period.start={time_period.start} for return {returns.index}: increase start"
                     )
                 asset_returns_dict_upto_date[freq] = return_t
 
             cluster_kwargs = {}
             if rolling_clusters_by_freq is not None:
                 cluster_kwargs = {
-                    'precomputed_clusters': {
-                        freq: data.clusters[estimation_date]
-                        for freq, data in rolling_clusters_by_freq.items()
+                    "precomputed_clusters": {
+                        freq: data.clusters[estimation_date] for freq, data in rolling_clusters_by_freq.items()
                     },
-                    'precomputed_linkages': {
-                        freq: data.linkages[estimation_date]
-                        for freq, data in rolling_clusters_by_freq.items()
+                    "precomputed_linkages": {
+                        freq: data.linkages[estimation_date] for freq, data in rolling_clusters_by_freq.items()
                     },
-                    'precomputed_cutoffs': {
-                        freq: data.cutoffs[estimation_date]
-                        for freq, data in rolling_clusters_by_freq.items()
+                    "precomputed_cutoffs": {
+                        freq: data.cutoffs[estimation_date] for freq, data in rolling_clusters_by_freq.items()
                     },
                 }
 
@@ -496,33 +353,36 @@ class _FactorCovarPipeline:
                 estimation_date=estimation_date,
                 **cluster_kwargs,
             )
-            if self.residual_type != 'orthogonal':
+            if self.residual_type != "orthogonal":
                 covar_datas[estimation_date], previous_residual = _reuse_residual_correlation(
-                    covar_datas[estimation_date], previous_residual,
+                    covar_datas[estimation_date],
+                    previous_residual,
                 )
 
         return RollingFactorCovarData(data=covar_datas)
 
-def _estimate_factor_covar_data(risk_factor_prices: pd.DataFrame,
-                                     asset_returns_dict: Dict[str, pd.DataFrame],
-                                     lasso_model: LassoModel,
-                                     assets: Union[List[str], pd.Index] = None,
-                                     x_covar: pd.DataFrame = None,
-                                     factor_returns_freq: str = 'W-WED',
-                                     factor_covar_span: int = 52,
-                                     is_apply_vol_normalised_returns: bool = False,
-                                     estimation_date: pd.Timestamp = None,
-                                     verbose: bool = False,
-                                     precomputed_clusters: Optional[Dict[str, pd.Series]] = None,
-                                     precomputed_linkages: Optional[Dict[str, np.ndarray]] = None,
-                                     precomputed_cutoffs: Optional[Dict[str, float]] = None,
-                                     *,
-                                     factor_return_types: Optional[dict] = None,
-                                     residual_type: str = 'orthogonal',
-                                     residual_covar_freq: Optional[str] = None,
-                                     residual_covar_span: Optional[float] = None,
-                                     reg_lambda_freq_dict: Optional[Dict[str, float]] = None,
-                                     ) -> CurrentFactorCovarData:
+
+def _estimate_factor_covar_data(
+    risk_factor_prices: pd.DataFrame,
+    asset_returns_dict: Dict[str, pd.DataFrame],
+    lasso_model: LassoModel,
+    assets: Union[List[str], pd.Index] = None,
+    x_covar: pd.DataFrame = None,
+    factor_returns_freq: str = "W-WED",
+    factor_covar_span: int = 52,
+    is_apply_vol_normalised_returns: bool = False,
+    estimation_date: pd.Timestamp = None,
+    verbose: bool = False,
+    precomputed_clusters: Optional[Dict[str, pd.Series]] = None,
+    precomputed_linkages: Optional[Dict[str, np.ndarray]] = None,
+    precomputed_cutoffs: Optional[Dict[str, float]] = None,
+    *,
+    factor_return_types: Optional[dict] = None,
+    residual_type: str = "orthogonal",
+    residual_covar_freq: Optional[str] = None,
+    residual_covar_span: Optional[float] = None,
+    reg_lambda_freq_dict: Optional[Dict[str, float]] = None,
+) -> CurrentFactorCovarData:
     """Assemble current factor covariance data from supplied return histories.
 
     For each asset-return cadence, align factor prices by historical
@@ -597,26 +457,20 @@ def _estimate_factor_covar_data(risk_factor_prices: pd.DataFrame,
         KeyError: If a required cadence span, linkage or cutoff entry is missing.
     """
     if reg_lambda_freq_dict is not None:
-        if any(not np.isfinite(value) or value < 0
-               for value in reg_lambda_freq_dict.values()):
-            raise ValueError('cadence penalties must be finite and nonnegative')
+        if any(not np.isfinite(value) or value < 0 for value in reg_lambda_freq_dict.values()):
+            raise ValueError("cadence penalties must be finite and nonnegative")
         missing = set(asset_returns_dict) - set(reg_lambda_freq_dict)
         if missing:
-            raise KeyError(f'no reg_lambda for cadence(s): {sorted(missing)}')
+            raise KeyError(f"no reg_lambda for cadence(s): {sorted(missing)}")
     _validate_residual_type(residual_type)
-    if residual_type != 'orthogonal':
-        estimation_date = estimation_date or max(
-            data.index[-1] for data in asset_returns_dict.values()
-        )
+    if residual_type != "orthogonal":
+        estimation_date = estimation_date or max(data.index[-1] for data in asset_returns_dict.values())
         risk_factor_prices = risk_factor_prices.loc[:estimation_date]
-        asset_returns_dict = {
-            freq: data.loc[:estimation_date] for freq, data in asset_returns_dict.items()
-        }
+        asset_returns_dict = {freq: data.loc[:estimation_date] for freq, data in asset_returns_dict.items()}
     # Validate precomputed cluster inputs: either all three or none.
     # Partial supply would produce inconsistent CurrentFactorCovarData
     # (e.g. clusters without linkage/cutoff for dendrogram rendering).
-    _pc_provided = [p is not None for p in
-                    (precomputed_clusters, precomputed_linkages, precomputed_cutoffs)]
+    _pc_provided = [p is not None for p in (precomputed_clusters, precomputed_linkages, precomputed_cutoffs)]
     if any(_pc_provided) and not all(_pc_provided):
         raise ValueError(
             "precomputed_clusters, precomputed_linkages, and precomputed_cutoffs "
@@ -628,16 +482,16 @@ def _estimate_factor_covar_data(risk_factor_prices: pd.DataFrame,
 
     # 1. compute x-factors ewm covar at rebalancing freq
     if x_covar is None:
-        x_covar = estimate_factor_covariance(prices=risk_factor_prices,
-                                              returns_freq=factor_returns_freq,
-                                              demean=True,
-                                              span=factor_covar_span,
-                                              is_apply_vol_normalised_returns=is_apply_vol_normalised_returns,
-                                              apply_an_factor=False,
-                                              factor_return_types=factor_return_types)
-        factor_scale_an = qis.get_annualisation_conversion_factor(
-            from_freq=factor_returns_freq, to_freq='YE'
+        x_covar = estimate_factor_covariance(
+            prices=risk_factor_prices,
+            returns_freq=factor_returns_freq,
+            demean=True,
+            span=factor_covar_span,
+            is_apply_vol_normalised_returns=is_apply_vol_normalised_returns,
+            apply_an_factor=False,
+            factor_return_types=factor_return_types,
         )
+        factor_scale_an = qis.get_annualisation_conversion_factor(from_freq=factor_returns_freq, to_freq="YE")
         x_covar *= factor_scale_an
 
     # 2. estimate betas and diagnostics per frequency
@@ -652,8 +506,7 @@ def _estimate_factor_covar_data(risk_factor_prices: pd.DataFrame,
             precomputed_clusters=precomputed_clusters,
             precomputed_linkages=precomputed_linkages,
             precomputed_cutoffs=precomputed_cutoffs,
-            **({'reg_lambda': reg_lambda_freq_dict[freq]}
-               if reg_lambda_freq_dict is not None else {}),
+            **({"reg_lambda": reg_lambda_freq_dict[freq]} if reg_lambda_freq_dict is not None else {}),
         )
         for freq, asset_returns in asset_returns_dict.items()
     }
@@ -670,16 +523,23 @@ def _estimate_factor_covar_data(risk_factor_prices: pd.DataFrame,
     for freq in asset_returns_dict.keys():
         result = frequency_results[freq]
         asset_last_betas.append(result.betas)  # (N_freq x M)
-        idio_var_scaler = qis.get_annualisation_conversion_factor(from_freq=freq, to_freq='YE')
+        idio_var_scaler = qis.get_annualisation_conversion_factor(from_freq=freq, to_freq="YE")
         last_ewma_vars.append(idio_var_scaler * result.ewma_variances)
         last_residual_vars.append(idio_var_scaler * result.residual_variances)
         last_alphas.append(idio_var_scaler * result.alphas)
         last_r2.append(result.r2)
         residuals.append(idio_var_scaler * result.residuals)
-        residual_metadata.append(pd.DataFrame({
-            'frequency': freq, 'beta_span': _model_for_frequency(lasso_model, freq).span,
-            'annualisation_factor': idio_var_scaler, 'residual_scale': idio_var_scaler,
-        }, index=result.betas.index))
+        residual_metadata.append(
+            pd.DataFrame(
+                {
+                    "frequency": freq,
+                    "beta_span": _model_for_frequency(lasso_model, freq).span,
+                    "annualisation_factor": idio_var_scaler,
+                    "residual_scale": idio_var_scaler,
+                },
+                index=result.betas.index,
+            )
+        )
         # derived_signs: only freqs that actually got a sign layer contribute.
         # Unlike betas (always emitted by every freq), signs may be absent
         # entirely if auto_sign_constraints=False and no explicit
@@ -690,9 +550,7 @@ def _estimate_factor_covar_data(risk_factor_prices: pd.DataFrame,
 
     # align to target asset universe
     # betas: concat along axis=0 (rows=assets), reindex rows to target assets, columns to factors
-    asset_last_betas = pd.concat(asset_last_betas, axis=0).reindex(
-        columns=x_covar.index
-    ).fillna(0.0)
+    asset_last_betas = pd.concat(asset_last_betas, axis=0).reindex(columns=x_covar.index).fillna(0.0)
     last_ewma_vars = pd.concat(last_ewma_vars, axis=0).fillna(0.0)
     last_residual_vars = pd.concat(last_residual_vars, axis=0).fillna(0.0)
     last_alphas = pd.concat(last_alphas, axis=0).fillna(0.0)
@@ -725,14 +583,16 @@ def _estimate_factor_covar_data(risk_factor_prices: pd.DataFrame,
 
         L = result.linkage
         if L is not None:
-            linkage_frames.append(pd.DataFrame(
-                L,
-                columns=['left', 'right', 'distance', 'n_samples'],
-                index=pd.Index(
-                    [f"{freq}:step_{i}" for i in range(L.shape[0])],
-                    name='merge_step',
-                ),
-            ))
+            linkage_frames.append(
+                pd.DataFrame(
+                    L,
+                    columns=["left", "right", "distance", "n_samples"],
+                    index=pd.Index(
+                        [f"{freq}:step_{i}" for i in range(L.shape[0])],
+                        name="merge_step",
+                    ),
+                )
+            )
 
         c = result.cutoff
         if c is not None:
@@ -745,13 +605,9 @@ def _estimate_factor_covar_data(risk_factor_prices: pd.DataFrame,
     else:
         clusters_flat = None
 
-    linkages_flat: Optional[pd.DataFrame] = (
-        pd.concat(linkage_frames, axis=0) if linkage_frames else None
-    )
+    linkages_flat: Optional[pd.DataFrame] = pd.concat(linkage_frames, axis=0) if linkage_frames else None
 
-    cutoffs_flat: Optional[pd.Series] = (
-        pd.Series(cutoff_values, name='cluster_cutoff') if cutoff_values else None
-    )
+    cutoffs_flat: Optional[pd.Series] = pd.Series(cutoff_values, name="cluster_cutoff") if cutoff_values else None
 
     # Preserve structural NaN from frequency mismatch.
     # When ME and QE residual frames are concat'd on axis=1, QE columns
@@ -785,15 +641,18 @@ def _estimate_factor_covar_data(risk_factor_prices: pd.DataFrame,
         if len(_missing_cols) > 0:
             residuals.loc[:, _missing_cols] = 0.0
 
-    y_variances = pd.concat([last_ewma_vars.rename(VarianceColumns.EWMA_VARIANCE.value),
-                             last_residual_vars.rename(VarianceColumns.RESIDUAL_VARS.value),
-                             last_alphas.rename(VarianceColumns.INSAMPLE_ALPHA.value),
-                             last_r2.rename(VarianceColumns.R2.value)],
-                            axis=1, sort=False)
+    y_variances = pd.concat(
+        [
+            last_ewma_vars.rename(VarianceColumns.EWMA_VARIANCE.value),
+            last_residual_vars.rename(VarianceColumns.RESIDUAL_VARS.value),
+            last_alphas.rename(VarianceColumns.INSAMPLE_ALPHA.value),
+            last_r2.rename(VarianceColumns.R2.value),
+        ],
+        axis=1,
+        sort=False,
+    )
 
-    estimation_date = estimation_date or asset_returns_dict[
-        list(asset_returns_dict.keys())[0]
-    ].index[-1]
+    estimation_date = estimation_date or asset_returns_dict[list(asset_returns_dict.keys())[0]].index[-1]
     cfcd_kwargs: Dict[str, Any] = dict(
         x_covar=x_covar,
         y_betas=asset_last_betas,
@@ -805,14 +664,18 @@ def _estimate_factor_covar_data(risk_factor_prices: pd.DataFrame,
         estimation_date=estimation_date,
     )
     if derived_signs is not None:
-        cfcd_kwargs['derived_signs'] = derived_signs
+        cfcd_kwargs["derived_signs"] = derived_signs
     metadata = pd.concat(residual_metadata).reindex(asset_last_betas.index)
-    cfcd_kwargs['residual_metadata'] = metadata
-    if residual_type != 'orthogonal':
+    cfcd_kwargs["residual_metadata"] = metadata
+    if residual_type != "orthogonal":
         fitted_correlation = _prepare_residual_correlation(
-            residuals, metadata, last_residual_vars, estimation_date,
-            residual_covar_freq, residual_covar_span,
+            residuals,
+            metadata,
+            last_residual_vars,
+            estimation_date,
+            residual_covar_freq,
+            residual_covar_span,
         )
-        cfcd_kwargs['residual_correlation'] = fitted_correlation
+        cfcd_kwargs["residual_correlation"] = fitted_correlation
     covar_data = CurrentFactorCovarData(**cfcd_kwargs)
     return covar_data

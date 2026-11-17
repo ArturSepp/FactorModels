@@ -295,7 +295,7 @@ The following is an excerpt inside `arithmetic_example()`; the script supplies
 
 The script independently checks estimates and intervals using weighted QR and verifies that
 the change from zero to full alpha credit equals the mimicking portfolio's exposure to alpha.
-`run_local_test(1)` preserves the full-alpha `GlsPremiaResult` interface.
+`run_local_test(LocalTests.SYNTHETIC)` preserves the full-alpha `GlsPremiaResult` interface.
 `arithmetic_example()` additionally returns the three GLS views, their inputs,
 forecasts, annual covariance and a completed CMA audit. Nothing is saved or rendered
 while computing these objects.
@@ -427,8 +427,9 @@ where the supplied factor span cannot identify one.
 
 ## References
 
-- Sepp, A., Hansen, E. H. and Kastenholz, M. (2026). *Capital Market Assumptions and
-  Strategic Asset Allocation Using Multi-Asset Tradable Factors*. Working paper,
+- Sepp, A., Hansen, E. H. and Kastenholz, M. (2027). *Capital Market Assumptions and
+  Strategic Asset Allocation Using Multi-Asset Tradable Factors*. Forthcoming in
+  *The Journal of Portfolio Management*;
   [SSRN 6785958][paper], Appendix B.
 - Aitken, A. C. (1935). On Least Squares and Linear Combination of Observations.
   *Proceedings of the Royal Society of Edinburgh*, 55, 42-48.

@@ -1,4 +1,5 @@
 """Configured local resources and outputs work in source and installed packages."""
+
 from pathlib import Path
 
 import pytest
@@ -11,6 +12,7 @@ import factormodels as fm
 def paths(tmp_path, monkeypatch):
     """Isolate settings and the working directory from the developer checkout."""
     from factormodels.utils import local_path
+
     config = tmp_path / "settings.yaml"
     config.write_text("RESOURCE_PATH: inputs\nOUTPUT_PATH: outputs\n", encoding="utf-8")
     monkeypatch.setenv("FACTORMODELS_SETTINGS_PATH", str(config))
@@ -66,7 +68,9 @@ def test_absolute_paths_bypass_local_settings(paths, tmp_path):
     assert not (tmp_path / "outputs").exists()
 
 
-@pytest.mark.parametrize("content", ["RESOURCE_PATH: null\nOUTPUT_PATH: null\n", "", "{}", "RESOURCE_PATH: '..'\nOUTPUT_PATH: '..'\n"])
+@pytest.mark.parametrize(
+    "content", ["RESOURCE_PATH: null\nOUTPUT_PATH: null\n", "", "{}", "RESOURCE_PATH: '..'\nOUTPUT_PATH: '..'\n"]
+)
 def test_empty_settings_use_portable_defaults(paths, tmp_path, monkeypatch, content):
     """Installed defaults use cwd without requiring a writable site-packages directory."""
     local_path, config = paths
@@ -84,7 +88,10 @@ def test_missing_explicit_settings_is_an_error(paths):
         local_path.get_resource_path()
 
 
-@pytest.mark.parametrize("content,error", [("- inputs\n- outputs\n", TypeError), ("RESOURCE_PATH: [inputs]\n", TypeError), ("not: [valid", yaml.YAMLError)])
+@pytest.mark.parametrize(
+    "content,error",
+    [("- inputs\n- outputs\n", TypeError), ("RESOURCE_PATH: [inputs]\n", TypeError), ("not: [valid", yaml.YAMLError)],
+)
 def test_invalid_settings_fail_clearly(paths, content, error):
     """Malformed or wrongly shaped local path settings are never coerced to paths."""
     local_path, config = paths
@@ -106,12 +113,20 @@ def test_output_creation_error_never_falls_back(paths, tmp_path):
 def test_shipped_yaml_and_public_module_paths():
     """Wheel users receive the settings template and named implementation modules."""
     import importlib
+
     package = Path(fm.__file__).parent
     assert (package / "settings.yaml").is_file()
     assert sorted(p.name for p in package.glob("*.py")) == ["__init__.py"]
-    for name in ("analytics.construction", "analytics.beta_constraints", "estimation.estimator",
-                 "analytics.models", "analytics.portfolio_context", "analytics.risk",
-                 "estimation.cluster_scores", "analytics.definitions"):
+    for name in (
+        "analytics.construction",
+        "analytics.beta_constraints",
+        "estimation.estimator",
+        "analytics.models",
+        "analytics.portfolio_context",
+        "analytics.risk",
+        "estimation.cluster_scores",
+        "analytics.definitions",
+    ):
         module = importlib.import_module(f"factormodels.{name}")
         assert Path(module.__file__).name == name.rsplit(".", 1)[-1] + ".py"
     assert fm.FactorModelSpec.__module__ == "factormodels.analytics.definitions"
@@ -128,14 +143,15 @@ def test_output_resolution_has_no_creation_side_effect(paths, tmp_path):
 def test_public_path_exports_share_the_settings_contract(paths, tmp_path):
     """Root and utility names resolve the same functions without creating inputs."""
     from factormodels import utils
+
     local_path, _ = paths
-    for name in ('resolve_resource_path', 'resolve_output_path', 'create_output_directory'):
+    for name in ("resolve_resource_path", "resolve_output_path", "create_output_directory"):
         assert getattr(fm, name) is getattr(utils, name) is getattr(local_path, name)
         assert name in fm.__all__ and name in utils.__all__
-    assert fm.resolve_resource_path('missing.csv') == tmp_path / 'inputs/missing.csv'
-    assert not (tmp_path / 'inputs').exists()
-    assert fm.resolve_output_path('future/report.pdf') == tmp_path / 'outputs/future/report.pdf'
-    assert not (tmp_path / 'outputs').exists()
+    assert fm.resolve_resource_path("missing.csv") == tmp_path / "inputs/missing.csv"
+    assert not (tmp_path / "inputs").exists()
+    assert fm.resolve_output_path("future/report.pdf") == tmp_path / "outputs/future/report.pdf"
+    assert not (tmp_path / "outputs").exists()
 
 
 def test_filesystem_root_is_an_explicit_resource_path(paths, tmp_path):

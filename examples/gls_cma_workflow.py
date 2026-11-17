@@ -6,6 +6,8 @@ price preparation, expert priors, horizons or data. No network access. Persisten
 requires an explicit --output directory; the log-return example is not converted.
 """
 
+from enum import IntEnum
+
 import argparse
 import json
 from pathlib import Path
@@ -147,8 +149,15 @@ def persist_example(result: dict, directory: Path) -> Path:
     return directory
 
 
-def run_local_test(case: int = 1):
+class LocalTests(IntEnum):
+    """Named offline workflows; integer values remain accepted for existing callers."""
+
+    SYNTHETIC = 1
+
+
+def run_local_test(case: LocalTests | int = LocalTests.SYNTHETIC):
     """Run the offline arithmetic demonstration, preserving the GLS result interface."""
+    case = LocalTests(case)
     if case != 1:
         raise ValueError('The synthetic GLS example supports only case 1.')
     completed = arithmetic_example()

@@ -7,6 +7,8 @@ No acquisition, fitting on load, or persistence occurs implicitly.
 """
 from __future__ import annotations
 
+from enum import IntEnum
+
 import argparse
 import json
 from pathlib import Path
@@ -252,8 +254,16 @@ def public_proxy_prices(prices: pd.DataFrame | None = None) -> tuple[pd.DataFram
     return levels, assets
 
 
-def run_local_test(case: int = 1) -> dict:
+class LocalTests(IntEnum):
+    """Named offline workflows; integer values remain accepted for existing callers."""
+
+    SYNTHETIC = 1
+    OFFLINE_PROXY = 2
+
+
+def run_local_test(case: LocalTests | int = LocalTests.SYNTHETIC) -> dict:
     """Run synthetic fit (1) or offline proxy construction/fit (2), returning objects."""
+    case = LocalTests(case)
     if case not in (1, 2):
         raise ValueError("case must be 1 (synthetic) or 2 (synthetic ETF proxy)")
     result = inspect_fit(*(synthetic_prices() if case == 1 else public_proxy_prices()))

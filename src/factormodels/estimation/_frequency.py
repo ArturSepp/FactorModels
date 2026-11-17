@@ -37,9 +37,7 @@ def _model_for_frequency(lasso_model: LassoModel, freq: str) -> LassoModel:
         if freq not in lasso_model.span_freq_dict:
             raise KeyError(f"no span for freq={freq} in lasso_model.span_freq_dict")
         overrides['span'] = lasso_model.span_freq_dict[freq]
-    cluster_span_map = getattr(
-        lasso_model, 'cluster_correlation_span_freq_dict', None
-    )
+    cluster_span_map = lasso_model.cluster_correlation_span_freq_dict
     if cluster_span_map is not None:
         if freq not in cluster_span_map:
             raise KeyError(
@@ -47,9 +45,8 @@ def _model_for_frequency(lasso_model: LassoModel, freq: str) -> LassoModel:
                 "lasso_model.cluster_correlation_span_freq_dict"
             )
         overrides['cluster_correlation_span'] = cluster_span_map[freq]
-    prior_hac_map = getattr(lasso_model, 'expert_prior_hac_lags_freq_dict', None)
-    if (prior_hac_map is not None
-            and getattr(lasso_model, 'expert_prior_bound_n_std', None) is not None):
+    prior_hac_map = lasso_model.expert_prior_hac_lags_freq_dict
+    if prior_hac_map is not None and lasso_model.expert_prior_bound_n_std is not None:
         if freq not in prior_hac_map:
             raise KeyError(f"no expert prior HAC bandwidth for freq={freq}")
         overrides['expert_prior_hac_lags'] = prior_hac_map[freq]
@@ -140,9 +137,7 @@ def _fit_lasso_frequency(
 
     frequency_model = _model_for_frequency(lasso_model=lasso_model, freq=freq)
     span = frequency_model.span
-    cluster_correlation_span = getattr(
-        frequency_model, 'cluster_correlation_span', None
-    )
+    cluster_correlation_span = frequency_model.cluster_correlation_span
 
     use_precomputed = precomputed_clusters is not None and freq in precomputed_clusters
     external_clusters = None
@@ -159,11 +154,9 @@ def _fit_lasso_frequency(
     # LassoModel back with the final cadence's fit attached. A fresh model copy would be a separate
     # numerical and behavioural change, even though clustering schedules use that pattern safely.
     fit_model = lasso_model
-    cluster_span_kwargs = {}
-    if hasattr(fit_model, 'cluster_correlation_span'):
-        cluster_span_kwargs['cluster_correlation_span'] = cluster_correlation_span
+    cluster_span_kwargs = {'cluster_correlation_span': cluster_correlation_span}
     original_lambda = fit_model.reg_lambda
-    original_prior_hac_lags = getattr(fit_model, 'expert_prior_hac_lags', None)
+    original_prior_hac_lags = fit_model.expert_prior_hac_lags
     if original_prior_hac_lags is not None:
         fit_model.expert_prior_hac_lags = frequency_model.expert_prior_hac_lags
     if reg_lambda is not None:

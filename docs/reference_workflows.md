@@ -18,9 +18,9 @@ offers three input paths. All default execution is offline and load-only. Use
 
 | Path | Data and completed output | Limitations |
 |---|---|---|
-| Synthetic | Repository example `synthetic_prices()` supplies two DataFrames with 121 monthly USD NAV observations; `run_local_test(1)` returns the fitted log-return model, GLS inference and CMA audit | Synthetic arithmetic forecasts use an explicit second-order mean bridge and the unchanged fitted log covariance as a risk approximation |
+| Synthetic | Repository example `synthetic_prices()` supplies two DataFrames with 121 monthly USD NAV observations; `run_local_test(LocalTests.SYNTHETIC)` returns the fitted log-return model, GLS inference and CMA audit | Synthetic arithmetic forecasts use an explicit second-order mean bridge and the unchanged fitted log covariance as a risk approximation |
 | Caller-supplied | `--factor-prices factors.csv --asset-prices assets.csv` loads two price tables; `--fit` calls the estimator directly | Caller supplies data rights, availability, recipe and conventions |
-| Public proxy | `public_proxy_prices(prices)` constructs Equity=SPY and Rates=TLT long-only factors; `run_local_test(2)` uses synthetic prices under those ticker labels | A two-ETF illustration, not the production MATF recipe; target asset histories are synthetic even when real proxy prices are supplied |
+| Public proxy | `public_proxy_prices(prices)` constructs Equity=SPY and Rates=TLT long-only factors; `run_local_test(LocalTests.OFFLINE_PROXY)` uses synthetic prices under those ticker labels | A two-ETF illustration, not the production MATF recipe; target asset histories are synthetic even when real proxy prices are supplied |
 
 ## Reproduce offline
 
@@ -132,3 +132,7 @@ their complete model tables and status. The [separate handoff](integration.md)
 supplies the fitted model to OptimalPortfolios and QIS. The standalone
 [arithmetic reference](../examples/gls_cma_workflow.py) remains an independent
 check of GLS using simple-return inputs.
+
+Each example declares its own `LocalTests` enum. Import it beside `run_local_test` from
+the example module. Existing integer calls (`1`, and `2` for the offline proxy) remain
+supported; new code should use the named case. Example modules are checkout resources.

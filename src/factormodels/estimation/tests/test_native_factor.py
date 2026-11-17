@@ -4,7 +4,7 @@ import pandas as pd
 import pytest
 from factorlasso import LassoModel, LassoModelType
 from qis import ReturnTypes
-from factormodels.estimation._pipeline import _FactorCovarPipeline as FactorCovarEstimator
+from factormodels.estimation import FactorCovarEstimator
 
 
 @pytest.mark.parametrize('responses', [1, 3])
@@ -22,11 +22,11 @@ def test_point_slopes_covariance_and_log_legacy(responses):
             model_type=LassoModelType.LASSO, reg_lambda=0., demean=False,
             solver='CLARABEL', span=24, warmup_period=12),
             factor_returns_freq='ME', factor_covar_span=24,
-            factor_return_types=mapping).fit_current_factor_covars(
-                levels, {'ME': y}, assets=list(y), estimation_date=dates[-1])
+            factor_return_types=mapping).fit_current(
+                levels, {'ME': y}, assets=list(y), cutoff=dates[-1])
     point = fit({'VIX': ReturnTypes.DIFFERENCE})
-    np.testing.assert_allclose(point.y_betas.VIX, slopes, atol=1e-7)
-    assert point.x_covar.iloc[0,0] > 100.
+    np.testing.assert_allclose(point.loadings.VIX, slopes, atol=1e-7)
+    assert point.factor_covariance.iloc[0,0] > 100.
     default, log = fit(None), fit({'VIX': ReturnTypes.LOG})
-    pd.testing.assert_frame_equal(default.y_betas, log.y_betas)
-    pd.testing.assert_frame_equal(default.x_covar, log.x_covar)
+    pd.testing.assert_frame_equal(default.loadings, log.loadings)
+    pd.testing.assert_frame_equal(default.factor_covariance, log.factor_covariance)

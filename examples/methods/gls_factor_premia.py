@@ -5,6 +5,8 @@ The small example teaches the two stages; it does not substitute for MATF produc
 price preparation, expert priors, horizons or data. No files or network access.
 """
 
+from enum import IntEnum
+
 import numpy as np
 import pandas as pd
 from scipy.stats import t
@@ -65,8 +67,15 @@ def main():
     return result
 
 
-def run_local_test(case=1):
+class LocalTests(IntEnum):
+    """Named offline workflows; integer values remain accepted for existing callers."""
+
+    SYNTHETIC = 1
+
+
+def run_local_test(case: LocalTests | int = LocalTests.SYNTHETIC):
     """Run the deterministic GLS example for the single supported case."""
+    case = LocalTests(case)
     if case != 1:
         raise ValueError('Only case=1 is supported')
     return main()

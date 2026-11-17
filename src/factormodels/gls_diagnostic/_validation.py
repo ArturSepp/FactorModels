@@ -77,7 +77,11 @@ def _scalar(value: float, name: str) -> float:
 
 
 def _covariance_and_cholesky(value: ArrayLike, size: int, name: str) -> tuple[np.ndarray, np.ndarray]:
-    """Validate SPD covariance once and retain its lower Cholesky factor."""
+    """Require symmetry at rtol=0/atol=1e-12 and a successful Cholesky factor.
+
+    GLS requires positive definiteness, not merely semidefiniteness. No negative
+    eigenvalue allowance, clipping or diagonal regularization is applied here.
+    """
     result = _array(value, name, 2)
     if result.shape != (size, size) or not np.allclose(result, result.T, rtol=0, atol=1e-12):
         raise ValueError(f"{name} must be a symmetric {size} by {size} matrix")

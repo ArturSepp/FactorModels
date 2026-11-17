@@ -12,13 +12,6 @@
   "headers": {},
   "variadic_inventory": [
     {
-      "path": "src/factormodels/estimation/_pipeline.py",
-      "function": "copy",
-      "parameter": "overrides",
-      "kind": "**kwargs",
-      "annotated": true
-    },
-    {
       "path": "src/factormodels/reports/cma_diagnostics.py",
       "function": "_write",
       "parameter": "kwargs",

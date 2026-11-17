@@ -60,6 +60,7 @@ explicit dependency requirement.
 :maxdepth: 2
 
 api
+api_reference
 completed_model
 equity_fx_risk
 reference_workflows

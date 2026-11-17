@@ -7,7 +7,7 @@ import qis
 import factorlasso as fl
 
 import factormodels.estimation._pipeline as module
-from factormodels.estimation._pipeline import _FactorCovarPipeline as FactorCovarEstimator
+from factormodels import FactorCovarEstimator, estimate_historical_alpha
 
 
 
@@ -36,77 +36,73 @@ def estimator(**kwargs):
 def test_current_prepares_annual_covariance_and_preserves_alpha(panels):
     """Preparation changes no fitted beta, annual-alpha series or orthogonal matrix."""
     prices, returns = panels
-    empirical = estimator().fit_current_factor_covars(prices, returns)
-    legacy = estimator(residual_type="orthogonal").fit_current_factor_covars(prices, returns)
+    empirical = estimator().fit_current(prices, returns, cutoff=prices.index[-1])
+    legacy = estimator(residual_type="orthogonal").fit_current(prices, returns, cutoff=prices.index[-1])
     pd.testing.assert_frame_equal(empirical.residuals, legacy.residuals)
-    pd.testing.assert_series_equal(empirical.estimate_alpha(), legacy.estimate_alpha())
-    pd.testing.assert_frame_equal(empirical.get_y_covar(), legacy.get_y_covar())
-    assert empirical.residual_correlation.frequency == "QE"
-    assert empirical.residual_correlation.span == pytest.approx(12)
+    pd.testing.assert_series_equal(estimate_historical_alpha(empirical), estimate_historical_alpha(legacy))
+    pd.testing.assert_frame_equal(empirical.raw_diagonal_reference_covariance, legacy.asset_covariance)
+    assert empirical.residual_correlation_metadata['frequency'] == "QE"
+    assert empirical.residual_correlation_metadata['span'] == pytest.approx(12)
     assert empirical.residual_metadata.frequency.to_dict() == {"a": "ME", "b": "ME", "c": "QE"}
     assert empirical.residual_metadata.residual_scale.to_dict() == {"a": 12., "b": 12., "c": 4.}
-    assembled = empirical.get_y_covar(residual_type="empirical")
-    v = empirical.y_variances.residual_var.to_numpy()
-    r = empirical.residual_correlation.correlation.to_numpy()
+    assembled = empirical.asset_covariance
+    v = empirical.fit_statistics.residual_var.to_numpy()
+    r = empirical.residual_correlation.to_numpy()
     d = r * np.sqrt(v[:, None] * v[None, :])
     np.fill_diagonal(d, v)
-    expected = empirical.get_y_covar(0.) + d
+    expected = (empirical.loadings @ empirical.factor_covariance @ empirical.loadings.T) + d
     np.testing.assert_allclose(assembled, expected, rtol=1e-14)
-    np.testing.assert_array_equal(np.diag(assembled), np.diag(legacy.get_y_covar()))
-    shared = estimator().fit_current_covar(prices, returns)
-    pd.testing.assert_frame_equal(shared, assembled)
+    np.testing.assert_array_equal(np.diag(assembled), np.diag(legacy.asset_covariance))
+    assert empirical.residual_type == "empirical"
 
 
 def test_rolling_holds_residual_estimate_between_quarters(panels):
     """New monthly betas must not refresh a covariance without a new complete quarter."""
     prices, returns = panels
     period = qis.TimePeriod("2021-06-30", "2022-06-30")
-    result = estimator().fit_rolling_factor_covars(prices, returns, period)
-    first = result[pd.Timestamp("2021-06-30")].residual_correlation
-    july = result[pd.Timestamp("2021-07-31")].residual_correlation
-    august = result[pd.Timestamp("2021-08-31")].residual_correlation
-    assert july is first and august is first
-    assert result[pd.Timestamp("2021-09-30")].residual_correlation is not first
-    history = result.get_residual_correlations()
-    assert all(date.month % 3 == 0 for date in history)
-    for date, fitted in result.data.items():
-        assert fitted.residual_correlation.estimation_date <= date
-        assert fitted.residual_correlation.observation_date <= date
-    covars = result.get_y_covars(residual_type="empirical",
-                                 dates=pd.to_datetime(["2021-08-15", "2021-10-15"]))
-    assert len(covars) == 2
-    shared = estimator().fit_rolling_covars(prices, returns, period)
-    for date, value in result.get_y_covars(residual_type="empirical").items():
-        pd.testing.assert_frame_equal(shared[date], value)
+    result = estimator().fit_rolling(prices, returns, time_period=period)
+    first = result.snapshots[pd.Timestamp("2021-06-30")]
+    for date in pd.to_datetime(["2021-07-31", "2021-08-31"]):
+        held = result.snapshots[date]
+        pd.testing.assert_frame_equal(held.residual_correlation, first.residual_correlation)
+        assert held.residual_correlation_metadata['observation_date'] == pd.Timestamp("2021-06-30")
+    september = result.snapshots[pd.Timestamp("2021-09-30")]
+    assert september.residual_correlation_metadata['observation_date'] == pd.Timestamp("2021-09-30")
+    for date, fitted in result.snapshots.items():
+        info = fitted.residual_correlation_metadata
+        assert info['estimation_date'] <= date
+        assert info['observation_date'] <= date
+        assert info['observation_date'].month % 3 == 0
+        pd.testing.assert_frame_equal(result.covariances[date], fitted.asset_covariance)
+
 
 
 def test_empirical_current_fit_truncates_inputs(panels):
     """The empirical opt-in cannot use later beta or residual information."""
     prices, returns = panels
     cutoff = pd.Timestamp("2021-05-31")
-    full = estimator().fit_current_factor_covars(prices, returns, estimation_date=cutoff)
-    truncated = estimator().fit_current_factor_covars(
+    full = estimator().fit_current(prices, returns, cutoff=cutoff)
+    truncated = estimator().fit_current(
         prices.loc[:cutoff], {freq: data.loc[:cutoff] for freq, data in returns.items()},
-        estimation_date=cutoff,
+        cutoff=cutoff,
     )
-    pd.testing.assert_frame_equal(full.get_y_covar(residual_type="empirical"),
-                                  truncated.get_y_covar(residual_type="empirical"))
-    assert full.residual_correlation.observation_date == pd.Timestamp("2021-03-31")
-    assert full.residual_correlation.estimation_date == cutoff
-    with pytest.raises(ValueError, match="available"):
-        full.residual_correlation.get_corr(pd.Timestamp("2021-03-31"))
+    pd.testing.assert_frame_equal(full.asset_covariance,
+                                  truncated.asset_covariance)
+    assert full.residual_correlation_metadata['observation_date'] == pd.Timestamp("2021-03-31")
+    assert full.residual_correlation_metadata['estimation_date'] == cutoff
+    assert full.cutoff == cutoff
 
 
 def test_explicit_grid_and_span(panels):
     """A caller can prepare a common grid explicitly with a span in that grid's units."""
     prices, returns = panels
-    result = estimator(residual_covar_freq="QE", residual_covar_span=8).fit_current_factor_covars(
-        prices, {"ME": returns["ME"]},
+    result = estimator(residual_covar_freq="QE", residual_covar_span=8).fit_current(
+        prices, {"ME": returns["ME"]}, cutoff=prices.index[-1],
     )
-    assert result.residual_correlation.frequency == "QE"
-    assert result.residual_correlation.span == 8
-    assert result.residual_correlation.schema_version == 2
-    assert result.residual_correlation.asset_metadata.annualisation_factor.eq(12).all()
+    assert result.residual_correlation_metadata['frequency'] == "QE"
+    assert result.residual_correlation_metadata['span'] == 8
+    assert result.residual_correlation_metadata['schema_version'] == 2
+    assert result.residual_correlation_metadata['asset_metadata'].annualisation_factor.eq(12).all()
 
 
 
@@ -124,25 +120,27 @@ def test_retention_forwarding_and_refreshing_diagonal(panels):
     """Both estimator interfaces forward rho; held quarterly R uses each month's variance."""
     prices, returns = panels
     model = estimator(residual_corr_weight=.5)
-    current = model.fit_current_factor_covars(prices, returns)
-    pd.testing.assert_frame_equal(
-        model.fit_current_covar(prices, returns),
-        current.get_y_covar(residual_type="empirical", residual_corr_weight=.5),
-    )
+    current = model.fit_current(prices, returns, cutoff=prices.index[-1])
+    assert current.residual_corr_weight == .5
     period = qis.TimePeriod("2021-06-30", "2021-08-31")
-    rolling = model.fit_rolling_factor_covars(prices, returns, period)
-    covars = rolling.get_residual_covars(residual_type="empirical", residual_corr_weight=.5)
-    assert len(rolling.get_residual_correlations()) == 1 and len(covars) == 3
+    rolling = model.fit_rolling(prices, returns, time_period=period)
+    observations = {fit.residual_correlation_metadata['observation_date']
+                    for fit in rolling.snapshots.values()}
+    assert len(observations) == 1 and len(rolling.snapshots) == 3
     previous = None
-    for date, d in covars.items():
-        fitted = rolling[date]
-        np.testing.assert_array_equal(np.diag(d), fitted.y_variances.residual_var)
+    for date, fitted in rolling.snapshots.items():
+        d = fitted.residual_covariance
+        variances = fitted.fit_statistics.residual_var.to_numpy()
+        expected = .5 * fitted.residual_correlation.to_numpy() * np.sqrt(
+            variances[:, None] * variances[None, :])
+        np.fill_diagonal(expected, variances)
+        np.testing.assert_allclose(d, expected, rtol=1e-14)
+        np.testing.assert_array_equal(np.diag(d), variances)
         if previous is not None:
             assert not np.allclose(d, previous)
         previous = d
-    shared = model.fit_rolling_covars(prices, returns, period)
-    for date, d in rolling.get_y_covars(residual_type="empirical", residual_corr_weight=.5).items():
-        pd.testing.assert_frame_equal(shared[date], d)
+        pd.testing.assert_frame_equal(rolling.covariances[date], fitted.asset_covariance)
+
 
 
 @pytest.mark.parametrize("weight", [-.1, 1.1, np.nan, np.inf])
@@ -161,19 +159,19 @@ def test_orthogonal_retention_cannot_be_ignored():
 def test_empirical_fit_keeps_unfitted_zero_risk_asset_independent(panels):
     """An output-only asset has no residual covariance and cannot block a valid fit."""
     prices, returns = panels
-    fitted = estimator().fit_current_factor_covars(prices, returns)
-    expanded = estimator().fit_current_factor_covars(
-        prices, returns, assets=["a", "b", "c", "future"]
+    fitted = estimator().fit_current(prices, returns, cutoff=prices.index[-1])
+    expanded = estimator().fit_current(
+        prices, returns, cutoff=prices.index[-1], assets=["a", "b", "c", "future"]
     )
-    corr = expanded.residual_correlation.correlation
+    corr = expanded.residual_correlation
     assert corr.index.tolist() == ["a", "b", "c", "future"]
     pd.testing.assert_frame_equal(corr.loc[["a", "b", "c"], ["a", "b", "c"]],
-                                  fitted.residual_correlation.correlation)
+                                  fitted.residual_correlation)
     assert corr.loc["future", "future"] == 1.0
     assert corr.loc["future", ["a", "b", "c"]].eq(0).all()
-    covariance = expanded.get_y_covar(residual_type="empirical")
+    covariance = expanded.asset_covariance
     pd.testing.assert_frame_equal(covariance.loc[["a", "b", "c"], ["a", "b", "c"]],
-                                  fitted.get_y_covar(residual_type="empirical"))
+                                  fitted.asset_covariance)
     assert covariance.loc["future"].eq(0).all()
 
 
@@ -181,7 +179,7 @@ def test_empirical_fit_rejects_universe_without_positive_residual_risk(panels):
     """A wholly unfitted output universe cannot define empirical correlation."""
     prices, returns = panels
     with pytest.raises(ValueError, match="positive residual risk"):
-        estimator().fit_current_factor_covars(prices, returns, assets=["future"])
+        estimator().fit_current(prices, returns, cutoff=prices.index[-1], assets=["future"])
 
 
 @pytest.mark.parametrize("kind", ["exposure_cluster", "residual_cluster"])
@@ -198,24 +196,36 @@ def test_cluster_policies_prepare_causally_and_forward_assembly(panels, kind):
                          warmup_period=6, reg_lambda=1e-5)
     model = estimator(lasso_model=lasso, residual_type=kind, residual_corr_weight=.5)
     cutoff = pd.Timestamp("2021-05-31")
-    current = model.fit_current_factor_covars(prices, returns, estimation_date=cutoff)
-    empirical = estimator(lasso_model=lasso.copy(kwargs={})).fit_current_factor_covars(
-        prices, returns, estimation_date=cutoff)
-    pd.testing.assert_frame_equal(current.y_betas, empirical.y_betas)
-    pd.testing.assert_frame_equal(current.residual_correlation.correlation,
-                                  empirical.residual_correlation.correlation)
-    assert current.residual_correlation.observation_date <= cutoff
-    pd.testing.assert_frame_equal(
-        model.fit_current_covar(prices, returns, estimation_date=cutoff),
-        current.get_y_covar(residual_type=kind, residual_corr_weight=.5),
+    current = model.fit_current(prices, returns, cutoff=cutoff)
+    empirical = estimator(lasso_model=lasso.copy(kwargs={})).fit_current(
+        prices, returns, cutoff=cutoff)
+    pd.testing.assert_frame_equal(current.loadings, empirical.loadings)
+    pd.testing.assert_frame_equal(current.residual_correlation,
+                                  empirical.residual_correlation)
+    assert current.residual_correlation_metadata['observation_date'] <= cutoff
+    assert current.residual_type == kind
+    assert current.residual_corr_weight == .5
+    # FL is the assembly owner; reconstruct its public input independently of FM's adapter.
+    correlation = fl.ResidualCorrelationData(
+        correlation=current.residual_correlation,
+        **{name: value for name, value in current.residual_correlation_metadata.items()
+           if name != 'schema_version'},
     )
+    raw = fl.CurrentFactorCovarData(
+        x_covar=current.factor_covariance, y_betas=current.loadings,
+        y_variances=current.fit_statistics, estimation_date=cutoff,
+        clusters=current.clusters, residual_correlation=correlation,
+    )
+    expected = raw.get_residual_covar(residual_type=kind, residual_corr_weight=.5)
+    pd.testing.assert_frame_equal(current.residual_covariance, expected)
     period = qis.TimePeriod("2021-06-30", "2021-08-31")
-    rolling = model.fit_rolling_factor_covars(prices, returns, period)
-    assert len(rolling.get_residual_correlations()) == 1
-    shared = model.fit_rolling_covars(prices, returns, period)
-    for date, covariance in rolling.get_y_covars(residual_type=kind,
-                                                residual_corr_weight=.5).items():
-        pd.testing.assert_frame_equal(shared[date], covariance)
+    rolling = model.fit_rolling(prices, returns, time_period=period)
+    assert len({fit.residual_correlation_metadata['observation_date']
+                for fit in rolling.snapshots.values()}) == 1
+    for date, fitted in rolling.snapshots.items():
+        assert fitted.residual_type == kind
+        assert fitted.residual_corr_weight == .5
+        pd.testing.assert_frame_equal(rolling.covariances[date], fitted.asset_covariance)
 
 
 
@@ -231,8 +241,8 @@ def test_residuals_preserve_available_history_before_factor_inception(
     prices = prices.loc[:cutoff]
     monthly = returns['ME'].loc[:cutoff].copy()
     monthly.loc[monthly.index[:3], 'a'] = np.nan
-    fitted = estimator(residual_type=residual_type).fit_current_factor_covars(
-        prices, {'ME': monthly}, estimation_date=cutoff,
+    fitted = estimator(residual_type=residual_type).fit_current(
+        prices, {'ME': monthly}, cutoff=cutoff,
     )
 
     # Independently sum only observed contributions for each date and response.
@@ -244,17 +254,17 @@ def test_residuals_preserve_available_history_before_factor_inception(
         for asset in expected.columns:
             expected.loc[date, asset] = (
                 monthly.loc[date, asset]
-                - sum(value * fitted.y_betas.loc[asset, factor]
+                - sum(value * fitted.loadings.loc[asset, factor]
                       for factor, value in observed.items())
                 if not observed.empty else np.nan
             )
     pd.testing.assert_frame_equal(fitted.residuals / 12., expected, rtol=1e-12, atol=1e-14)
     assert fitted.residuals.loc[monthly.a.isna(), 'a'].isna().all()
-    assert fitted.y_variances.residual_var.gt(0).all()
+    assert fitted.fit_statistics.residual_var.gt(0).all()
     if factor_start == 0:
-        legacy = 12. * (monthly - factor_returns @ fitted.y_betas.T)
+        legacy = 12. * (monthly - factor_returns @ fitted.loadings.T)
         pd.testing.assert_frame_equal(fitted.residuals, legacy, rtol=1e-12, atol=1e-14)
     if residual_type == 'empirical':
-        assert np.isfinite(fitted.residual_correlation.correlation.to_numpy()).all()
-        covariance = fitted.get_y_covar(residual_type='empirical')
+        assert np.isfinite(fitted.residual_correlation.to_numpy()).all()
+        covariance = fitted.asset_covariance
         assert np.linalg.eigvalsh(covariance).min() >= -1e-12

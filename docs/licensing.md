@@ -27,6 +27,9 @@ FactorLasso's estimation code and API are unchanged by that licence-only release
 
 ## Reviewed Windows installation
 
+This is the dated 19 October 2026 assessment of the cohort below. It does not by itself
+establish the dependency licensing of later releases or separately composed environments.
+
 The 19 October 2026 review covers a fresh base-wheel installation on Windows x64,
 CPython 3.12: FactorModels `0.1.0.dev3`, FactorLasso `1.0.4.post1`, QIS `5.38.1`,
 and their recorded resolved dependencies. It excludes documentation/test tooling

@@ -37,6 +37,16 @@ and residual histories to assess its statistical adequacy.
 
 ## Inspectable fields and units
 
+The completed snapshot, rolling model and prepared diagnostic containers compare and hash
+by object identity. Compare their individual tables with `pandas.testing.assert_frame_equal`
+when checking numerical equivalence. Their representations summarize the object rather than
+printing its stored tables.
+
+`provenance['factor_observation_date']` records the last available input price row through
+the cutoff. Weekly covariance sampling may use an earlier return: for a Tuesday cutoff,
+the last Wednesday return can precede that price row. Input histories need observations at
+or before the cutoff, not an observation on the exact cutoff date.
+
 | Field | Meaning and units |
 |---|---|
 | Caller configuration and `FactorCovarEstimator` | Recipe identity, currency/hedging preparation, cadences, transformations, loss scaling and residual policy |
@@ -114,6 +124,19 @@ tables and an explicit unavailable-report reason. Those output CSVs are not a
 fitted-object reload format.
 
 ## Interpretation and limitations
+
+Validation follows the receiving operation's numerical contract. Completed-model
+matrices use symmetry tolerances `rtol=1e-10`, `atol=1e-12`; their factor-covariance
+PSD check allows a negative eigenvalue of at most `1e-10 * max(1, max(abs(C)))`.
+Prepared correlation uses an absolute eigenvalue allowance of `1e-8`. Selected
+assembled asset/residual blocks are checked for labels, finiteness and symmetry;
+the constructor does not reassemble them or assert a new PSD guarantee.
+
+Equity/FX joint moments use a scale-relative eigenvalue allowance of
+`1e-10 * max(max(abs(C)), 1e-12)` and symmetry `rtol=1e-10`, `atol=1e-14`.
+GLS residual covariance instead requires a successful Cholesky factor and symmetry
+`rtol=0`, `atol=1e-12`: its inverse geometry requires positive definiteness.
+These checks validate different objects; none silently repairs a supplied matrix.
 
 Native-point factors can represent observed levels rather than investable NAVs.
 Interpreting loadings as executable hedges also requires currency, funding and

@@ -8,6 +8,8 @@ history through each cutoff, with 36-observation EWMA spans (not fixed windows).
 Covariances are annualised asset log-return covariances, including factor risk
 and the explicitly selected orthogonal (diagonal) residual covariance.
 """
+
+from enum import IntEnum
 import numpy as np
 import pandas as pd
 import qis
@@ -26,8 +28,15 @@ class MinimalFactors(RiskFactors):
     RATES = "Rates"
 
 
-def run_local_test(case: int = 1):
+class LocalTests(IntEnum):
+    """Named offline workflows; integer values remain accepted for existing callers."""
+
+    SYNTHETIC = 1
+
+
+def run_local_test(case: LocalTests | int = LocalTests.SYNTHETIC):
     """Return the definition, rolling fit and selected-date asset covariance."""
+    case = LocalTests(case)
     if case != 1:
         raise ValueError("The minimal model example supports only case 1.")
 
@@ -93,4 +102,4 @@ def run_local_test(case: int = 1):
 
 
 if __name__ == "__main__":
-    run_local_test(case=1)
+    run_local_test(case=LocalTests.SYNTHETIC)

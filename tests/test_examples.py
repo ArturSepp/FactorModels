@@ -31,7 +31,7 @@ def no_network(monkeypatch):
 def test_offline_reference(relative, case):
     """Every canonical offline example has an actual completion assertion."""
     namespace = runpy.run_path(str(ROOT / "examples" / relative))
-    namespace["run_local_test"](case)
+    namespace["run_local_test"](namespace["LocalTests"](case))
 
 
 def test_direct_fit_preserves_log_risk_and_arithmetic_report(tmp_path, monkeypatch):
@@ -215,3 +215,12 @@ def test_reference_cli_rejects_incomplete_or_conflicting_inputs(arguments, monke
     with pytest.raises(SystemExit) as error:
         main()
     assert error.value.code == 2
+
+
+@pytest.mark.parametrize("relative,case", EXAMPLES)
+def test_example_case_rejects_unknown_selection(relative, case):
+    """Unknown workflows fail before fitting or provider access; integer selection remains defined."""
+    namespace = runpy.run_path(str(ROOT / "examples" / relative))
+    assert namespace["LocalTests"](case).value == case
+    with pytest.raises(ValueError):
+        namespace["run_local_test"](999)

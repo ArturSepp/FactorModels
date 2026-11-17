@@ -9,9 +9,12 @@ Purpose: Measure concentration, removal effects and sampled-universe alpha dispe
 Inputs: A frozen FactorOpportunityModel, exact asset subsets and optional aligned alpha-estimation covariance.
 Outputs: Subset and removal functions return levels, signed changes, memberships and conditional noise adjustments.
 Units: Capacities are squared alpha-to-residual-risk ratios; contributor counts are dimensionless.
-Conditioning: Recompute the funding-plus-B projection for each subset while holding fitted moments fixed; sampling bands describe composition.
-Ownership: FM owns subset geometry; FL validates/calibrates supplied covariance and no long-only frontier is solved here.
+Conditioning: Recompute the funding-plus-B projection for each subset while holding fitted moments fixed; sampling
+    bands describe composition.
+Ownership: FM owns subset geometry; FL validates/calibrates supplied covariance and no long-only frontier is solved
+    here.
 """
+
 from __future__ import annotations
 from collections.abc import Hashable, Iterable, Mapping, Sequence
 
@@ -22,16 +25,30 @@ import pandas as pd
 from factormodels.gls_diagnostic.opportunity import FactorOpportunityModel, _alpha_dispersion_inputs, alpha_dispersion
 
 
-__all__ = ['subset_dispersion', 'dispersion_concentration', 'removal_diagnostics', 'bundle_removal_diagnostics', 'compare_universe_dispersion', 'sample_universe_dispersion']
+__all__ = [
+    "subset_dispersion",
+    "dispersion_concentration",
+    "removal_diagnostics",
+    "bundle_removal_diagnostics",
+    "compare_universe_dispersion",
+    "sample_universe_dispersion",
+]
 
 
-def subset_dispersion(model: FactorOpportunityModel, members: Iterable[Hashable]) -> tuple[dict[str, float], pd.DataFrame]:
-    """Return canonical dispersion for an exact nonempty subset of model identities."""
+def subset_dispersion(
+    model: FactorOpportunityModel, members: Iterable[Hashable]
+) -> tuple[dict[str, float], pd.DataFrame]:
+    """Return canonical dispersion for an exact nonempty subset of model identities.
+
+    Args:
+        model: Completed opportunity model with fixed loadings, residual risk, annual alpha and ordered
+            asset identities.
+        members: Exact nonempty subset of model asset identities, with no unknown or duplicate members.
+    """
     ids = pd.Index(members)
     if ids.empty or ids.has_duplicates or not ids.isin(model.betas.index).all():
-        raise ValueError('members must be unique known asset identities in a nonempty subset')
-    return _alpha_dispersion_inputs(model.betas.loc[ids], model.residual_variances.loc[ids],
-                                    model.alpha.loc[ids])
+        raise ValueError("members must be unique known asset identities in a nonempty subset")
+    return _alpha_dispersion_inputs(model.betas.loc[ids], model.residual_variances.loc[ids], model.alpha.loc[ids])
 
 
 def dispersion_concentration(model: FactorOpportunityModel) -> tuple[pd.DataFrame, pd.DataFrame]:
@@ -42,32 +59,46 @@ def dispersion_concentration(model: FactorOpportunityModel) -> tuple[pd.DataFram
     residual norm is at most 1e-12 of the alpha norm: shares are marked unavailable
     rather than interpreting floating-point projection error as opportunity.
     The underlying reported capacities are never floored or altered.
+
+    Args:
+        model: Completed opportunity model with fixed loadings, residual risk, annual alpha and ordered
+            asset identities.
     """
     metrics, detail = alpha_dispersion(model)
     rows, instruments = [], []
-    threshold = metrics['A'] * 1e-24
-    for name in ('A', 'J', 'K'):
-        contributions = detail[name + '_contribution'].sort_values(ascending=False, kind='stable')
+    threshold = metrics["A"] * 1e-24
+    for name in ("A", "J", "K"):
+        contributions = detail[name + "_contribution"].sort_values(ascending=False, kind="stable")
         defined = metrics[name] > threshold
         shares = contributions / metrics[name] if defined else contributions * np.nan
         cumulative = shares.cumsum()
-        rows.append(dict(metric=name, capacity=metrics[name], N=len(contributions),
-                         status='defined' if defined else 'numerically_zero',
-                         effective_contributors=float(1. / (shares @ shares))
-                         if defined else np.nan,
-                         top1_share=float(shares.iloc[0]) if defined else np.nan,
-                         top5_share=float(shares.iloc[:5].sum()) if defined else np.nan,
-                         top10_share=float(shares.iloc[:10].sum()) if defined else np.nan,
-                         instruments_for_50pct=int(np.searchsorted(cumulative, .5) + 1)
-                         if defined else np.nan,
-                         instruments_for_80pct=int(np.searchsorted(cumulative, .8) + 1)
-                         if defined else np.nan))
-        instruments.append(pd.DataFrame(dict(asset=contributions.index, metric=name,
-                                              contribution=contributions.to_numpy(),
-                                              share=shares.to_numpy(),
-                                              cumulative_share=cumulative.to_numpy(),
-                                              rank=np.arange(1, len(contributions) + 1))))
-    return pd.DataFrame(rows).set_index('metric'), pd.concat(instruments, ignore_index=True)
+        rows.append(
+            dict(
+                metric=name,
+                capacity=metrics[name],
+                N=len(contributions),
+                status="defined" if defined else "numerically_zero",
+                effective_contributors=float(1.0 / (shares @ shares)) if defined else np.nan,
+                top1_share=float(shares.iloc[0]) if defined else np.nan,
+                top5_share=float(shares.iloc[:5].sum()) if defined else np.nan,
+                top10_share=float(shares.iloc[:10].sum()) if defined else np.nan,
+                instruments_for_50pct=int(np.searchsorted(cumulative, 0.5) + 1) if defined else np.nan,
+                instruments_for_80pct=int(np.searchsorted(cumulative, 0.8) + 1) if defined else np.nan,
+            )
+        )
+        instruments.append(
+            pd.DataFrame(
+                dict(
+                    asset=contributions.index,
+                    metric=name,
+                    contribution=contributions.to_numpy(),
+                    share=shares.to_numpy(),
+                    cumulative_share=cumulative.to_numpy(),
+                    rank=np.arange(1, len(contributions) + 1),
+                )
+            )
+        )
+    return pd.DataFrame(rows).set_index("metric"), pd.concat(instruments, ignore_index=True)
 
 
 def removal_diagnostics(model: FactorOpportunityModel) -> pd.DataFrame:
@@ -77,44 +108,66 @@ def removal_diagnostics(model: FactorOpportunityModel) -> pd.DataFrame:
     GLS projection changes. It also equals the gain from adding that asset back
     to the remaining universe; it is not a unique additive attribution. Direct
     recomputation remains valid when removal lowers factor/funding rank.
+
+    Args:
+        model: Completed opportunity model with fixed loadings, residual risk, annual alpha and ordered
+            asset identities.
     """
     if len(model.betas) < 2:
-        raise ValueError('removal diagnostics require at least two assets')
+        raise ValueError("removal diagnostics require at least two assets")
     full, detail = alpha_dispersion(model)
     rows = []
     for asset in model.betas.index:
         remaining = model.betas.index[model.betas.index != asset]
         reduced, _ = subset_dispersion(model, remaining)
-        row = dict(asset=asset, rank_before=full['rank_funding_B'],
-                   rank_after=reduced['rank_funding_B'], alpha=float(model.alpha[asset]),
-                   K_direct_contribution=float(detail.loc[asset, 'K_contribution']))
-        for name in ('A', 'J', 'K'):
-            row[name + '_after'] = reduced[name]
-            row[name + '_loss'] = full[name] - reduced[name]
-            row[name + '_loss_fraction'] = row[name + '_loss'] / full[name] \
-                if full[name] > full['A'] * 1e-24 else np.nan
+        row = dict(
+            asset=asset,
+            rank_before=full["rank_funding_B"],
+            rank_after=reduced["rank_funding_B"],
+            alpha=float(model.alpha[asset]),
+            K_direct_contribution=float(detail.loc[asset, "K_contribution"]),
+        )
+        for name in ("A", "J", "K"):
+            row[name + "_after"] = reduced[name]
+            row[name + "_loss"] = full[name] - reduced[name]
+            row[name + "_loss_fraction"] = (
+                row[name + "_loss"] / full[name] if full[name] > full["A"] * 1e-24 else np.nan
+            )
         rows.append(row)
-    return pd.DataFrame(rows).set_index('asset')
+    return pd.DataFrame(rows).set_index("asset")
 
 
-def bundle_removal_diagnostics(model: FactorOpportunityModel, bundles: Mapping[Hashable, Iterable[Hashable]]) -> pd.DataFrame:
-    """Measure named joint removals, including departure from summed single losses."""
+def bundle_removal_diagnostics(
+    model: FactorOpportunityModel, bundles: Mapping[Hashable, Iterable[Hashable]]
+) -> pd.DataFrame:
+    """Measure named joint removals, including departure from summed single losses.
+
+    Args:
+        model: Completed opportunity model with fixed loadings, residual risk, annual alpha and ordered
+            asset identities.
+        bundles: Named groups of existing asset identities to remove jointly; each leaves a nonempty
+            universe.
+    """
     full, _ = alpha_dispersion(model)
     singles = removal_diagnostics(model)
     rows = []
     for name, members in bundles.items():
         ids = pd.Index(members)
         if ids.empty or ids.has_duplicates or not ids.isin(model.betas.index).all():
-            raise ValueError('bundle members must be unique known asset identities')
+            raise ValueError("bundle members must be unique known asset identities")
         remaining = model.betas.index[~model.betas.index.isin(ids)]
         reduced, _ = subset_dispersion(model, remaining)
-        row = dict(bundle=name, removed_N=len(ids), remaining_N=len(remaining),
-                   rank_after=reduced['rank_funding_B'])
-        for metric in ('A', 'J', 'K'):
+        row = dict(bundle=name, removed_N=len(ids), remaining_N=len(remaining), rank_after=reduced["rank_funding_B"])
+        for metric in ("A", "J", "K"):
             loss = full[metric] - reduced[metric]
-            single_sum = float(singles.loc[ids, metric + '_loss'].sum())
-            row.update({metric + '_loss': loss, metric + '_sum_single_losses': single_sum,
-                        metric + '_nonadditivity': loss - single_sum})
+            single_sum = float(singles.loc[ids, metric + "_loss"].sum())
+            row.update(
+                {
+                    metric + "_loss": loss,
+                    metric + "_sum_single_losses": single_sum,
+                    metric + "_nonadditivity": loss - single_sum,
+                }
+            )
         rows.append(row)
     return pd.DataFrame(rows)
 
@@ -122,37 +175,49 @@ def bundle_removal_diagnostics(model: FactorOpportunityModel, bundles: Mapping[H
 def _validate_alpha_covariance(model: FactorOpportunityModel, covariance: pd.DataFrame | None) -> None:
     """Delegate PSD validation to FactorLasso once for a batch of subsets."""
     from factorlasso import gaussian_quadratic_summary
+
     if covariance is not None:
-        if (not isinstance(covariance, pd.DataFrame)
-                or not covariance.index.equals(model.betas.index)
-                or not covariance.columns.equals(model.betas.index)):
-            raise ValueError('alpha covariance must match the exact asset order')
+        if (
+            not isinstance(covariance, pd.DataFrame)
+            or not covariance.index.equals(model.betas.index)
+            or not covariance.columns.equals(model.betas.index)
+        ):
+            raise ValueError("alpha covariance must match the exact asset order")
         gaussian_quadratic_summary(model.alpha, covariance, np.eye(len(model.betas)))
 
 
 def _subset_summary(model: FactorOpportunityModel, ids: pd.Index, covariance: pd.DataFrame | None) -> dict[str, float]:
     """Recompute subset geometry, concentration and optional conditional noise."""
     from factormodels.gls_diagnostic.geometry import gls_projector
+
     metrics, detail = subset_dispersion(model, ids)
     contributions = detail.K_contribution.to_numpy()
-    metrics['K_effective_contributors'] = (metrics['K']**2/(contributions @ contributions)
-        if metrics['K'] > metrics['A']*1e-24 else np.nan)
-    metrics['neutral_dimension'] = len(ids)-metrics['rank_funding_B']
+    metrics["K_effective_contributors"] = (
+        metrics["K"] ** 2 / (contributions @ contributions) if metrics["K"] > metrics["A"] * 1e-24 else np.nan
+    )
+    metrics["neutral_dimension"] = len(ids) - metrics["rank_funding_B"]
     if covariance is not None:
-        joint = pd.concat([pd.Series(1., index=ids, name='funding'),
-                           model.betas.loc[ids]], axis=1, sort=False)
+        joint = pd.concat([pd.Series(1.0, index=ids, name="funding"), model.betas.loc[ids]], axis=1, sort=False)
         p = gls_projector(joint, model.residual_variances.loc[ids])
-        metric = p.T @ (p/model.residual_variances.loc[ids].to_numpy()[:, None])
-        noise = float(np.sum(metric*covariance.loc[ids, ids].to_numpy().T))
-        adjusted = metrics['K']-noise
-        metrics.update(K_noise=noise, K_noise_adjusted=adjusted,
-                       K_adjusted_per_asset=adjusted/len(ids),
-                       K_adjusted_rms=np.sqrt(adjusted/len(ids)) if adjusted >= 0 else np.nan)
+        metric = p.T @ (p / model.residual_variances.loc[ids].to_numpy()[:, None])
+        noise = float(np.sum(metric * covariance.loc[ids, ids].to_numpy().T))
+        adjusted = metrics["K"] - noise
+        metrics.update(
+            K_noise=noise,
+            K_noise_adjusted=adjusted,
+            K_adjusted_per_asset=adjusted / len(ids),
+            K_adjusted_rms=np.sqrt(adjusted / len(ids)) if adjusted >= 0 else np.nan,
+        )
     return metrics
 
 
-def compare_universe_dispersion(model: FactorOpportunityModel, baseline: Iterable[Hashable], scenarios: Mapping[str, Iterable[Hashable]], *,
-                                 alpha_covariance: pd.DataFrame | None=None) -> tuple[pd.DataFrame, pd.DataFrame]:
+def compare_universe_dispersion(
+    model: FactorOpportunityModel,
+    baseline: Iterable[Hashable],
+    scenarios: Mapping[str, Iterable[Hashable]],
+    *,
+    alpha_covariance: pd.DataFrame | None = None,
+) -> tuple[pd.DataFrame, pd.DataFrame]:
     """Compare exact named asset sets on one unchanged fitted model and covariance.
 
     ``scenarios`` maps unique names to nonempty sets of model identities; baseline
@@ -161,25 +226,46 @@ def compare_universe_dispersion(model: FactorOpportunityModel, baseline: Iterabl
     set, including rank changes. Negative noise-adjusted dispersion is retained.
     These are conditional descriptive changes, not independent contributions,
     calibrated confidence intervals, or portfolio opportunity gains.
+
+    Args:
+        model: Completed opportunity model with fixed loadings, residual risk, annual alpha and ordered
+            asset identities.
+        baseline: Exact nonempty baseline set of model asset identities.
+        scenarios: Mapping from distinct scenario names to exact nonempty asset subsets; baseline is
+            reserved.
+        alpha_covariance: Optional aligned alpha-estimation covariance for conditional plug-in noise
+            adjustments.
     """
-    if not scenarios or 'baseline' in scenarios:
-        raise ValueError('provide named scenarios; baseline is reserved')
+    if not scenarios or "baseline" in scenarios:
+        raise ValueError("provide named scenarios; baseline is reserved")
     _validate_alpha_covariance(model, alpha_covariance)
     rows, members = [], []
-    for name, selection in [('baseline', baseline), *scenarios.items()]:
+    for name, selection in [("baseline", baseline), *scenarios.items()]:
         if not isinstance(name, str) or not name:
-            raise ValueError('scenario names must be nonempty strings')
+            raise ValueError("scenario names must be nonempty strings")
         ids = pd.Index(selection)
         metrics = _subset_summary(model, ids, alpha_covariance)
         rows.append(dict(scenario=name, **metrics))
         members.append(pd.DataFrame(dict(scenario=name, asset=ids)))
-    table = pd.DataFrame(rows).set_index('scenario')
-    deltas = table.subtract(table.loc['baseline'], axis=1).add_prefix('delta_')
+    table = pd.DataFrame(rows).set_index("scenario")
+    deltas = table.subtract(table.loc["baseline"], axis=1).add_prefix("delta_")
     return pd.concat([table, deltas], axis=1, sort=False), pd.concat(members, ignore_index=True)
 
 
-def sample_universe_dispersion(model: FactorOpportunityModel, sizes: Iterable[int | np.integer], *, repetitions: int | np.integer=1000, seed: int | np.integer | Sequence[int] | np.random.SeedSequence | np.random.BitGenerator | np.random.Generator | None=20261004,
-                                alpha_covariance: pd.DataFrame | None=None) -> tuple[pd.DataFrame, pd.DataFrame]:
+def sample_universe_dispersion(
+    model: FactorOpportunityModel,
+    sizes: Iterable[int | np.integer],
+    *,
+    repetitions: int | np.integer = 1000,
+    seed: int
+    | np.integer
+    | Sequence[int]
+    | np.random.SeedSequence
+    | np.random.BitGenerator
+    | np.random.Generator
+    | None = 20261004,
+    alpha_covariance: pd.DataFrame | None = None,
+) -> tuple[pd.DataFrame, pd.DataFrame]:
     """Sample exact-size subsets without replacement using a local NumPy generator.
 
     Return one row per draw plus its exact membership. Full-universe size is
@@ -189,27 +275,43 @@ def sample_universe_dispersion(model: FactorOpportunityModel, sizes: Iterable[in
     Optional aligned alpha-estimation covariance adds conditional plug-in noise
     adjustments for K using a new projection on each subset. Negative adjusted
     values are retained; their RMS is undefined, not floored to zero.
+
+    Args:
+        model: Completed opportunity model with fixed loadings, residual risk, annual alpha and ordered
+            asset identities.
+        sizes: Requested positive subset sizes, bounded by the fitted asset universe.
+        repetitions: Positive number of draws per subset size; the full universe is evaluated once.
+        seed: Seed or NumPy generator for local repeatable sampling; no global RNG state is used.
+        alpha_covariance: Optional aligned alpha-estimation covariance for conditional plug-in noise
+            adjustments.
     """
     n = len(model.betas)
     _validate_alpha_covariance(model, alpha_covariance)
     sizes = list(sizes)
-    if not sizes or any(isinstance(s, bool) or not isinstance(s, (int, np.integer))
-                        or s < 1 or s > n for s in sizes) or len(set(sizes)) != len(sizes):
-        raise ValueError('sizes must be distinct integers between one and universe size')
-    if isinstance(repetitions, bool) or not isinstance(repetitions, (int, np.integer)) \
-            or repetitions < 1:
-        raise ValueError('repetitions must be a positive integer')
+    if (
+        not sizes
+        or any(isinstance(s, bool) or not isinstance(s, (int, np.integer)) or s < 1 or s > n for s in sizes)
+        or len(set(sizes)) != len(sizes)
+    ):
+        raise ValueError("sizes must be distinct integers between one and universe size")
+    if isinstance(repetitions, bool) or not isinstance(repetitions, (int, np.integer)) or repetitions < 1:
+        raise ValueError("repetitions must be a positive integer")
     rng = np.random.default_rng(seed)
     rows, memberships = [], []
     for size in sizes:
         for draw in range(1 if size == n else repetitions):
-            positions = np.arange(n) if size == n else np.sort(
-                rng.choice(n, size=size, replace=False))
+            positions = np.arange(n) if size == n else np.sort(rng.choice(n, size=size, replace=False))
             ids = model.betas.index[positions]
             metrics = _subset_summary(model, ids, alpha_covariance)
-            sample_id = f'n{size}_draw{draw}'
-            rows.append(dict(sample_id=sample_id, sample_size=size, draw=draw,
-                             neutral_dimension=metrics.pop('neutral_dimension'), **metrics))
-            memberships.append(pd.DataFrame(dict(sample_id=sample_id, asset=ids,
-                                                  asset_position=positions)))
+            sample_id = f"n{size}_draw{draw}"
+            rows.append(
+                dict(
+                    sample_id=sample_id,
+                    sample_size=size,
+                    draw=draw,
+                    neutral_dimension=metrics.pop("neutral_dimension"),
+                    **metrics,
+                )
+            )
+            memberships.append(pd.DataFrame(dict(sample_id=sample_id, asset=ids, asset_position=positions)))
     return pd.DataFrame(rows), pd.concat(memberships, ignore_index=True)

@@ -7,7 +7,7 @@ import socket
 
 import numpy as np
 import pandas as pd
-import factormodels as tf
+import factormodels as fm
 import pytest
 
 synthetic_prices = runpy.run_path(str(
@@ -48,8 +48,8 @@ def test_synthetic_factory_needs_no_fit_network_or_files_and_preserves_global_rn
         raise AssertionError("synthetic inputs must be produced only in memory")
 
     with monkeypatch.context() as patches:
-        patches.setattr(tf.FactorCovarEstimator, "fit_current", forbidden)
-        patches.setattr(tf.FactorCovarEstimator, "fit_rolling", forbidden)
+        patches.setattr(fm.FactorCovarEstimator, "fit_current", forbidden)
+        patches.setattr(fm.FactorCovarEstimator, "fit_rolling", forbidden)
         patches.setattr(socket.socket, "connect", forbidden)
         patches.setattr(socket, "create_connection", forbidden)
         patches.setattr(builtins, "open", forbidden)

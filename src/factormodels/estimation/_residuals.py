@@ -15,13 +15,14 @@ import pandas as pd
 import qis
 from factorlasso import CurrentFactorCovarData, ResidualCorrelationData
 
+from factormodels.analytics.models import _RESIDUAL_TYPES
+
 __all__: list[str] = []
 
 def _validate_residual_type(residual_type: str) -> None:
     """Validate the four supported residual covariance policies."""
-    choices = ('orthogonal', 'empirical', 'exposure_cluster', 'residual_cluster')
-    if residual_type not in choices:
-        raise ValueError(f"residual_type must be one of {choices}")
+    if residual_type not in _RESIDUAL_TYPES:
+        raise ValueError(f"residual_type must be one of {_RESIDUAL_TYPES}, got {residual_type!r}")
 
 
 def _reuse_residual_correlation(

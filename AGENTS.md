@@ -39,7 +39,8 @@ public export list is the canonical package application programming interface
 (API). Test canonical objects and their contracts. Keep deterministic synthetic
 fixtures free of private data and provider dependencies. Source-adjacent tests
 are shipped for installed-wheel checks; top-level tests hold package acceptance
-contracts. Examples use an explicit `run_local_test(case)` entry point and run
+contracts. Examples define a `LocalTests` enum and an explicit `run_local_test(case)` entry point;
+existing integer case values remain accepted. They run
 offline unless they explicitly describe an optional acquisition action.
 
 Every fitted result states cutoff, ordering, return transformations, annualisation,

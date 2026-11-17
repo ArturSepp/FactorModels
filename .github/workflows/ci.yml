@@ -133,10 +133,12 @@ jobs:
         assert any(name.endswith("/tools/architecture_debt.json") for name in sdist_names)
         # Examples and private working records stay outside the installed library.
         assert not any(name.startswith(("examples/", "docs/", "agents/")) for name in wheel_names), wheel_names
-        forbidden = {"run_local", "agents", "__pycache__", "examples"}
+        forbidden = {"run_local", "agents", "papers", "__pycache__", "examples"}
         assert not any(forbidden.intersection(name.split("/")) for name in wheel_names), wheel_names
         assert not any(name.endswith((".pyc", ".pyo")) for name in wheel_names)
-        assert not any("agents" in name.split("/") for name in sdist_names)
+        assert not any({"agents", "papers", "parity"}.intersection(name.split("/")) for name in sdist_names)
+        assert not any(name.endswith(("replay_reference.py", "replay_refactor.py", "refactor_cases.py"))
+                       for name in sdist_names)
         PY
 
     - name: Install the wheel into a clean environment

@@ -5,6 +5,7 @@ Units: Loadings and covariance retain caller-supplied compatible return coordina
 Conditioning: B and Omega are fixed; one eps-times-dimension SVD cutoff applies.
 Ownership: FM owns geometry; shared validation performs Cholesky whitening below it.
 """
+
 from __future__ import annotations
 from numpy.typing import ArrayLike
 
@@ -14,28 +15,29 @@ import numpy as np
 from factormodels.gls_diagnostic._validation import _scalar, _vector, _whiten_loadings
 
 __all__ = [
-    'GlsGeometry',
-    'compute_gls_geometry',
-    'factor_mimicking_portfolios',
-    'gls_projector',
-    'gls_split',
+    "GlsGeometry",
+    "compute_gls_geometry",
+    "factor_mimicking_portfolios",
+    "gls_projector",
+    "gls_split",
 ]
+
 
 @dataclass(frozen=True)
 class GlsGeometry:
     """Validated GLS geometry with one numerical rank convention.
 
-    Attributes:
-        beta, residual, chol, white (ndarray):
-            Loadings, residual covariance, its lower Cholesky factor and whitened loadings.
-        singular_values (ndarray):
-            Singular values of the whitened loadings (not of their Gram matrix).
-        rank (int):
-            Number of singular values strictly above ``cutoff``.
-        relative_cutoff, cutoff (float):
-            Relative and absolute singular-value cutoffs.
-        white_pinv, residual_projector (ndarray):
-            Whitened pseudoinverse and asset-space residual operator, respectively.
+    Args:
+        beta: Asset-by-factor loading matrix.
+        residual: Full SPD residual covariance in the same asset order.
+        chol: Lower Cholesky factor of residual covariance.
+        white: Loadings whitened by solving against chol.
+        singular_values: Singular values of white, in descending order.
+        rank: Number of singular values strictly above cutoff.
+        relative_cutoff: Relative singular-value threshold.
+        cutoff: Absolute singular-value threshold, relative_cutoff times the largest singular value.
+        white_pinv: Pseudoinverse of white using the retained singular directions.
+        residual_projector: Residual operator acting on original asset-coordinate means.
     """
 
     beta: np.ndarray
@@ -50,7 +52,9 @@ class GlsGeometry:
     residual_projector: np.ndarray
 
 
-def compute_gls_geometry(B: ArrayLike, Omega: ArrayLike, *, rcond: float | np.integer | np.floating | None=None) -> GlsGeometry:
+def compute_gls_geometry(
+    B: ArrayLike, Omega: ArrayLike, *, rcond: float | np.integer | np.floating | None = None
+) -> GlsGeometry:
     """Build whitened GLS geometry without squaring the condition number.
 
     Args:
@@ -68,8 +72,7 @@ def compute_gls_geometry(B: ArrayLike, Omega: ArrayLike, *, rcond: float | np.in
     """
     beta, residual, chol, white = _whiten_loadings(B, Omega)
     n = len(beta)
-    relative = np.finfo(float).eps * max(white.shape) if rcond is None else _scalar(
-        rcond, "rcond")
+    relative = np.finfo(float).eps * max(white.shape) if rcond is None else _scalar(rcond, "rcond")
     if not 0 <= relative < 1:
         raise ValueError("rcond must be a finite scalar in [0, 1)")
     u, singular, vt = np.linalg.svd(white, full_matrices=False)
@@ -78,16 +81,19 @@ def compute_gls_geometry(B: ArrayLike, Omega: ArrayLike, *, rcond: float | np.in
     basis = u[:, keep]
     inverse = (vt[keep].T / singular[keep]) @ basis.T
     projector = chol @ (np.eye(n) - basis @ basis.T) @ np.linalg.solve(chol, np.eye(n))
-    return GlsGeometry(beta, residual, chol, white, singular, int(keep.sum()),
-                       float(relative), cutoff, inverse, projector)
+    return GlsGeometry(
+        beta, residual, chol, white, singular, int(keep.sum()), float(relative), cutoff, inverse, projector
+    )
 
 
 def gls_projector(B: ArrayLike, Omega: ArrayLike) -> np.ndarray:
     """Return the asset-space residual operator using the default SVD rank policy.
 
     Args:
-        B, Omega (array-like):
-            Loadings and residual covariance as in :func:`compute_gls_geometry`.
+        B (array-like):
+            Asset-by-factor loadings as in :func:`compute_gls_geometry`.
+        Omega (array-like):
+            Positive residual variances or SPD residual covariance in the same asset order.
 
     Returns:
         ndarray:
@@ -102,8 +108,10 @@ def gls_split(m: ArrayLike, B: ArrayLike, Omega: ArrayLike) -> tuple[np.ndarray,
     Args:
         m (array-like of shape (n_assets,)):
             Excess forecasts, with any admitted alpha already subtracted.
-        B, Omega (array-like):
-            Loadings and residual covariance as in :func:`compute_gls_geometry`.
+        B (array-like):
+            Asset-by-factor loadings as in :func:`compute_gls_geometry`.
+        Omega (array-like):
+            Positive residual variances or SPD residual covariance in the same asset order.
 
     Returns:
         premia, residual : ndarray:
@@ -120,8 +128,10 @@ def factor_mimicking_portfolios(B: ArrayLike, Omega: ArrayLike) -> np.ndarray:
     """Return minimum-residual-variance portfolios with unit factor exposures.
 
     Args:
-        B, Omega (array-like):
-            Loadings and residual covariance as in :func:`compute_gls_geometry`.
+        B (array-like):
+            Asset-by-factor loadings as in :func:`compute_gls_geometry`.
+        Omega (array-like):
+            Positive residual variances or SPD residual covariance in the same asset order.
 
     Returns:
         ndarray:

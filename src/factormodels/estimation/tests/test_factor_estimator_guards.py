@@ -20,7 +20,8 @@ import qis
 
 from factorlasso import ClusterSmootherType, LassoModel, LassoModelType
 
-from factormodels.estimation._pipeline import _FactorCovarPipeline as FactorCovarEstimator, _estimate_factor_covar_data
+from factormodels import FactorCovarEstimator
+from factormodels.estimation._pipeline import _estimate_factor_covar_data
 from factormodels.estimation._frequency import _fit_lasso_frequency, _model_for_frequency
 
 
@@ -45,6 +46,8 @@ def _span_model(**overrides) -> _CopyableSpanModel:
         span_freq_dict=None,
         cluster_correlation_span=None,
         cluster_correlation_span_freq_dict=None,
+        expert_prior_hac_lags_freq_dict=None,
+        expert_prior_bound_n_std=None,
     )
     values.update(overrides)
     return _CopyableSpanModel(**values)
@@ -333,12 +336,12 @@ def test_estimation_date_off_the_rebalancing_grid_is_added_to_the_smoothing_sche
                            smoother_delta=0.05),
     )
 
-    covar_data = estimator.fit_current_factor_covars(
-        factors.loc[:mid_month], truncated, assets=ASSETS, estimation_date=mid_month,
+    covar_data = estimator.fit_current(
+        factors.loc[:mid_month], truncated, assets=ASSETS, cutoff=mid_month,
     )
 
-    assert covar_data.estimation_date == mid_month
-    assert list(covar_data.y_betas.index) == ASSETS
+    assert covar_data.cutoff == mid_month
+    assert list(covar_data.loadings.index) == ASSETS
 
 
 def test_time_period_starting_before_the_warmup_is_refused() -> None:
@@ -352,7 +355,7 @@ def test_time_period_starting_before_the_warmup_is_refused() -> None:
     too_early = qis.TimePeriod(factors.index[2], factors.index[10])
 
     with pytest.raises(ValueError, match="increase start"):
-        _estimator().fit_rolling_factor_covars(factors, returns, too_early, assets=ASSETS)
+        _estimator().fit_rolling(factors, returns, time_period=too_early, assets=ASSETS)
 
 
 def test_invalid_recluster_frequency_is_refused() -> None:
@@ -369,7 +372,7 @@ def test_invalid_recluster_frequency_is_refused() -> None:
     )
 
     with pytest.raises(ValueError, match="invalid recluster_freq"):
-        estimator.fit_rolling_factor_covars(factors, returns, period, assets=ASSETS)
+        estimator.fit_rolling(factors, returns, time_period=period, assets=ASSETS)
 
 
 def test_optional_expert_hac_map_requires_complete_cadence_coverage():

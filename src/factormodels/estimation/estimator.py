@@ -2,10 +2,13 @@
 Purpose: Fit complete current and rolling factor models from supplied historical data.
 Inputs: FL configuration, factor prices, per-cadence asset returns, cutoff and residual policy.
 Outputs: FactorCovarEstimator.fit_current and fit_rolling return completed FM contracts.
-Units: Asset observations are declared log returns or single-cadence SIMPLE payoffs; moments are annualised by native cadence.
-Conditioning: Truncate all histories at each cutoff, isolate fitting state and preserve the selected residual covariance.
+Units: Asset observations are declared log returns or single-cadence SIMPLE payoffs; moments are annualised by
+    native cadence.
+Conditioning: Truncate all histories at each cutoff, isolate fitting state and preserve the selected residual
+    covariance.
 Ownership: FM orchestrates and owns completed results; FL fits loadings/residuals and QIS estimates factor covariance.
 """
+
 from __future__ import annotations
 from typing import Any, Literal
 from collections.abc import Mapping
@@ -23,19 +26,26 @@ from factorlasso import LassoModel
 from factormodels.estimation._pipeline import _FactorCovarPipeline
 from factormodels.estimation._results import _materialize
 from factormodels.analytics.models import (
-    DatedFactorCovariance, FactorModelSnapshot, RollingFactorModel, _return_types,
+    DatedFactorCovariance,
+    FactorModelSnapshot,
+    RollingFactorModel,
+    _return_types,
 )
 
 
-__all__ = ['FactorCovarEstimator']
+__all__ = ["FactorCovarEstimator"]
 
 
 def _historical_panel(panel: pd.DataFrame, cutoff: pd.Timestamp, name: str) -> pd.DataFrame:
     """Validate labels and return an owned history ending at the requested cutoff."""
     if not isinstance(panel, pd.DataFrame) or panel.empty:
         raise ValueError(f"{name} must be a nonempty DataFrame")
-    if (not isinstance(panel.index, pd.DatetimeIndex) or panel.index.hasnans
-            or not panel.index.is_unique or not panel.index.is_monotonic_increasing):
+    if (
+        not isinstance(panel.index, pd.DatetimeIndex)
+        or panel.index.hasnans
+        or not panel.index.is_unique
+        or not panel.index.is_monotonic_increasing
+    ):
         raise ValueError(f"{name} requires an ordered unique DatetimeIndex")
     if not panel.columns.is_unique:
         raise ValueError(f"{name} columns must be unique")
@@ -90,8 +100,8 @@ class FactorCovarEstimator:
     residual_type: str = "orthogonal"
     residual_covar_freq: str | None = None
     residual_covar_span: float | None = None
-    residual_corr_weight: float = 1.
-    residual_var_weight: float = 1.
+    residual_corr_weight: float = 1.0
+    residual_var_weight: float = 1.0
     reg_lambda_freq_dict: dict[str, float] | None = None
     factor_return_types: dict | None = None
     factor_groups: dict | None = None
@@ -105,8 +115,10 @@ class FactorCovarEstimator:
             raise ValueError("residual_var_weight must be finite and nonnegative")
         if self.asset_return_type not in ("log", "simple_payoff"):
             raise ValueError("asset_return_type must be log or simple_payoff")
-        if (self.asset_return_type == "simple_payoff"
-                and self.residual_covar_freq not in (None, self.factor_returns_freq)):
+        if self.asset_return_type == "simple_payoff" and self.residual_covar_freq not in (
+            None,
+            self.factor_returns_freq,
+        ):
             raise ValueError("SIMPLE payoff residuals must use the factor cadence")
         self._pipeline()
 
@@ -128,7 +140,12 @@ class FactorCovarEstimator:
             factor_return_types=deepcopy(self.factor_return_types),
         )
 
-    def _inputs(self, risk_factor_prices: pd.DataFrame, asset_returns_dict: Mapping[str, pd.DataFrame], cutoff: str | date | datetime | np.datetime64 | pd.Timestamp) -> tuple[pd.Timestamp, pd.DataFrame, dict[str, pd.DataFrame]]:
+    def _inputs(
+        self,
+        risk_factor_prices: pd.DataFrame,
+        asset_returns_dict: Mapping[str, pd.DataFrame],
+        cutoff: str | date | datetime | np.datetime64 | pd.Timestamp,
+    ) -> tuple[pd.Timestamp, pd.DataFrame, dict[str, pd.DataFrame]]:
         """Truncate every historical panel and validate the asset partition."""
         cutoff = pd.Timestamp(cutoff)
         if pd.isna(cutoff):
@@ -136,8 +153,9 @@ class FactorCovarEstimator:
         factors = _historical_panel(risk_factor_prices, cutoff, "risk_factor_prices")
         if not asset_returns_dict:
             raise ValueError("asset_returns_dict must contain at least one cadence")
-        returns = {freq: _historical_panel(panel, cutoff, f"returns[{freq}]")
-                   for freq, panel in asset_returns_dict.items()}
+        returns = {
+            freq: _historical_panel(panel, cutoff, f"returns[{freq}]") for freq, panel in asset_returns_dict.items()
+        }
         if self.asset_return_type == "simple_payoff" and set(returns) != {self.factor_returns_freq}:
             raise ValueError("SIMPLE payoffs require one common factor/response cadence")
         labels = [asset for panel in returns.values() for asset in panel.columns]
@@ -145,7 +163,9 @@ class FactorCovarEstimator:
             raise ValueError("assets must belong to exactly one return cadence")
         return cutoff, factors, returns
 
-    def _snapshot(self, data: CurrentFactorCovarData, cutoff: pd.Timestamp, provenance: Mapping[str, Any]) -> FactorModelSnapshot:
+    def _snapshot(
+        self, data: CurrentFactorCovarData, cutoff: pd.Timestamp, provenance: Mapping[str, Any]
+    ) -> FactorModelSnapshot:
         """Attach selected assembly policy and coordinate metadata to a fitted result."""
         estimated = provenance["factor_covariance"] == "estimated"
         provenance = {
@@ -154,24 +174,29 @@ class FactorCovarEstimator:
             "factor_covar_span": self.factor_covar_span if estimated else None,
             "factor_covariance_units": "annual_native_coordinates",
             "factor_covariance_demean": True if estimated else None,
-            "factor_covariance_vol_normalised": (
-                self.is_apply_vol_normalised_returns if estimated else None),
+            "factor_covariance_vol_normalised": (self.is_apply_vol_normalised_returns if estimated else None),
             "asset_return_type": self.asset_return_type,
             "reg_lambda": self.lasso_model.reg_lambda,
             "reg_lambda_freq_dict": deepcopy(self.reg_lambda_freq_dict),
         }
         return _materialize(
-            data=data, cutoff=cutoff, residual_type=self.residual_type,
+            data=data,
+            cutoff=cutoff,
+            residual_type=self.residual_type,
             residual_var_weight=self.residual_var_weight,
             residual_corr_weight=self.residual_corr_weight,
             factor_return_types=self.factor_return_types,
-            factor_groups=self.factor_groups, provenance=provenance,
+            factor_groups=self.factor_groups,
+            provenance=provenance,
         )
 
     def fit_current(
-        self, risk_factor_prices: pd.DataFrame,
-        asset_returns_dict: dict[str, pd.DataFrame], *,
-        cutoff: pd.Timestamp, assets: list[str] | pd.Index | None = None,
+        self,
+        risk_factor_prices: pd.DataFrame,
+        asset_returns_dict: dict[str, pd.DataFrame],
+        *,
+        cutoff: pd.Timestamp,
+        assets: list[str] | pd.Index | None = None,
         factor_covariance: DatedFactorCovariance | None = None,
         precomputed_clusters: dict | None = None,
         precomputed_linkages: dict | None = None,
@@ -186,6 +211,31 @@ class FactorCovarEstimator:
         lasso_model are caller-selected information that must also be known by
         cutoff. Input indices declare availability; FM cannot infer publication
         delays or restatements absent from the supplied data.
+
+        Args:
+            risk_factor_prices: Ordered date-by-factor prices or native levels. Rows
+                after cutoff are excluded; an exact row at cutoff is not required.
+            asset_returns_dict: Date-by-asset panels keyed by cadence. Each asset belongs
+                to one panel. Values follow the configured asset_return_type.
+            cutoff: Information date limiting every input history.
+            assets: Optional ordered output assets; unavailable fits have zero loadings
+                and variance statistics, so callers must enforce investment eligibility.
+            factor_covariance: Optional annual native-coordinate covariance with declared
+                observation and availability dates. None estimates it from factor history.
+            precomputed_clusters: Optional external cluster memberships by cadence.
+            precomputed_linkages: Linkages accompanying the cluster memberships.
+            precomputed_cutoffs: Cluster cut distances accompanying the memberships.
+            precomputed_asof: Availability date required for all external clustering maps.
+
+        Returns:
+            FactorModelSnapshot: Owned loadings, selected annual covariance, fit statistics
+            and provenance. factor_observation_date is the last available input price row;
+            the covariance cadence may use an earlier sampled return.
+
+        Raises:
+            ValueError: If labels or histories are invalid, no input observations exist at
+                or before cutoff, or supplied covariance/clustering is unavailable at cutoff.
+            TypeError: If factor_covariance is not a DatedFactorCovariance.
         """
         cutoff, factors, returns = self._inputs(risk_factor_prices, asset_returns_dict, cutoff)
         return_types = _return_types(factors.columns, self.factor_return_types)
@@ -204,8 +254,7 @@ class FactorCovarEstimator:
                 covariance_observation_date=factor_covariance.observation_date,
                 covariance_available_date=factor_covariance.available_date,
             )
-        if any(value is not None for value in (
-                precomputed_clusters, precomputed_linkages, precomputed_cutoffs)):
+        if any(value is not None for value in (precomputed_clusters, precomputed_linkages, precomputed_cutoffs)):
             if precomputed_asof is None or pd.isna(pd.Timestamp(precomputed_asof)):
                 raise ValueError("external clustering requires precomputed_asof")
             if pd.Timestamp(precomputed_asof) > cutoff:
@@ -213,8 +262,11 @@ class FactorCovarEstimator:
             provenance["clustering_available_date"] = pd.Timestamp(precomputed_asof)
         pipeline = self._pipeline()
         data = pipeline.fit_current_factor_covars(
-            risk_factor_prices=factors, asset_returns_dict=returns,
-            assets=assets, x_covar=covariance, estimation_date=cutoff,
+            risk_factor_prices=factors,
+            asset_returns_dict=returns,
+            assets=assets,
+            x_covar=covariance,
+            estimation_date=cutoff,
             precomputed_clusters=deepcopy(precomputed_clusters),
             precomputed_linkages=deepcopy(precomputed_linkages),
             precomputed_cutoffs=deepcopy(precomputed_cutoffs),
@@ -222,9 +274,12 @@ class FactorCovarEstimator:
         return self._snapshot(data, cutoff, provenance)
 
     def fit_rolling(
-        self, risk_factor_prices: pd.DataFrame,
-        asset_returns_dict: dict[str, pd.DataFrame], *,
-        time_period: qis.TimePeriod, assets: list[str] | pd.Index | None = None,
+        self,
+        risk_factor_prices: pd.DataFrame,
+        asset_returns_dict: dict[str, pd.DataFrame],
+        *,
+        time_period: qis.TimePeriod,
+        assets: list[str] | pd.Index | None = None,
         rebalancing_freq: str | None = None,
     ) -> RollingFactorModel:
         """Fit completed expanding-history models on the selected calendar schedule.
@@ -232,20 +287,46 @@ class FactorCovarEstimator:
         Each snapshot is causal at its own date. Cluster smoothing is prepared by
         FactorLasso on the same causal schedule; complete common-period residual
         correlation may be held between slower residual observations.
+
+        Args:
+            risk_factor_prices: Ordered date-by-factor prices or native levels; earlier
+                history remains available for each expanding fit's warm-up.
+            asset_returns_dict: Return panels keyed by cadence, with disjoint asset columns
+                and values in the configured asset return convention.
+            time_period: Requested output interval; each fit uses information through its
+                own date, with no observations after time_period.end.
+            assets: Optional ordered output universe; callers enforce asset eligibility.
+            rebalancing_freq: Override of the configured rolling output cadence.
+
+        Returns:
+            RollingFactorModel: Completed snapshots keyed by their information cutoff.
+
+        Raises:
+            ValueError: If histories, labels, policy or cadence configuration are invalid.
         """
         _, factors, returns = self._inputs(risk_factor_prices, asset_returns_dict, time_period.end)
         _return_types(factors.columns, self.factor_return_types)
         pipeline = self._pipeline()
         data = pipeline.fit_rolling_factor_covars(
-            risk_factor_prices=factors, asset_returns_dict=returns,
-            time_period=time_period, assets=assets, rebalancing_freq=rebalancing_freq,
+            risk_factor_prices=factors,
+            asset_returns_dict=returns,
+            time_period=time_period,
+            assets=assets,
+            rebalancing_freq=rebalancing_freq,
         )
-        return RollingFactorModel({
-            date: self._snapshot(fitted, date, {
-                "factor_observation_date": factors.loc[:date].index[-1],
-                "asset_observation_dates": {
-                    freq: panel.loc[:date].index[-1] for freq, panel in returns.items()},
-                "factor_covariance": "estimated",
-            })
-            for date, fitted in data.data.items()
-        })
+        return RollingFactorModel(
+            {
+                date: self._snapshot(
+                    fitted,
+                    date,
+                    {
+                        "factor_observation_date": factors.loc[:date].index[-1],
+                        "asset_observation_dates": {
+                            freq: panel.loc[:date].index[-1] for freq, panel in returns.items()
+                        },
+                        "factor_covariance": "estimated",
+                    },
+                )
+                for date, fitted in data.data.items()
+            }
+        )

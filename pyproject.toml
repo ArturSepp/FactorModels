@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "factormodels"
-version = "0.5.0"
+version = "0.5.1.dev0"
 description = "Factor construction, GLS premia, capital market assumptions and factor covariance estimation"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -72,12 +72,10 @@ target-version = "py311"
 line-length = 120
 
 [tool.ruff.lint]
-select = ["F", "TID251", "TID253", "ICN", "ANN001", "ANN002", "ANN003", "ANN201", "ANN202", "ANN204"]
+select = ["E", "W", "F", "TID251", "TID253", "ICN", "ANN001", "ANN002", "ANN003", "ANN201", "ANN202", "ANN204"]
 
 [tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["F401", "F403"]
-# The frozen cross-package replay harness is development tooling, not FM library code.
-"tools/replay_reference.py" = ["TID251"]
 "examples/downstream_handoff.py" = ["TID251"]
 
 # Tests/examples/tooling retain correctness/import checks; only ANN is exempt.

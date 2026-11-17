@@ -1,5 +1,5 @@
 cff-version: 1.2.0
-message: "Please cite the working paper for the MATF methodology and this software metadata for the implementation."
+message: "Please cite the forthcoming journal article for the MATF methodology and this software metadata for the implementation."
 type: software
 repository-code: "https://github.com/ArturSepp/FactorModels"
 url: "https://github.com/ArturSepp/FactorModels"
@@ -9,8 +9,7 @@ authors:
     given-names: Artur
     orcid: "https://orcid.org/0000-0002-7038-1748"
 license: MIT
-version: 0.5.0
-date-released: 2026-11-08
+version: 0.5.1.dev0
 keywords:
   - MATF
   - multi-asset
@@ -20,7 +19,7 @@ keywords:
   - covariance-estimation
   - capital-market-assumptions
 preferred-citation:
-  type: report
+  type: article
   title: "Capital Market Assumptions and Strategic Asset Allocation Using Multi-Asset Tradable Factors"
   authors:
     - family-names: Sepp
@@ -30,9 +29,8 @@ preferred-citation:
       given-names: Emilie H.
     - family-names: Kastenholz
       given-names: Mika
-  year: 2026
-  publisher:
-    name: SSRN
+  year: 2027
+  journal: "The Journal of Portfolio Management"
   doi: "10.2139/ssrn.6785958"
   url: "https://papers.ssrn.com/sol3/papers.cfm?abstract_id=6785958"
-  notes: "Working paper. Date written: 2026-05-17."
+  notes: "Accepted; forthcoming. The DOI and URL identify the accessible SSRN manuscript."

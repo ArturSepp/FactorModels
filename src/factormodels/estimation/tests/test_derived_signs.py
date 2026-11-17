@@ -18,7 +18,7 @@ import pytest
 
 from factorlasso import LassoModel, LassoModelType
 
-from factormodels.estimation._pipeline import _FactorCovarPipeline as FactorCovarEstimator
+from factormodels.estimation import FactorCovarEstimator
 
 
 FACTORS = ["F1", "F2", "F3"]
@@ -69,7 +69,7 @@ def test_no_sign_layer_reports_no_signs() -> None:
     empty-frame default would conflate.
     """
     factors, returns = _inputs()
-    covar_data = _estimator().fit_current_factor_covars(factors, returns)
+    covar_data = _estimator().fit_current(factors, returns, cutoff=factors.index[-1])
 
     assert covar_data.derived_signs is None
 
@@ -77,14 +77,14 @@ def test_no_sign_layer_reports_no_signs() -> None:
 def test_auto_sign_constraints_report_a_signs_frame_shaped_like_the_betas() -> None:
     """The reported frame carries one cell per (asset, factor), aligned to ``y_betas``."""
     factors, returns = _inputs()
-    covar_data = _estimator(auto_sign_constraints=True).fit_current_factor_covars(
-        factors, returns,
+    covar_data = _estimator(auto_sign_constraints=True).fit_current(
+        factors, returns, cutoff=factors.index[-1],
     )
     signs = covar_data.derived_signs
 
     assert signs is not None
-    assert list(signs.index) == list(covar_data.y_betas.index)
-    assert list(signs.columns) == list(covar_data.y_betas.columns)
+    assert list(signs.index) == list(covar_data.loadings.index)
+    assert list(signs.columns) == list(covar_data.loadings.columns)
     assert set(pd.unique(signs.to_numpy().ravel())) <= {-1.0, 0.0, 1.0}
 
 
@@ -96,10 +96,10 @@ def test_reported_signs_match_the_betas_that_were_actually_fitted() -> None:
     fit, would still be correctly shaped and would still pass the alignment test above.
     """
     factors, returns = _inputs()
-    covar_data = _estimator(auto_sign_constraints=True).fit_current_factor_covars(
-        factors, returns,
+    covar_data = _estimator(auto_sign_constraints=True).fit_current(
+        factors, returns, cutoff=factors.index[-1],
     )
-    signs, betas = covar_data.derived_signs, covar_data.y_betas
+    signs, betas = covar_data.derived_signs, covar_data.loadings
 
     constrained = signs.stack().loc[lambda s: s != 0.0]
     assert not constrained.empty, "fixture produced no constrained cells; the test proves nothing"
@@ -120,8 +120,8 @@ def test_asset_without_a_fit_keeps_nan_rather_than_a_forced_zero() -> None:
     well-formed, so only this assertion separates the two.
     """
     factors, returns = _inputs()
-    covar_data = _estimator(auto_sign_constraints=True).fit_current_factor_covars(
-        factors, returns, assets=ASSETS + ["GHOST"],
+    covar_data = _estimator(auto_sign_constraints=True).fit_current(
+        factors, returns, cutoff=factors.index[-1], assets=ASSETS + ["GHOST"],
     )
     signs = covar_data.derived_signs
 
@@ -137,9 +137,9 @@ def test_explicit_loading_signs_are_applied_and_reported() -> None:
     """A supplied sign frame activates the layer without ``auto_sign_constraints``."""
     factors, returns = _inputs()
     requested = pd.DataFrame(1.0, index=ASSETS, columns=FACTORS)
-    covar_data = _estimator(factors_beta_loading_signs=requested).fit_current_factor_covars(
-        factors, returns,
+    covar_data = _estimator(factors_beta_loading_signs=requested).fit_current(
+        factors, returns, cutoff=factors.index[-1],
     )
 
     assert covar_data.derived_signs is not None
-    assert covar_data.y_betas.min().min() >= -1e-8, "long-only signs did not bind the fit"
+    assert covar_data.loadings.min().min() >= -1e-8, "long-only signs did not bind the fit"

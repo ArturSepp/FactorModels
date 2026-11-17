@@ -12,6 +12,7 @@ The shared GLS rank rule removes factor loadings and optional class/funding
 controls. Residual correlation is a descriptive input, separate from the
 covariance of estimated alpha. Neither input is estimated in this module.
 """
+
 from __future__ import annotations
 from numpy.typing import ArrayLike
 
@@ -24,14 +25,14 @@ from factormodels.gls_diagnostic._validation import _array, _axis, _vector
 from factormodels.gls_diagnostic.geometry import compute_gls_geometry
 
 
-__all__ = ['ResidualOpportunity', 'compute_residual_opportunity']
+__all__ = ["ResidualOpportunity", "compute_residual_opportunity"]
 
 
 @dataclass(frozen=True)
 class ResidualOpportunity:
     """Conditional residual opportunity diagnostics.
 
-    Attributes:
+    Args:
         summary (dict):
             Dimension, rank, squared residual-alpha capacity, conditional noise
             floor and raw/repaired effective breadth, with repair diagnostics.
@@ -56,15 +57,22 @@ def _matrix(value: ArrayLike, B: ArrayLike, name: str) -> np.ndarray:
     if isinstance(value, pd.DataFrame):
         _axis(value, value.index if labels is None else labels, axis=1)
     matrix = _array(value, name, 2)
-    if matrix.shape != (len(B), len(B)) or not np.allclose(
-            matrix, matrix.T, rtol=0, atol=1e-12):
+    if matrix.shape != (len(B), len(B)) or not np.allclose(matrix, matrix.T, rtol=0, atol=1e-12):
         raise ValueError(f"{name} must be a symmetric asset-by-asset matrix")
     return matrix
 
 
-def compute_residual_opportunity(B: ArrayLike, residual_variances: ArrayLike, alpha: ArrayLike, *, controls: ArrayLike | None=None,
-                                 alpha_covariance: ArrayLike | None=None, residual_correlation: ArrayLike | None=None,
-                                 repair_correlation: bool=False, rcond: float | np.integer | np.floating | None=None) -> ResidualOpportunity:
+def compute_residual_opportunity(
+    B: ArrayLike,
+    residual_variances: ArrayLike,
+    alpha: ArrayLike,
+    *,
+    controls: ArrayLike | None = None,
+    alpha_covariance: ArrayLike | None = None,
+    residual_correlation: ArrayLike | None = None,
+    repair_correlation: bool = False,
+    rcond: float | np.integer | np.floating | None = None,
+) -> ResidualOpportunity:
     """Measure residual capacity, estimation-noise floor and effective breadth.
 
     Args:
@@ -122,37 +130,43 @@ def compute_residual_opportunity(B: ArrayLike, residual_variances: ArrayLike, al
     floor = np.nan
     if alpha_covariance is not None:
         V = _matrix(alpha_covariance, B, "alpha_covariance")
-        if np.linalg.eigvalsh(V).min() < -1e-12 * max(1., np.linalg.norm(V, 2)):
+        if np.linalg.eigvalsh(V).min() < -1e-12 * max(1.0, np.linalg.norm(V, 2)):
             raise ValueError("alpha_covariance must be positive semidefinite")
         floor = float(np.sum(M * (V / np.outer(scale, scale)).T))
-    R = np.eye(n) if residual_correlation is None else _matrix(
-        residual_correlation, B, "residual_correlation")
-    if not np.allclose(np.diag(R), 1., rtol=0, atol=1e-12) or np.max(np.abs(R)) > 1 + 1e-12:
+    R = np.eye(n) if residual_correlation is None else _matrix(residual_correlation, B, "residual_correlation")
+    if not np.allclose(np.diag(R), 1.0, rtol=0, atol=1e-12) or np.max(np.abs(R)) > 1 + 1e-12:
         raise ValueError("residual_correlation must have unit diagonal and entries in [-1, 1]")
     eigenvalues, vectors = np.linalg.eigh(R)
-    negative = eigenvalues[eigenvalues < 0.]
+    negative = eigenvalues[eigenvalues < 0.0]
     if eigenvalues.min() < -1e-10 and not repair_correlation:
-        raise ValueError(
-            "indefinite residual_correlation requires explicit repair_correlation=True")
+        raise ValueError("indefinite residual_correlation requires explicit repair_correlation=True")
     fixed = R
     if repair_correlation:
-        fixed = (vectors * np.maximum(eigenvalues, 0.)) @ vectors.T
+        fixed = (vectors * np.maximum(eigenvalues, 0.0)) @ vectors.T
         diagonal = np.sqrt(np.diag(fixed))
         fixed = fixed / np.outer(diagonal, diagonal)
+
     def breadth(correlation: np.ndarray) -> float | np.floating:
         """Evaluate the projected-spectrum participation ratio, retaining raw diagnostics."""
         projected = M @ correlation @ M
         denominator = float(np.sum(projected * projected.T))
-        numerical_zero = (np.finfo(float).eps * n * np.linalg.norm(correlation, 'fro'))**2
-        return (float(np.trace(projected)**2 / denominator)
-                if dimension and denominator > numerical_zero else 0.)
-    summary = dict(N=n, rank=geometry.rank, neutral_dimension=dimension,
-                   capacity=capacity, noise_floor=floor, excess_capacity=capacity-floor,
-                   breadth_raw=breadth(R), breadth=breadth(fixed),
-                   correlation_repaired=bool(repair_correlation),
-                   n_clipped=int(len(negative)) if repair_correlation else 0,
-                   sum_clipped=float(-negative.sum()) if repair_correlation else 0.,
-                   frobenius_rel=float(np.linalg.norm(fixed-R, 'fro') / np.linalg.norm(R, 'fro')),
-                   minimum_correlation_eigenvalue=float(eigenvalues.min()),
-                   minimum_repaired_eigenvalue=float(np.linalg.eigvalsh(fixed).min()))
-    return ResidualOpportunity(summary, whitened*scale, M, fixed)
+        numerical_zero = (np.finfo(float).eps * n * np.linalg.norm(correlation, "fro")) ** 2
+        return float(np.trace(projected) ** 2 / denominator) if dimension and denominator > numerical_zero else 0.0
+
+    summary = dict(
+        N=n,
+        rank=geometry.rank,
+        neutral_dimension=dimension,
+        capacity=capacity,
+        noise_floor=floor,
+        excess_capacity=capacity - floor,
+        breadth_raw=breadth(R),
+        breadth=breadth(fixed),
+        correlation_repaired=bool(repair_correlation),
+        n_clipped=int(len(negative)) if repair_correlation else 0,
+        sum_clipped=float(-negative.sum()) if repair_correlation else 0.0,
+        frobenius_rel=float(np.linalg.norm(fixed - R, "fro") / np.linalg.norm(R, "fro")),
+        minimum_correlation_eigenvalue=float(eigenvalues.min()),
+        minimum_repaired_eigenvalue=float(np.linalg.eigvalsh(fixed).min()),
+    )
+    return ResidualOpportunity(summary, whitened * scale, M, fixed)

@@ -13,7 +13,8 @@ Purpose: Evaluate closed-form factor access, overlay and fixed-book completion i
 Inputs: Aligned factor premia, factor covariance, loadings, residual covariance and optional forecasts/holdings.
 Outputs: Accounting functions return attainable excess-Sharpe capacities, decompositions and completion status.
 Units: Means and covariances share one horizon; squared Sharpe is annualised when inputs are annual.
-Conditioning: Sigma = B F B.T + Omega with SPD risk; full whitened loadings are retained without rank truncation in capacity formulas.
+Conditioning: Sigma = B F B.T + Omega with SPD risk; full whitened loadings are retained without rank truncation in
+    capacity formulas.
 Ownership: FM owns these algebraic identities; QIS owns portfolio risk contributions and tracking-error reporting.
 """
 
@@ -27,25 +28,38 @@ from enum import Enum
 import numpy as np
 import pandas as pd
 from factormodels.gls_diagnostic._validation import (
-    _array, _align, _covariance, _factors, _vector, _whiten_loadings, _ALIGN_ERROR,
+    _array,
+    _align,
+    _covariance,
+    _factors,
+    _vector,
+    _whiten_loadings,
+    _ALIGN_ERROR,
 )
 from factormodels.gls_diagnostic.geometry import compute_gls_geometry
 
 
+__all__ = [
+    "factor_ceiling",
+    "achievable_sharpe2",
+    "fpir",
+    "holdings_decomposition",
+    "hurdle_premia",
+    "ceiling_premium_correlation_split",
+    "fixed_exposure_fpir",
+    "tangency_access_split",
+    "overlay_value",
+    "partial_overlay_value",
+    "CompletionStatus",
+    "CompletionResult",
+    "completion_sharpe2",
+    "ir_bound",
+]
 
 
-
-
-
-
-
-
-
-
-__all__ = ['factor_ceiling', 'achievable_sharpe2', 'fpir', 'holdings_decomposition', 'hurdle_premia', 'ceiling_premium_correlation_split', 'fixed_exposure_fpir', 'tangency_access_split', 'overlay_value', 'partial_overlay_value', 'CompletionStatus', 'CompletionResult', 'completion_sharpe2', 'ir_bound']
-
-
-def _model(lam: ArrayLike, Sig_F: ArrayLike, B: ArrayLike, Omega: ArrayLike) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+def _model(
+    lam: ArrayLike, Sig_F: ArrayLike, B: ArrayLike, Omega: ArrayLike
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """Validate all factor-model inputs without changing their order."""
     premia, factor = _factors(lam, Sig_F)
     beta, residual, chol, white = _whiten_loadings(B, Omega, label_error=_ALIGN_ERROR)
@@ -58,16 +72,27 @@ def _model(lam: ArrayLike, Sig_F: ArrayLike, B: ArrayLike, Omega: ArrayLike) -> 
     return premia, factor, beta, residual, chol, white
 
 
-
-
 def factor_ceiling(lam: ArrayLike, Sig_F: ArrayLike) -> float:
-    """Return the annualized squared excess Sharpe with unrestricted factor access."""
+    """Return the annualized squared excess Sharpe with unrestricted factor access.
+
+    Args:
+        lam: Factor excess-premium vector (K), in the covariance-column order and matching return horizon.
+        Sig_F: SPD factor covariance (K by K), in the premium order and matching return horizon.
+    """
     premia, factor = _factors(lam, Sig_F)
     return float(premia @ np.linalg.solve(factor, premia))
 
 
 def achievable_sharpe2(lam: ArrayLike, Sig_F: ArrayLike, B: ArrayLike, Omega: ArrayLike) -> float:
-    """Return systematic squared Sharpe in the asset universe, including deficient rank."""
+    """Return systematic squared Sharpe in the asset universe, including deficient rank.
+
+    Args:
+        lam: Factor excess-premium vector (K), in the covariance-column order and matching return horizon.
+        Sig_F: SPD factor covariance (K by K), in the premium order and matching return horizon.
+        B: Asset-by-factor loading matrix (N by K), with exact labels when supplied as a DataFrame.
+        Omega: Positive-definite residual covariance (N by N) or positive residual-variance vector, in the
+            asset order.
+    """
     premia, factor, _, _, _, white = _model(lam, Sig_F, B, Omega)
     precision = np.linalg.solve(factor, np.eye(len(premia)))
     z = precision @ premia
@@ -75,30 +100,44 @@ def achievable_sharpe2(lam: ArrayLike, Sig_F: ArrayLike, B: ArrayLike, Omega: Ar
 
 
 def fpir(lam: ArrayLike, Sig_F: ArrayLike, B: ArrayLike, Omega: ArrayLike) -> float:
-    """Return achievable squared Sharpe divided by the nonzero factor ceiling."""
+    """Return achievable squared Sharpe divided by the nonzero factor ceiling.
+
+    Args:
+        lam: Factor excess-premium vector (K), in the covariance-column order and matching return horizon.
+        Sig_F: SPD factor covariance (K by K), in the premium order and matching return horizon.
+        B: Asset-by-factor loading matrix (N by K), with exact labels when supplied as a DataFrame.
+        Omega: Positive-definite residual covariance (N by N) or positive residual-variance vector, in the
+            asset order.
+    """
     ceiling = factor_ceiling(lam, Sig_F)
     if ceiling == 0:
         raise ValueError("FPIR is undefined for zero factor premia")
     return achievable_sharpe2(lam, Sig_F, B, Omega) / ceiling
 
 
-
-
-
-
-
-
 def holdings_decomposition(w: ArrayLike, B: ArrayLike, Omega: ArrayLike) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """Return factor-replicating holdings, factor-neutral holdings and book exposures."""
+    """Return factor-replicating holdings, factor-neutral holdings and book exposures.
+
+    Args:
+        w: Fixed asset-book weights (N); funding and leverage are supplied, not normalized.
+        B: Asset-by-factor loading matrix (N by K), with exact labels when supplied as a DataFrame.
+        Omega: Positive-definite residual covariance (N by N) or positive residual-variance vector, in the
+            asset order.
+    """
     geometry = compute_gls_geometry(B, Omega)
-    weights = _vector(w, B, 'w', label_error=_ALIGN_ERROR)
+    weights = _vector(w, B, "w", label_error=_ALIGN_ERROR)
     exposure = geometry.beta.T @ weights
     neutral_weights = geometry.residual_projector.T @ weights
     return weights - neutral_weights, neutral_weights, exposure
 
 
 def hurdle_premia(lam: ArrayLike, Sig_F: ArrayLike) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """Return each hurdle premium, conditional variance and drop-one squared-Sharpe gain."""
+    """Return each hurdle premium, conditional variance and drop-one squared-Sharpe gain.
+
+    Args:
+        lam: Factor excess-premium vector (K), in the covariance-column order and matching return horizon.
+        Sig_F: SPD factor covariance (K by K), in the premium order and matching return horizon.
+    """
     premia, factor = _factors(lam, Sig_F)
     precision = np.linalg.solve(factor, np.eye(len(premia)))
     variance = 1.0 / np.diag(precision)
@@ -107,16 +146,27 @@ def hurdle_premia(lam: ArrayLike, Sig_F: ArrayLike) -> tuple[np.ndarray, np.ndar
 
 
 def ceiling_premium_correlation_split(lam: ArrayLike, Sig_F: ArrayLike) -> tuple[np.ndarray, np.ndarray]:
-    """Return additive standalone-premium and correlation contributions by factor."""
+    """Return additive standalone-premium and correlation contributions by factor.
+
+    Args:
+        lam: Factor excess-premium vector (K), in the covariance-column order and matching return horizon.
+        Sig_F: SPD factor covariance (K by K), in the premium order and matching return horizon.
+    """
     premia, factor = _factors(lam, Sig_F)
     standalone = premia**2 / np.diag(factor)
     return standalone, premia * np.linalg.solve(factor, premia) - standalone
 
 
-
-
 def fixed_exposure_fpir(e: ArrayLike, Sig_F: ArrayLike, B: ArrayLike, Omega: ArrayLike) -> float:
-    """Return systematic-risk share for an attainable nonzero factor exposure target."""
+    """Return systematic-risk share for an attainable nonzero factor exposure target.
+
+    Args:
+        e: Nonzero attainable target exposure vector (K), in the loading-column order.
+        Sig_F: SPD factor covariance (K by K), in the premium order and matching return horizon.
+        B: Asset-by-factor loading matrix (N by K), with exact labels when supplied as a DataFrame.
+        Omega: Positive-definite residual covariance (N by N) or positive residual-variance vector, in the
+            asset order.
+    """
     geometry = compute_gls_geometry(B, Omega)
     beta, residual = geometry.beta, geometry.residual
     labels = B.columns if isinstance(B, pd.DataFrame) else None
@@ -136,8 +186,18 @@ def fixed_exposure_fpir(e: ArrayLike, Sig_F: ArrayLike, B: ArrayLike, Omega: Arr
     return systematic / (systematic + float(weights @ residual @ weights))
 
 
-def tangency_access_split(lam: ArrayLike, Sig_F: ArrayLike, B: ArrayLike, Omega: ArrayLike) -> tuple[np.ndarray, np.ndarray]:
-    """Return per-factor tangency contributions split into factor and access risk."""
+def tangency_access_split(
+    lam: ArrayLike, Sig_F: ArrayLike, B: ArrayLike, Omega: ArrayLike
+) -> tuple[np.ndarray, np.ndarray]:
+    """Return per-factor tangency contributions split into factor and access risk.
+
+    Args:
+        lam: Factor excess-premium vector (K), in the covariance-column order and matching return horizon.
+        Sig_F: SPD factor covariance (K by K), in the premium order and matching return horizon.
+        B: Asset-by-factor loading matrix (N by K), with exact labels when supplied as a DataFrame.
+        Omega: Positive-definite residual covariance (N by N) or positive residual-variance vector, in the
+            asset order.
+    """
     premia, factor, beta, residual, _, _ = _model(lam, Sig_F, B, Omega)
     geometry = compute_gls_geometry(B, Omega)
     covariance = beta @ factor @ beta.T + residual
@@ -147,10 +207,21 @@ def tangency_access_split(lam: ArrayLike, Sig_F: ArrayLike, B: ArrayLike, Omega:
     return exposure * (factor @ exposure), exposure * (access @ exposure)
 
 
-def overlay_value(lam: ArrayLike, Sig_F: ArrayLike, B: ArrayLike, Omega: ArrayLike, a: ArrayLike) -> tuple[float, float]:
-    """Return full-factor overlay gain and augmented capacity for m = B lam + a."""
+def overlay_value(
+    lam: ArrayLike, Sig_F: ArrayLike, B: ArrayLike, Omega: ArrayLike, a: ArrayLike
+) -> tuple[float, float]:
+    """Return full-factor overlay gain and augmented capacity for m = B lam + a.
+
+    Args:
+        lam: Factor excess-premium vector (K), in the covariance-column order and matching return horizon.
+        Sig_F: SPD factor covariance (K by K), in the premium order and matching return horizon.
+        B: Asset-by-factor loading matrix (N by K), with exact labels when supplied as a DataFrame.
+        Omega: Positive-definite residual covariance (N by N) or positive residual-variance vector, in the
+            asset order.
+        a: Asset residual expected-return contribution (N), so total excess means equal B @ lam + a.
+    """
     premia, factor, beta, residual, _, white = _model(lam, Sig_F, B, Omega)
-    alpha = _vector(a, B, 'a', label_error=_ALIGN_ERROR)
+    alpha = _vector(a, B, "a", label_error=_ALIGN_ERROR)
     z = np.linalg.solve(factor, premia)
     g = beta.T @ np.linalg.solve(residual, alpha)
     h = np.linalg.solve(factor, np.eye(len(premia))) + white.T @ white
@@ -179,10 +250,22 @@ def _hedge_indices(hedgeable: ArrayLike | None, size: int) -> np.ndarray:
     return values.astype(int)
 
 
-def partial_overlay_value(lam: ArrayLike, Sig_F: ArrayLike, B: ArrayLike, Omega: ArrayLike, a: ArrayLike, hedgeable: ArrayLike | None) -> tuple[float, float]:
-    """Return overlay gain and augmented capacity when asset weights may be reoptimized."""
+def partial_overlay_value(
+    lam: ArrayLike, Sig_F: ArrayLike, B: ArrayLike, Omega: ArrayLike, a: ArrayLike, hedgeable: ArrayLike | None
+) -> tuple[float, float]:
+    """Return overlay gain and augmented capacity when asset weights may be reoptimized.
+
+    Args:
+        lam: Factor excess-premium vector (K), in the covariance-column order and matching return horizon.
+        Sig_F: SPD factor covariance (K by K), in the premium order and matching return horizon.
+        B: Asset-by-factor loading matrix (N by K), with exact labels when supplied as a DataFrame.
+        Omega: Positive-definite residual covariance (N by N) or positive residual-variance vector, in the
+            asset order.
+        a: Asset residual expected-return contribution (N), so total excess means equal B @ lam + a.
+        hedgeable: Optional selected factor indices or labels; None allows all factor overlays.
+    """
     premia, factor, beta, residual, _, _ = _model(lam, Sig_F, B, Omega)
-    mean = beta @ premia + _vector(a, B, 'a', label_error=_ALIGN_ERROR)
+    mean = beta @ premia + _vector(a, B, "a", label_error=_ALIGN_ERROR)
     covariance = beta @ factor @ beta.T + residual
     baseline = float(mean @ np.linalg.solve(covariance, mean))
     selected = _hedge_indices(hedgeable, len(premia))
@@ -192,8 +275,10 @@ def partial_overlay_value(lam: ArrayLike, Sig_F: ArrayLike, B: ArrayLike, Omega:
     cross = beta @ factor[:, selected]
     adjusted_mean = mean - cross @ np.linalg.solve(hedge, premia[selected])
     adjusted_covar = covariance - cross @ np.linalg.solve(hedge, cross.T)
-    capacity = float(premia[selected] @ np.linalg.solve(hedge, premia[selected])
-                     + adjusted_mean @ np.linalg.solve(adjusted_covar, adjusted_mean))
+    capacity = float(
+        premia[selected] @ np.linalg.solve(hedge, premia[selected])
+        + adjusted_mean @ np.linalg.solve(adjusted_covar, adjusted_mean)
+    )
     return capacity - baseline, capacity
 
 
@@ -215,6 +300,14 @@ class CompletionResult:
     book Sharpe; it is None when no positive mean is attainable. ``signed_sharpe``
     may be an unattained supremum. ``hedge_only_sharpe`` refers to cancelling the
     selected factor exposures without premium-seeking leverage. Zero/zero is None.
+
+    Args:
+        signed_sharpe: Signed attainable optimum or unattained supremum, or None when undefined.
+        sharpe2: Squared positive-Sharpe bound; None when no positive mean is attainable.
+        status: CompletionStatus declaring attainment or the applicable degenerate case.
+        exposures: Optimal final factor exposures when a finite solution exists, otherwise None.
+        overlays: Optimal selected-factor overlay weights, or None for an unattained/undefined solution.
+        hedge_only_sharpe: Signed Sharpe after cancelling the selected factor exposures; None for zero/zero.
     """
 
     signed_sharpe: float | None
@@ -232,16 +325,35 @@ def _signed(mean: float | np.integer | np.floating, variance: float | np.integer
     return float(mean / np.sqrt(variance))
 
 
-def completion_sharpe2(w: ArrayLike, m: ArrayLike, lam: ArrayLike, Sig_F: ArrayLike, B: ArrayLike, Omega: ArrayLike, hedgeable: ArrayLike | None=None) -> CompletionResult:
+def completion_sharpe2(
+    w: ArrayLike,
+    m: ArrayLike,
+    lam: ArrayLike,
+    Sig_F: ArrayLike,
+    B: ArrayLike,
+    Omega: ArrayLike,
+    hedgeable: ArrayLike | None = None,
+) -> CompletionResult:
     """Maximize positive signed Sharpe with the asset book fixed and selected overlays free.
 
     With positive residual mean and variance the optimum is finite. Nonpositive
     conditional mean and nonzero hedge premia yield an unattained factor-direction
     supremum. Inputs are SPD; a zero book is handled as a separate degenerate case.
     No leverage, funding, margin or trading-cost constraint is inferred.
+
+    Args:
+        w: Fixed asset-book weights (N); funding and leverage are supplied, not normalized.
+        m: Asset expected excess-return vector (N), in covariance/loading-row order and matching return
+            horizon.
+        lam: Factor excess-premium vector (K), in the covariance-column order and matching return horizon.
+        Sig_F: SPD factor covariance (K by K), in the premium order and matching return horizon.
+        B: Asset-by-factor loading matrix (N by K), with exact labels when supplied as a DataFrame.
+        Omega: Positive-definite residual covariance (N by N) or positive residual-variance vector, in the
+            asset order.
+        hedgeable: Optional selected factor indices or labels; None allows all factor overlays.
     """
     premia, factor, beta, residual, _, _ = _model(lam, Sig_F, B, Omega)
-    weights, mean = _vector(w, B, 'w', label_error=_ALIGN_ERROR), _vector(m, B, 'm', label_error=_ALIGN_ERROR)
+    weights, mean = _vector(w, B, "w", label_error=_ALIGN_ERROR), _vector(m, B, "m", label_error=_ALIGN_ERROR)
     exposure = beta.T @ weights
     c = float(weights @ (mean - beta @ premia))
     v = float(weights @ residual @ weights)
@@ -252,16 +364,17 @@ def completion_sharpe2(w: ArrayLike, m: ArrayLike, lam: ArrayLike, Sig_F: ArrayL
     if not len(selected):
         signed = _signed(float(weights @ mean), v + float(exposure @ factor @ exposure))
         positive = signed**2 if signed is not None and signed > 0 else None
-        return CompletionResult(signed, positive, CompletionStatus.FIXED_BOOK,
-                                exposure, np.zeros_like(exposure), hedge_sharpe)
+        return CompletionResult(
+            signed, positive, CompletionStatus.FIXED_BOOK, exposure, np.zeros_like(exposure), hedge_sharpe
+        )
     other = np.setdiff1d(np.arange(len(premia)), selected)
     hedge = factor[np.ix_(selected, selected)]
     cross = factor[np.ix_(selected, other)]
     shift = np.linalg.solve(hedge, cross @ exposure[other])
-    conditional_mean = c + float(exposure[other] @ (
-        premia[other] - cross.T @ np.linalg.solve(hedge, premia[selected])))
-    conditional_var = v + float(exposure[other] @ (
-        factor[np.ix_(other, other)] - cross.T @ np.linalg.solve(hedge, cross)) @ exposure[other])
+    conditional_mean = c + float(exposure[other] @ (premia[other] - cross.T @ np.linalg.solve(hedge, premia[selected])))
+    conditional_var = v + float(
+        exposure[other] @ (factor[np.ix_(other, other)] - cross.T @ np.linalg.solve(hedge, cross)) @ exposure[other]
+    )
     if conditional_var < 0:
         raise ValueError("negative conditional variance; covariance is numerically unstable")
     direction = np.linalg.solve(hedge, premia[selected])
@@ -270,28 +383,31 @@ def completion_sharpe2(w: ArrayLike, m: ArrayLike, lam: ArrayLike, Sig_F: ArrayL
         if conditional_mean != 0:
             raise ValueError("zero conditional variance with nonzero mean is unsupported")
         if ceiling == 0:
-            return CompletionResult(None, None, CompletionStatus.ZERO_VARIANCE,
-                                    None, None, hedge_sharpe)
+            return CompletionResult(None, None, CompletionStatus.ZERO_VARIANCE, None, None, hedge_sharpe)
         total = exposure.copy()
         total[selected] = direction - shift
-        return CompletionResult(np.sqrt(ceiling), ceiling, CompletionStatus.FINITE,
-                                total, total - exposure, hedge_sharpe)
+        return CompletionResult(
+            np.sqrt(ceiling), ceiling, CompletionStatus.FINITE, total, total - exposure, hedge_sharpe
+        )
     if conditional_mean <= 0:
         if ceiling == 0:
-            return CompletionResult(0.0, None, CompletionStatus.NO_POSITIVE_MEAN,
-                                    None, None, hedge_sharpe)
-        return CompletionResult(np.sqrt(ceiling), ceiling, CompletionStatus.SUPREMUM,
-                                None, None, hedge_sharpe)
+            return CompletionResult(0.0, None, CompletionStatus.NO_POSITIVE_MEAN, None, None, hedge_sharpe)
+        return CompletionResult(np.sqrt(ceiling), ceiling, CompletionStatus.SUPREMUM, None, None, hedge_sharpe)
     optimum = ceiling + conditional_mean**2 / conditional_var
     total = exposure.copy()
     total[selected] = (conditional_var / conditional_mean) * direction - shift
-    return CompletionResult(np.sqrt(optimum), optimum, CompletionStatus.FINITE,
-                            total, total - exposure, hedge_sharpe)
+    return CompletionResult(np.sqrt(optimum), optimum, CompletionStatus.FINITE, total, total - exposure, hedge_sharpe)
 
 
 def ir_bound(m: ArrayLike, Sigma: ArrayLike) -> float:
-    """Return squared excess-return capacity of zero-net-investment active holdings."""
+    """Return squared excess-return capacity of zero-net-investment active holdings.
+
+    Args:
+        m: Asset expected excess-return vector (N), in covariance/loading-row order and matching return
+            horizon.
+        Sigma: SPD full asset covariance (N by N), in the expected-return order and matching horizon.
+    """
     mean, covariance = _factors(m, Sigma)
     precision_mean = np.linalg.solve(covariance, mean)
     precision_one = np.linalg.solve(covariance, np.ones(len(mean)))
-    return float(mean @ precision_mean - precision_mean.sum()**2 / precision_one.sum())
+    return float(mean @ precision_mean - precision_mean.sum() ** 2 / precision_one.sum())

@@ -10,6 +10,7 @@ Units: Forecasts use annual decimal returns; covariance uses squared units and n
 Conditioning: B, residual risk, cash and alpha are fixed; paired contrasts include supplied cross-provider covariance.
 Ownership: FM propagates declared scenarios; these results do not select or replace default conditional inference.
 """
+
 from __future__ import annotations
 from typing import Any
 from collections.abc import Mapping
@@ -28,7 +29,13 @@ from factormodels.gls_diagnostic.geometry import compute_gls_geometry
 from factormodels.gls_diagnostic._validation import _factor_vector, _labels
 
 
-__all__ = ['GlsUncertaintyScenario', 'compute_gls_uncertainty', 'compute_gls_reference_uncertainty', 'compute_gls_adviser_disagreement', 'compute_gls_provider_contrast']
+__all__ = [
+    "GlsUncertaintyScenario",
+    "compute_gls_uncertainty",
+    "compute_gls_reference_uncertainty",
+    "compute_gls_adviser_disagreement",
+    "compute_gls_provider_contrast",
+]
 
 
 @dataclass(frozen=True)
@@ -39,13 +46,16 @@ class GlsUncertaintyScenario:
     are absent unless a distribution is explicitly assumed. Adviser disagreement
     endpoints describe a Gaussian dispersion scenario and are not confidence
     intervals for the consensus mean. ``summary`` records this distinction.
+
+    Args:
+        factors: Factor estimates, standard errors and endpoints under the declared distribution.
+        covariance: Factor premium covariance in squared annual return units.
+        summary: Method, target, distribution, reference provenance and availability assumptions.
     """
 
     factors: pd.DataFrame
     covariance: pd.DataFrame
     summary: dict
-
-
 
 
 def _psd(value: ArrayLike, labels: pd.Index, name: str) -> np.ndarray:
@@ -65,9 +75,24 @@ def _psd(value: ArrayLike, labels: pd.Index, name: str) -> np.ndarray:
     return result
 
 
-def _scenario(estimate: np.ndarray, covariance: np.ndarray, labels: pd.Index, *, method: str, distribution: str, confidence_level: float | np.integer | np.floating,
-              reference_degrees_of_freedom: float | np.integer | np.floating | None, reference_provenance: str | None, independent_reference: bool | np.bool_,
-              target: str, units: str, assumptions: tuple[str, ...] | list[str], rank: int, n_factors: int, extra: Mapping[str, Any] | None=None) -> GlsUncertaintyScenario:
+def _scenario(
+    estimate: np.ndarray,
+    covariance: np.ndarray,
+    labels: pd.Index,
+    *,
+    method: str,
+    distribution: str,
+    confidence_level: float | np.integer | np.floating,
+    reference_degrees_of_freedom: float | np.integer | np.floating | None,
+    reference_provenance: str | None,
+    independent_reference: bool | np.bool_,
+    target: str,
+    units: str,
+    assumptions: tuple[str, ...] | list[str],
+    rank: int,
+    n_factors: int,
+    extra: Mapping[str, Any] | None = None,
+) -> GlsUncertaintyScenario:
     """Construct endpoints only under an explicitly named probability model."""
     _text(method, "method")
     _text(target, "target")
@@ -80,8 +105,7 @@ def _scenario(estimate: np.ndarray, covariance: np.ndarray, labels: pd.Index, *,
         raise ValueError("distribution must be none, normal or reference_student_t")
     if not isinstance(independent_reference, (bool, np.bool_)):
         raise ValueError("independent_reference must be boolean")
-    if not isinstance(assumptions, (tuple, list)) or not all(
-            isinstance(x, str) for x in assumptions):
+    if not isinstance(assumptions, (tuple, list)) or not all(isinstance(x, str) for x in assumptions):
         raise ValueError("assumptions must be a sequence of strings")
     df = None
     critical = None
@@ -93,8 +117,7 @@ def _scenario(estimate: np.ndarray, covariance: np.ndarray, labels: pd.Index, *,
             raise ValueError("reference Student-t needs positive df, provenance and independence")
         critical = float(t.ppf((1 + confidence) / 2, df))
     elif reference_degrees_of_freedom is not None or independent_reference:
-        raise ValueError("reference degrees of freedom and independence require "
-                         "reference_student_t")
+        raise ValueError("reference degrees of freedom and independence require reference_student_t")
     elif distribution == "normal":
         critical = float(norm.ppf((1 + confidence) / 2))
     identified = rank == n_factors
@@ -108,38 +131,66 @@ def _scenario(estimate: np.ndarray, covariance: np.ndarray, labels: pd.Index, *,
         estimate = np.full(n_factors, np.nan)
         covariance = np.full((n_factors, n_factors), np.nan)
     elif not all(np.isfinite(x).all() for x in (estimate, covariance, se)) or (
-            critical is not None and not (np.isfinite(lower).all() and np.isfinite(upper).all())):
+        critical is not None and not (np.isfinite(lower).all() and np.isfinite(upper).all())
+    ):
         raise ValueError("GLS scenario overflow; check covariance units and factor identification")
-    mandatory = ("B, residual risk, cash, admitted alpha and factor definitions are fixed.",
-                 "The target is the GLS projection of the provider's expected forecast, "
-                 "which may differ from an unshifted structural premium.")
+    mandatory = (
+        "B, residual risk, cash, admitted alpha and factor definitions are fixed.",
+        "The target is the GLS projection of the provider's expected forecast, "
+        "which may differ from an unshifted structural premium.",
+    )
     if distribution == "normal":
-        mandatory += ("The supplied scenario covariance is treated as fixed and "
-                      "centered deviations are multivariate Gaussian.",)
+        mandatory += (
+            "The supplied scenario covariance is treated as fixed and centered deviations are multivariate Gaussian.",
+        )
     elif distribution == "reference_student_t":
-        mandatory += ("A centered Gaussian projection is independent of a reference scale "
-                      "estimate with the asserted scaled chi-square law and reference df.",)
-    summary = dict(method=method, distribution=distribution, confidence_level=confidence,
-                   target=target, units=units, interval_status=status,
-                   calibration_status="assumed_scenario_not_empirically_calibrated",
-                   reference_provenance=reference_provenance,
-                   reference_degrees_of_freedom=df,
-                   independent_reference=bool(independent_reference),
-                   assumptions=mandatory + tuple(assumptions), critical_value=critical,
-                   rank=rank, n_factors=n_factors, simultaneous_coverage=False)
+        mandatory += (
+            "A centered Gaussian projection is independent of a reference scale "
+            "estimate with the asserted scaled chi-square law and reference df.",
+        )
+    summary = dict(
+        method=method,
+        distribution=distribution,
+        confidence_level=confidence,
+        target=target,
+        units=units,
+        interval_status=status,
+        calibration_status="assumed_scenario_not_empirically_calibrated",
+        reference_provenance=reference_provenance,
+        reference_degrees_of_freedom=df,
+        independent_reference=bool(independent_reference),
+        assumptions=mandatory + tuple(assumptions),
+        critical_value=critical,
+        rank=rank,
+        n_factors=n_factors,
+        simultaneous_coverage=False,
+    )
     if extra:
         summary.update(extra)
-    return GlsUncertaintyScenario(pd.DataFrame(dict(
-        estimate=estimate, standard_error=se, ci_lower=lower, ci_upper=upper), index=labels),
-        pd.DataFrame(covariance, index=labels, columns=labels), summary)
+    return GlsUncertaintyScenario(
+        pd.DataFrame(dict(estimate=estimate, standard_error=se, ci_lower=lower, ci_upper=upper), index=labels),
+        pd.DataFrame(covariance, index=labels, columns=labels),
+        summary,
+    )
 
 
-def compute_gls_uncertainty(B: ArrayLike, Omega: ArrayLike, premia: ArrayLike, forecast_covariance: ArrayLike, *,
-                            method: str="supplied_covariance", distribution: str="none",
-                            confidence_level: float | np.integer | np.floating=.95, reference_degrees_of_freedom: float | np.integer | np.floating | None=None,
-                            reference_provenance: str | None=None, independent_reference: bool | np.bool_=False,
-                            target: str="projected_provider_mean", units: str="annual_decimal",
-                            assumptions: tuple[str, ...] | list[str]=(), rcond: float | np.integer | np.floating | None=None) -> GlsUncertaintyScenario:
+def compute_gls_uncertainty(
+    B: ArrayLike,
+    Omega: ArrayLike,
+    premia: ArrayLike,
+    forecast_covariance: ArrayLike,
+    *,
+    method: str = "supplied_covariance",
+    distribution: str = "none",
+    confidence_level: float | np.integer | np.floating = 0.95,
+    reference_degrees_of_freedom: float | np.integer | np.floating | None = None,
+    reference_provenance: str | None = None,
+    independent_reference: bool | np.bool_ = False,
+    target: str = "projected_provider_mean",
+    units: str = "annual_decimal",
+    assumptions: tuple[str, ...] | list[str] = (),
+    rcond: float | np.integer | np.floating | None = None,
+) -> GlsUncertaintyScenario:
     """Propagate an explicit forecast-error covariance as A C A'.
 
     Inputs use annual decimal returns and their squared units. No horizon or
@@ -148,6 +199,30 @@ def compute_gls_uncertainty(B: ArrayLike, Omega: ArrayLike, premia: ArrayLike, f
     t intervals additionally require its df, provenance and explicit independence.
     A general covariance implies a weighted chi-square residual score; its expected
     value and weights are returned, without inventing a scaled chi-square test.
+
+    Args:
+        B: Asset-by-factor loading matrix (N by K), with exact labels when supplied as a DataFrame.
+        Omega: Positive-definite residual covariance (N by N) or positive residual-variance vector, in the
+            asset order.
+        premia: Factor premium vector in the loading-column order and the declared annual return units.
+        forecast_covariance: Supplied asset forecast-error covariance in squared annual returns; no horizon
+            divisor is applied.
+        method: Descriptive uncertainty-method identifier recorded with the result.
+        distribution: Interval law: none reports covariance only; normal or reference_student_t
+            requires its assumptions.
+        confidence_level: Probability level strictly between zero and one for conditional intervals or
+            descriptive bands.
+        reference_degrees_of_freedom: Optional positive degrees of freedom of the external scale estimate.
+        reference_provenance: Source and construction of the external scale estimate; required when that law
+            is used.
+        independent_reference: Explicit assertion that the external scale estimate is independent of the
+            target forecast errors.
+        target: Identifier for the inference target, recorded in the result summary.
+        units: Declared return convention; the supported forecast convention is annual_decimal.
+        assumptions: Caller-supplied assumptions retained with the scenario rather than inferred from
+            covariance.
+        rcond: Relative singular-value cutoff; None uses the geometry default based on machine precision and
+            shape.
     """
     geometry = compute_gls_geometry(B, Omega, rcond=rcond)
     assets, factors = _labels(B)
@@ -159,29 +234,66 @@ def compute_gls_uncertainty(B: ArrayLike, Omega: ArrayLike, premia: ArrayLike, f
     white_covariance = np.linalg.solve(geometry.chol, left_white.T).T
     residual = np.eye(len(assets)) - geometry.white @ geometry.white_pinv
     residual_covariance = residual @ white_covariance @ residual.T
-    weights = np.maximum(np.linalg.eigvalsh(residual_covariance), 0.)
-    return _scenario(estimate, propagated, factors, method=method, distribution=distribution,
+    weights = np.maximum(np.linalg.eigvalsh(residual_covariance), 0.0)
+    return _scenario(
+        estimate,
+        propagated,
+        factors,
+        method=method,
+        distribution=distribution,
         confidence_level=confidence_level,
         reference_degrees_of_freedom=reference_degrees_of_freedom,
-        reference_provenance=reference_provenance, independent_reference=independent_reference,
-        target=target, units=units, assumptions=assumptions, rank=geometry.rank,
-        n_factors=len(factors), extra=dict(
-            n_assets=len(assets), expected_centered_residual_score=float(weights.sum()),
+        reference_provenance=reference_provenance,
+        independent_reference=independent_reference,
+        target=target,
+        units=units,
+        assumptions=assumptions,
+        rank=geometry.rank,
+        n_factors=len(factors),
+        extra=dict(
+            n_assets=len(assets),
+            expected_centered_residual_score=float(weights.sum()),
             centered_residual_chi_square_weights=weights.tolist(),
             residual_score_assumption="Weights apply only to centered Gaussian forecast errors; "
-            "a nonzero residual mean adds a noncentral component."))
+            "a nonzero residual mean adds a noncentral component.",
+        ),
+    )
 
 
-def compute_gls_reference_uncertainty(B: ArrayLike, Omega: ArrayLike, premia: ArrayLike, *, scale_squared: float | np.integer | np.floating,
-                                      reference_provenance: str, reference_degrees_of_freedom: float | np.integer | np.floating | None=None,
-                                      independent_reference: bool | np.bool_=False, confidence_level: float | np.integer | np.floating=.95,
-                                      rcond: float | np.integer | np.floating | None=None) -> GlsUncertaintyScenario:
+def compute_gls_reference_uncertainty(
+    B: ArrayLike,
+    Omega: ArrayLike,
+    premia: ArrayLike,
+    *,
+    scale_squared: float | np.integer | np.floating,
+    reference_provenance: str,
+    reference_degrees_of_freedom: float | np.integer | np.floating | None = None,
+    independent_reference: bool | np.bool_ = False,
+    confidence_level: float | np.integer | np.floating = 0.95,
+    rcond: float | np.integer | np.floating | None = None,
+) -> GlsUncertaintyScenario:
     """Propagate a declared external proportional scale, never choose it from a test.
 
     With no df, the scale is asserted known and normal critical values apply. With
     df, it is an independent scaled-chi-square reference estimate and t critical
     values apply. A provider average, median or selected residual scale does not
     automatically have this sampling law.
+
+    Args:
+        B: Asset-by-factor loading matrix (N by K), with exact labels when supplied as a DataFrame.
+        Omega: Positive-definite residual covariance (N by N) or positive residual-variance vector, in the
+            asset order.
+        premia: Factor premium vector in the loading-column order and the declared annual return units.
+        scale_squared: Positive external proportional forecast-error scale multiplying Omega.
+        reference_provenance: Source and construction of the external scale estimate; required when that law
+            is used.
+        reference_degrees_of_freedom: Optional positive degrees of freedom of the external scale estimate.
+        independent_reference: Explicit assertion that the external scale estimate is independent of the
+            target forecast errors.
+        confidence_level: Probability level strictly between zero and one for conditional intervals or
+            descriptive bands.
+        rcond: Relative singular-value cutoff; None uses the geometry default based on machine precision and
+            shape.
     """
     scale = _scalar(scale_squared, "scale_squared")
     if scale < 0:
@@ -189,21 +301,38 @@ def compute_gls_reference_uncertainty(B: ArrayLike, Omega: ArrayLike, premia: Ar
     _text(reference_provenance, "reference_provenance")
     geometry = compute_gls_geometry(B, Omega, rcond=rcond)
     distribution = "normal" if reference_degrees_of_freedom is None else "reference_student_t"
-    result = compute_gls_uncertainty(B, Omega, premia, scale * geometry.residual,
-        method="external_reference_scale", distribution=distribution,
+    result = compute_gls_uncertainty(
+        B,
+        Omega,
+        premia,
+        scale * geometry.residual,
+        method="external_reference_scale",
+        distribution=distribution,
         confidence_level=confidence_level,
         reference_degrees_of_freedom=reference_degrees_of_freedom,
-        reference_provenance=reference_provenance, independent_reference=independent_reference,
-        assumptions=("Forecast-error covariance is scale_squared times Omega; "
-                     "the reference must match currency, horizon and target conventions.",),
-        rcond=rcond)
-    return GlsUncertaintyScenario(result.factors, result.covariance,
-                                  dict(result.summary, scale_squared=scale))
+        reference_provenance=reference_provenance,
+        independent_reference=independent_reference,
+        assumptions=(
+            "Forecast-error covariance is scale_squared times Omega; "
+            "the reference must match currency, horizon and target conventions.",
+        ),
+        rcond=rcond,
+    )
+    return GlsUncertaintyScenario(result.factors, result.covariance, dict(result.summary, scale_squared=scale))
 
 
-def compute_gls_adviser_disagreement(B: ArrayLike, Omega: ArrayLike, premia: ArrayLike, lower_quartile: ArrayLike, upper_quartile: ArrayLike, *,
-                                    correlation: ArrayLike | None=None, source_provenance: str,
-                                    confidence_level: float | np.integer | np.floating=.95, rcond: float | np.integer | np.floating | None=None) -> GlsUncertaintyScenario:
+def compute_gls_adviser_disagreement(
+    B: ArrayLike,
+    Omega: ArrayLike,
+    premia: ArrayLike,
+    lower_quartile: ArrayLike,
+    upper_quartile: ArrayLike,
+    *,
+    correlation: ArrayLike | None = None,
+    source_provenance: str,
+    confidence_level: float | np.integer | np.floating = 0.95,
+    rcond: float | np.integer | np.floating | None = None,
+) -> GlsUncertaintyScenario:
     """Propagate IQR-derived adviser dispersion under a labelled Gaussian scenario.
 
     Quartiles must already use the target's annual arithmetic-return convention.
@@ -211,10 +340,27 @@ def compute_gls_adviser_disagreement(B: ArrayLike, Omega: ArrayLike, premia: Arr
     forecast-horizon divisor is valid without another, explicit averaging model.
     Scalar correlation gives an equicorrelation scenario; a matrix must be PSD.
     Neither quartiles nor this approximation identify cross-asset dependence.
+
+    Args:
+        B: Asset-by-factor loading matrix (N by K), with exact labels when supplied as a DataFrame.
+        Omega: Positive-definite residual covariance (N by N) or positive residual-variance vector, in the
+            asset order.
+        premia: Factor premium vector in the loading-column order and the declared annual return units.
+        lower_quartile: Asset forecast lower quartiles in annual arithmetic-return units and loading-row
+            order.
+        upper_quartile: Corresponding upper quartiles, in the same convention and order.
+        correlation: Optional cross-asset dependence scenario: scalar equicorrelation or aligned PSD
+            correlation matrix.
+        source_provenance: Identified source and interpretation of the adviser quartiles.
+        confidence_level: Probability level strictly between zero and one for conditional intervals or
+            descriptive bands.
+        rcond: Relative singular-value cutoff; None uses the geometry default based on machine precision and
+            shape.
     """
     _text(source_provenance, "source_provenance")
-    lo, hi = (_vector(x, B, name) for x, name in (
-        (lower_quartile, "lower_quartile"), (upper_quartile, "upper_quartile")))
+    lo, hi = (
+        _vector(x, B, name) for x, name in ((lower_quartile, "lower_quartile"), (upper_quartile, "upper_quartile"))
+    )
     if np.any(lo > hi):
         raise ValueError("lower_quartile must not exceed upper_quartile")
     assets, _ = _labels(B)
@@ -226,36 +372,70 @@ def compute_gls_adviser_disagreement(B: ArrayLike, Omega: ArrayLike, premia: Arr
         if not -1 <= rho <= 1:
             raise ValueError("correlation must be in [-1,1] and positive semidefinite")
         corr = np.full((n, n), rho)
-        np.fill_diagonal(corr, 1.)
+        np.fill_diagonal(corr, 1.0)
         description = f"equicorrelation disagreement scenario: rho={rho:g}"
     else:
         corr, description = correlation, "supplied cross-asset disagreement correlation"
     corr = _psd(corr, assets, "correlation")
-    if not np.allclose(np.diag(corr), 1., rtol=0., atol=1e-12):
+    if not np.allclose(np.diag(corr), 1.0, rtol=0.0, atol=1e-12):
         raise ValueError("correlation must have unit diagonal")
-    conversion = float(norm.ppf(.75) - norm.ppf(.25))
+    conversion = float(norm.ppf(0.75) - norm.ppf(0.25))
     dispersion = (hi - lo) / conversion
     covariance = corr * np.outer(dispersion, dispersion)
-    result = compute_gls_uncertainty(B, Omega, premia, covariance,
-        method="adviser_disagreement", distribution="normal", confidence_level=confidence_level,
-        reference_provenance=source_provenance, target="projected_adviser_forecast_dispersion",
-        assumptions=("Marginal IQR divided by the normal IQR approximates adviser dispersion.",
-                     description, "This is not consensus-mean estimation error, provider "
-                     "forecast accuracy, or a calibrated confidence interval."), rcond=rcond)
-    return GlsUncertaintyScenario(result.factors, result.covariance, dict(result.summary,
-        calibration_status="adviser_disagreement_scenario_not_confidence_interval",
-        interval_status=("gaussian_disagreement_scenario" if result.summary["rank"] ==
-                         result.summary["n_factors"] else "unavailable_rank_deficient"),
-        normal_iqr_conversion=conversion, adviser_count_divisor=None,
-        correlation_scenario=description))
+    result = compute_gls_uncertainty(
+        B,
+        Omega,
+        premia,
+        covariance,
+        method="adviser_disagreement",
+        distribution="normal",
+        confidence_level=confidence_level,
+        reference_provenance=source_provenance,
+        target="projected_adviser_forecast_dispersion",
+        assumptions=(
+            "Marginal IQR divided by the normal IQR approximates adviser dispersion.",
+            description,
+            "This is not consensus-mean estimation error, provider "
+            "forecast accuracy, or a calibrated confidence interval.",
+        ),
+        rcond=rcond,
+    )
+    return GlsUncertaintyScenario(
+        result.factors,
+        result.covariance,
+        dict(
+            result.summary,
+            calibration_status="adviser_disagreement_scenario_not_confidence_interval",
+            interval_status=(
+                "gaussian_disagreement_scenario"
+                if result.summary["rank"] == result.summary["n_factors"]
+                else "unavailable_rank_deficient"
+            ),
+            normal_iqr_conversion=conversion,
+            adviser_count_divisor=None,
+            correlation_scenario=description,
+        ),
+    )
 
 
-def compute_gls_provider_contrast(B_left: ArrayLike, Omega_left: ArrayLike, premia_left: ArrayLike,
-                                  B_right: ArrayLike, Omega_right: ArrayLike, premia_right: ArrayLike, *,
-                                  covariance_left: ArrayLike, covariance_right: ArrayLike, cross_covariance: ArrayLike,
-                                  left_provider: str, right_provider: str, distribution: str="none",
-                                  confidence_level: float | np.integer | np.floating=.95, assumptions: tuple[str, ...] | list[str]=(), rcond: float | np.integer | np.floating | None=None
-                                  ) -> GlsUncertaintyScenario:
+def compute_gls_provider_contrast(
+    B_left: ArrayLike,
+    Omega_left: ArrayLike,
+    premia_left: ArrayLike,
+    B_right: ArrayLike,
+    Omega_right: ArrayLike,
+    premia_right: ArrayLike,
+    *,
+    covariance_left: ArrayLike,
+    covariance_right: ArrayLike,
+    cross_covariance: ArrayLike,
+    left_provider: str,
+    right_provider: str,
+    distribution: str = "none",
+    confidence_level: float | np.integer | np.floating = 0.95,
+    assumptions: tuple[str, ...] | list[str] = (),
+    rcond: float | np.integer | np.floating | None = None,
+) -> GlsUncertaintyScenario:
     """Propagate left-minus-right premia using the complete paired covariance.
 
     Designs and asset universes may differ; factor coordinates and units must be
@@ -264,6 +444,29 @@ def compute_gls_provider_contrast(B_left: ArrayLike, Omega_left: ArrayLike, prem
     forecast covariance must be positive semidefinite. Unknown dependence should
     be represented by several declared feasible scenarios rather than an implicit
     significance claim. Only covariance-only or known-Gaussian intervals are allowed.
+
+    Args:
+        B_left: Left provider asset-by-factor loadings; factor coordinates match the right provider.
+        Omega_left: Left provider positive residual variances or SPD residual covariance in its asset order.
+        premia_left: Left provider factor premium vector in the common factor coordinates.
+        B_right: Right provider asset-by-factor loadings; its asset universe may differ.
+        Omega_right: Right provider positive residual variances or SPD residual covariance in its asset
+            order.
+        premia_right: Right provider factor premium vector in the common factor coordinates.
+        covariance_left: Left provider asset forecast-error covariance in squared annual returns.
+        covariance_right: Right provider asset forecast-error covariance in squared annual returns.
+        cross_covariance: Forecast-error cross block: left assets by right assets; explicit zeros assert
+            independence.
+        left_provider: Label identifying the left side of the paired contrast.
+        right_provider: Label identifying the right side of the paired contrast.
+        distribution: none returns covariance only; normal adds intervals under the declared known-Gaussian
+            model.
+        confidence_level: Probability level strictly between zero and one for conditional intervals or
+            descriptive bands.
+        assumptions: Caller-supplied assumptions retained with the scenario rather than inferred from
+            covariance.
+        rcond: Relative singular-value cutoff; None uses the geometry default based on machine precision and
+            shape.
     """
     _text(left_provider, "left_provider")
     _text(right_provider, "right_provider")
@@ -289,12 +492,27 @@ def compute_gls_provider_contrast(B_left: ArrayLike, Omega_left: ArrayLike, prem
     a_right = np.linalg.solve(right.chol.T, right.white_pinv.T).T
     operator = np.concatenate([a_left, -a_right], axis=1)
     covariance = operator @ joint @ operator.T
-    return _scenario(first - second, covariance, factors, method="paired_provider_contrast",
-        distribution=distribution, confidence_level=confidence_level,
-        reference_degrees_of_freedom=None, reference_provenance=None, independent_reference=False,
-        target="difference_of_projected_provider_means", units="annual_decimal",
-        assumptions=assumptions, rank=min(left.rank, right.rank), n_factors=len(factors),
+    return _scenario(
+        first - second,
+        covariance,
+        factors,
+        method="paired_provider_contrast",
+        distribution=distribution,
+        confidence_level=confidence_level,
+        reference_degrees_of_freedom=None,
+        reference_provenance=None,
+        independent_reference=False,
+        target="difference_of_projected_provider_means",
+        units="annual_decimal",
+        assumptions=assumptions,
+        rank=min(left.rank, right.rank),
+        n_factors=len(factors),
         extra=dict(
             comparison_label=f"{left_provider} minus {right_provider}",
-            left_provider=left_provider, right_provider=right_provider,
-            cross_covariance_supplied=True, left_rank=left.rank, right_rank=right.rank))
+            left_provider=left_provider,
+            right_provider=right_provider,
+            cross_covariance_supplied=True,
+            left_rank=left.rank,
+            right_rank=right.rank,
+        ),
+    )

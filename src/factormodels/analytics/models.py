@@ -11,6 +11,7 @@ Units: Sigma = B F B.T + selected R in annual native factor coordinates; metadat
 Conditioning: Cutoff, label order and selected residual policy are explicit; access never recomputes FL state.
 Ownership: FM owns completed contracts; estimation materialises them and QIS consumes risk interchange views.
 """
+
 from __future__ import annotations
 
 from copy import deepcopy
@@ -23,6 +24,9 @@ import qis
 from qis import ReturnTypes
 
 
+_RESIDUAL_TYPES = ("orthogonal", "empirical", "exposure_cluster", "residual_cluster")
+
+
 def _return_types(factors: pd.Index, mapping: Mapping | None) -> dict:
     """Validate an exact factor coordinate map, defaulting to log returns."""
     result = dict(mapping) if mapping is not None else dict.fromkeys(factors, ReturnTypes.LOG)
@@ -33,7 +37,7 @@ def _return_types(factors: pd.Index, mapping: Mapping | None) -> dict:
     return result
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, eq=False, repr=False)
 class DatedFactorCovariance:
     """Annual factor covariance with explicit observation/availability dates.
 
@@ -55,14 +59,18 @@ class DatedFactorCovariance:
     def __post_init__(self) -> None:
         """Validate covariance labels, numerical shape and chronological provenance."""
         matrix = self.matrix
-        if (not isinstance(matrix, pd.DataFrame) or matrix.empty
-                or not matrix.index.is_unique or not matrix.columns.is_unique
-                or not matrix.index.equals(matrix.columns)):
+        if (
+            not isinstance(matrix, pd.DataFrame)
+            or matrix.empty
+            or not matrix.index.is_unique
+            or not matrix.columns.is_unique
+            or not matrix.index.equals(matrix.columns)
+        ):
             raise ValueError("factor covariance must be nonempty, square and identically labelled")
         values = matrix.to_numpy(dtype=float)
         if not np.isfinite(values).all() or not np.allclose(values, values.T, rtol=1e-10, atol=1e-12):
             raise ValueError("factor covariance must be finite and symmetric")
-        tolerance = 1e-10 * max(1., float(np.max(np.abs(values))))
+        tolerance = 1e-10 * max(1.0, float(np.max(np.abs(values))))
         if np.linalg.eigvalsh(values).min() < -tolerance:
             raise ValueError("factor covariance must be positive semidefinite")
         observation = pd.Timestamp(self.observation_date)
@@ -85,8 +93,7 @@ class DatedFactorCovariance:
         return self.matrix.reindex(index=factors, columns=factors).copy()
 
 
-
-@dataclass(frozen=True, init=False)
+@dataclass(frozen=True, init=False, eq=False, repr=False)
 class FactorModelSnapshot:
     """Owned completed moments, fit evidence and point-in-time provenance.
 
@@ -99,6 +106,37 @@ class FactorModelSnapshot:
 
     Pandas/NumPy fields and nested metadata are owned copies. Public retrieval
     returns independent copies. No FactorLasso containers are retained.
+
+    Args:
+        loadings: Asset-by-factor fitted loadings in the declared factor coordinates.
+        factor_covariance: Annual factor covariance in matching factor order.
+        residual_covariance: Selected annual residual covariance, including policy weights.
+        asset_covariance: Full selected annual asset covariance in fitted asset order.
+        raw_diagonal_reference_covariance: Asset covariance using unit-weight diagonal
+            residual variances; this is a separate reference, not selected risk.
+        fit_statistics: Asset-indexed fit table, including raw residual_var.
+        cutoff: Information date of the completed result.
+        residual_type: Selected orthogonal, empirical or cluster residual policy.
+        residual_var_weight: Nonnegative multiplier already applied to selected residual risk.
+        residual_corr_weight: Correlation retention already applied; one for orthogonal risk.
+        factor_return_types: Exact factor coordinate map; omitted means LOG.
+        factor_groups: Optional provider-neutral QIS factor-group declarations.
+        provenance: Plain metadata describing input units, dates and source choices.
+        fit_diagnostics: Optional prepared asset diagnostic table.
+        residuals: Optional native-cadence residual history ending by cutoff.
+        residual_metadata: Optional asset cadence and residual-scaling table.
+        residual_correlation: Optional prepared residual-correlation matrix.
+        residual_correlation_metadata: Plain correlation preparation/availability metadata.
+        clusters: Optional fitted cluster memberships.
+        linkages: Optional fitted hierarchical linkages.
+        cutoffs: Optional fitted cluster cut distances.
+        derived_signs: Optional fitted asset-by-factor sign table.
+        clusters_by_frequency: Optional memberships keyed by response cadence.
+        linkages_by_frequency: Optional linkages keyed by response cadence.
+        cutoffs_by_frequency: Optional cut distances keyed by response cadence.
+
+    Containers compare and hash by identity. Compare individual tables with pandas testing
+    utilities when numerical equality is required.
     """
 
     _fields: dict
@@ -108,19 +146,32 @@ class FactorModelSnapshot:
     residual_corr_weight: float
 
     def __init__(
-        self, loadings: pd.DataFrame, factor_covariance: pd.DataFrame,
-        residual_covariance: pd.DataFrame, asset_covariance: pd.DataFrame,
-        raw_diagonal_reference_covariance: pd.DataFrame, fit_statistics: pd.DataFrame,
-        *, cutoff: pd.Timestamp, residual_type: str = "orthogonal",
-        residual_var_weight: float = 1., residual_corr_weight: float = 1.,
-        factor_return_types: dict | None = None, factor_groups: dict | None = None,
-        provenance: dict | None = None, fit_diagnostics: pd.DataFrame | None = None,
-        residuals: pd.DataFrame | None = None, residual_metadata: pd.DataFrame | None = None,
+        self,
+        loadings: pd.DataFrame,
+        factor_covariance: pd.DataFrame,
+        residual_covariance: pd.DataFrame,
+        asset_covariance: pd.DataFrame,
+        raw_diagonal_reference_covariance: pd.DataFrame,
+        fit_statistics: pd.DataFrame,
+        *,
+        cutoff: pd.Timestamp,
+        residual_type: str = "orthogonal",
+        residual_var_weight: float = 1.0,
+        residual_corr_weight: float = 1.0,
+        factor_return_types: dict | None = None,
+        factor_groups: dict | None = None,
+        provenance: dict | None = None,
+        fit_diagnostics: pd.DataFrame | None = None,
+        residuals: pd.DataFrame | None = None,
+        residual_metadata: pd.DataFrame | None = None,
         residual_correlation: pd.DataFrame | None = None,
         residual_correlation_metadata: dict | None = None,
-        clusters: pd.Series | None = None, linkages: pd.DataFrame | None = None,
-        cutoffs: pd.Series | None = None, derived_signs: pd.DataFrame | None = None,
-        clusters_by_frequency: dict | None = None, linkages_by_frequency: dict | None = None,
+        clusters: pd.Series | None = None,
+        linkages: pd.DataFrame | None = None,
+        cutoffs: pd.Series | None = None,
+        derived_signs: pd.DataFrame | None = None,
+        clusters_by_frequency: dict | None = None,
+        linkages_by_frequency: dict | None = None,
         cutoffs_by_frequency: dict | None = None,
     ) -> None:
         """Validate completed labels, dimensions, dates and selected policy."""
@@ -128,185 +179,222 @@ class FactorModelSnapshot:
         if pd.isna(date):
             raise ValueError("cutoff must be a valid date")
         b, f = loadings, factor_covariance
-        if (b.empty or f.empty or not b.index.is_unique or not b.columns.is_unique
-                or not f.index.equals(f.columns) or not b.columns.equals(f.index)
-                or not fit_statistics.index.equals(b.index)):
+        if (
+            b.empty
+            or f.empty
+            or not b.index.is_unique
+            or not b.columns.is_unique
+            or not f.index.equals(f.columns)
+            or not b.columns.equals(f.index)
+            or not fit_statistics.index.equals(b.index)
+        ):
             raise ValueError("fitted covariance, loading and variance labels must align in the same order")
         _validate_covariance(f, b.columns, "factor covariance")
         if not np.isfinite(b.to_numpy(dtype=float)).all():
             raise ValueError("fitted loadings must be finite")
-        d = fit_statistics['residual_var'].to_numpy(dtype=float)
+        d = fit_statistics["residual_var"].to_numpy(dtype=float)
         if not np.isfinite(d).all() or np.any(d < 0):
             raise ValueError("fitted residual variances must be finite and nonnegative")
-        for name, matrix in (("residual covariance", residual_covariance),
-                             ("asset covariance", asset_covariance),
-                             ("raw diagonal reference covariance", raw_diagonal_reference_covariance)):
+        for name, matrix in (
+            ("residual covariance", residual_covariance),
+            ("asset covariance", asset_covariance),
+            ("raw diagonal reference covariance", raw_diagonal_reference_covariance),
+        ):
             _validate_covariance(matrix, b.index, name, check_psd=False)
         kind = str(residual_type)
-        if kind not in ('orthogonal', 'empirical', 'exposure_cluster', 'residual_cluster'):
-            raise ValueError("unknown residual_type")
+        if kind not in _RESIDUAL_TYPES:
+            raise ValueError(f"residual_type must be one of {_RESIDUAL_TYPES}, got {kind!r}")
         if not np.isfinite(residual_var_weight) or residual_var_weight < 0:
             raise ValueError("residual_var_weight must be finite and nonnegative")
         if not np.isfinite(residual_corr_weight) or not 0 <= residual_corr_weight <= 1:
             raise ValueError("residual_corr_weight must be finite and in [0, 1]")
-        if kind == 'orthogonal' and residual_corr_weight != 1.:
+        if kind == "orthogonal" and residual_corr_weight != 1.0:
             raise ValueError("residual_corr_weight applies only to nonorthogonal residuals")
-        for name, table in (("fit_diagnostics", fit_diagnostics), ("residual_metadata", residual_metadata),
-                            ("derived_signs", derived_signs)):
+        for name, table in (
+            ("fit_diagnostics", fit_diagnostics),
+            ("residual_metadata", residual_metadata),
+            ("derived_signs", derived_signs),
+        ):
             if table is not None and not table.index.equals(b.index):
                 raise ValueError(f"{name} must match the fitted asset order")
         if derived_signs is not None and not derived_signs.columns.equals(b.columns):
             raise ValueError("derived_signs must match the fitted factor order")
         if residuals is not None:
-            _validate_history(residuals, b.index, date, 'fitted residual history')
+            _validate_history(residuals, b.index, date, "fitted residual history")
         if (residual_correlation is None) != (residual_correlation_metadata is None):
             raise ValueError("residual correlation requires its provenance metadata")
         if residual_correlation is not None:
             _validate_covariance(residual_correlation, b.index, "residual correlation", psd_tolerance=1e-8)
-            if not np.allclose(np.diag(residual_correlation), 1., rtol=0, atol=1e-12):
+            if not np.allclose(np.diag(residual_correlation), 1.0, rtol=0, atol=1e-12):
                 raise ValueError("residual correlation must have unit diagonal")
             info = residual_correlation_metadata
-            observation, estimation = pd.Timestamp(info['observation_date']), pd.Timestamp(info['estimation_date'])
+            observation, estimation = pd.Timestamp(info["observation_date"]), pd.Timestamp(info["estimation_date"])
             if pd.isna(observation) or pd.isna(estimation) or not observation <= estimation <= date:
                 raise ValueError("residual correlation observation/estimation dates must be available at cutoff")
-            _validate_history(info['residual_returns'], b.index, observation, 'common residual history')
-            if not info['asset_metadata'].index.equals(b.index):
+            _validate_history(info["residual_returns"], b.index, observation, "common residual history")
+            if not info["asset_metadata"].index.equals(b.index):
                 raise ValueError("residual correlation asset metadata must align")
-        values = dict(loadings=b, factor_covariance=f, residual_covariance=residual_covariance,
-                      asset_covariance=asset_covariance,
-                      raw_diagonal_reference_covariance=raw_diagonal_reference_covariance,
-                      fit_statistics=fit_statistics, fit_diagnostics=fit_diagnostics,
-                      residuals=residuals, residual_metadata=residual_metadata,
-                      residual_correlation=residual_correlation,
-                      residual_correlation_metadata=residual_correlation_metadata,
-                      clusters=clusters, linkages=linkages, cutoffs=cutoffs, derived_signs=derived_signs,
-                      clusters_by_frequency=clusters_by_frequency, linkages_by_frequency=linkages_by_frequency,
-                      cutoffs_by_frequency=cutoffs_by_frequency,
-                      factor_return_types=_return_types(b.columns, factor_return_types),
-                      factor_groups=factor_groups, provenance=provenance or {})
+        values = dict(
+            loadings=b,
+            factor_covariance=f,
+            residual_covariance=residual_covariance,
+            asset_covariance=asset_covariance,
+            raw_diagonal_reference_covariance=raw_diagonal_reference_covariance,
+            fit_statistics=fit_statistics,
+            fit_diagnostics=fit_diagnostics,
+            residuals=residuals,
+            residual_metadata=residual_metadata,
+            residual_correlation=residual_correlation,
+            residual_correlation_metadata=residual_correlation_metadata,
+            clusters=clusters,
+            linkages=linkages,
+            cutoffs=cutoffs,
+            derived_signs=derived_signs,
+            clusters_by_frequency=clusters_by_frequency,
+            linkages_by_frequency=linkages_by_frequency,
+            cutoffs_by_frequency=cutoffs_by_frequency,
+            factor_return_types=_return_types(b.columns, factor_return_types),
+            factor_groups=factor_groups,
+            provenance=provenance or {},
+        )
         _require_plain(values)
         owned = deepcopy(values)
         # One owned object suffices for identical immutable internal views.
-        if (asset_covariance.equals(raw_diagonal_reference_covariance)
-                and asset_covariance.to_numpy().tobytes() == raw_diagonal_reference_covariance.to_numpy().tobytes()
-                and asset_covariance.index.names == raw_diagonal_reference_covariance.index.names
-                and asset_covariance.columns.names == raw_diagonal_reference_covariance.columns.names
-                and not asset_covariance.attrs and not raw_diagonal_reference_covariance.attrs):
-            owned['raw_diagonal_reference_covariance'] = owned['asset_covariance']
-        object.__setattr__(self, '_fields', owned)
-        for name, value in dict(cutoff=date, residual_type=kind,
-                                residual_var_weight=residual_var_weight,
-                                residual_corr_weight=residual_corr_weight).items():
+        if (
+            asset_covariance.equals(raw_diagonal_reference_covariance)
+            and asset_covariance.to_numpy().tobytes() == raw_diagonal_reference_covariance.to_numpy().tobytes()
+            and asset_covariance.index.names == raw_diagonal_reference_covariance.index.names
+            and asset_covariance.columns.names == raw_diagonal_reference_covariance.columns.names
+            and not asset_covariance.attrs
+            and not raw_diagonal_reference_covariance.attrs
+        ):
+            owned["raw_diagonal_reference_covariance"] = owned["asset_covariance"]
+        object.__setattr__(self, "_fields", owned)
+        for name, value in dict(
+            cutoff=date,
+            residual_type=kind,
+            residual_var_weight=residual_var_weight,
+            residual_corr_weight=residual_corr_weight,
+        ).items():
             object.__setattr__(self, name, value)
+
+    def __repr__(self) -> str:
+        """Describe the fitted dimensions and policy without printing numerical tables."""
+        n_assets, n_factors = self._fields["loadings"].shape
+        return (
+            f"FactorModelSnapshot(cutoff={self.cutoff.date()}, n_assets={n_assets}, "
+            f"n_factors={n_factors}, residual_type={self.residual_type!r})"
+        )
 
     @property
     def loadings(self) -> pd.DataFrame:
         """Return an independent copy of completed loadings."""
-        return deepcopy(self._fields['loadings'])
+        return deepcopy(self._fields["loadings"])
 
     @property
     def factor_covariance(self) -> pd.DataFrame:
         """Return an independent copy of completed factor covariance."""
-        return deepcopy(self._fields['factor_covariance'])
+        return deepcopy(self._fields["factor_covariance"])
 
     @property
     def asset_covariance(self) -> pd.DataFrame:
         """Return an independent copy of completed asset covariance."""
-        return deepcopy(self._fields['asset_covariance'])
+        return deepcopy(self._fields["asset_covariance"])
 
     @property
     def residual_covariance(self) -> pd.DataFrame:
         """Return an independent copy of completed residual covariance."""
-        return deepcopy(self._fields['residual_covariance'])
+        return deepcopy(self._fields["residual_covariance"])
 
     @property
     def raw_diagonal_reference_covariance(self) -> pd.DataFrame:
         """Return an independent copy of completed raw diagonal reference covariance."""
-        return deepcopy(self._fields['raw_diagonal_reference_covariance'])
+        return deepcopy(self._fields["raw_diagonal_reference_covariance"])
 
     @property
     def fit_statistics(self) -> pd.DataFrame:
         """Return an independent copy of completed fit statistics."""
-        return deepcopy(self._fields['fit_statistics'])
+        return deepcopy(self._fields["fit_statistics"])
 
     @property
     def fit_diagnostics(self) -> pd.DataFrame | None:
         """Return an independent copy of completed fit diagnostics."""
-        return deepcopy(self._fields['fit_diagnostics'])
+        return deepcopy(self._fields["fit_diagnostics"])
 
     @property
     def residuals(self) -> pd.DataFrame | None:
         """Return an independent copy of completed residuals."""
-        return deepcopy(self._fields['residuals'])
+        return deepcopy(self._fields["residuals"])
 
     @property
     def residual_metadata(self) -> pd.DataFrame | None:
         """Return an independent copy of completed residual metadata."""
-        return deepcopy(self._fields['residual_metadata'])
+        return deepcopy(self._fields["residual_metadata"])
 
     @property
     def residual_correlation(self) -> pd.DataFrame | None:
         """Return an independent copy of completed residual correlation."""
-        return deepcopy(self._fields['residual_correlation'])
+        return deepcopy(self._fields["residual_correlation"])
 
     @property
     def residual_correlation_metadata(self) -> dict | None:
         """Return an independent copy of completed residual correlation metadata."""
-        return deepcopy(self._fields['residual_correlation_metadata'])
+        return deepcopy(self._fields["residual_correlation_metadata"])
 
     @property
     def clusters(self) -> pd.Series | None:
         """Return an independent copy of completed clusters."""
-        return deepcopy(self._fields['clusters'])
+        return deepcopy(self._fields["clusters"])
 
     @property
     def linkages(self) -> pd.DataFrame | None:
         """Return an independent copy of completed linkages."""
-        return deepcopy(self._fields['linkages'])
+        return deepcopy(self._fields["linkages"])
 
     @property
     def cutoffs(self) -> pd.Series | None:
         """Return an independent copy of completed cutoffs."""
-        return deepcopy(self._fields['cutoffs'])
+        return deepcopy(self._fields["cutoffs"])
 
     @property
     def derived_signs(self) -> pd.DataFrame | None:
         """Return an independent copy of completed derived signs."""
-        return deepcopy(self._fields['derived_signs'])
+        return deepcopy(self._fields["derived_signs"])
 
     @property
     def clusters_by_frequency(self) -> dict | None:
         """Return an independent copy of completed clusters by frequency."""
-        return deepcopy(self._fields['clusters_by_frequency'])
+        return deepcopy(self._fields["clusters_by_frequency"])
 
     @property
     def linkages_by_frequency(self) -> dict | None:
         """Return an independent copy of completed linkages by frequency."""
-        return deepcopy(self._fields['linkages_by_frequency'])
+        return deepcopy(self._fields["linkages_by_frequency"])
 
     @property
     def cutoffs_by_frequency(self) -> dict | None:
         """Return an independent copy of completed cutoffs by frequency."""
-        return deepcopy(self._fields['cutoffs_by_frequency'])
+        return deepcopy(self._fields["cutoffs_by_frequency"])
 
     @property
     def factor_return_types(self) -> dict:
         """Return an independent copy of completed factor return types."""
-        return deepcopy(self._fields['factor_return_types'])
+        return deepcopy(self._fields["factor_return_types"])
 
     @property
     def factor_groups(self) -> dict | None:
         """Return an independent copy of completed factor groups."""
-        return deepcopy(self._fields['factor_groups'])
+        return deepcopy(self._fields["factor_groups"])
 
     @property
     def provenance(self) -> dict:
         """Return an independent copy of completed provenance."""
-        return deepcopy(self._fields['provenance'])
+        return deepcopy(self._fields["provenance"])
 
     def to_risk_model(self, *, diagonal_reference: bool = False) -> qis.RiskModel:
         """Export authoritative total risk and supported QIS metadata."""
         from factormodels.analytics.risk import build_risk_model
+
         return build_risk_model(self, diagonal_reference=diagonal_reference)
 
     def with_provenance(self, provenance: Mapping) -> FactorModelSnapshot:
@@ -318,15 +406,15 @@ class FactorModelSnapshot:
         """
         _require_plain(provenance)
         updated = object.__new__(type(self))
-        for name in ('cutoff', 'residual_type', 'residual_var_weight', 'residual_corr_weight'):
+        for name in ("cutoff", "residual_type", "residual_var_weight", "residual_corr_weight"):
             object.__setattr__(updated, name, getattr(self, name))
-        object.__setattr__(updated, '_fields', {**self._fields, 'provenance': deepcopy(dict(provenance))})
+        object.__setattr__(updated, "_fields", {**self._fields, "provenance": deepcopy(dict(provenance))})
         return updated
 
 
 def _require_plain(value: object) -> None:
     """Reject embedded FL objects even inside caller-supplied metadata."""
-    if type(value).__module__.split('.')[0] == 'factorlasso':
+    if type(value).__module__.split(".")[0] == "factorlasso":
         raise TypeError("completed results cannot contain FactorLasso objects")
     if isinstance(value, Mapping):
         for key, item in value.items():
@@ -340,8 +428,11 @@ def _require_plain(value: object) -> None:
             _require_plain(getattr(value, item.name))
     elif isinstance(value, (pd.DataFrame, pd.Series)):
         _require_plain(value.attrs)
-        objects = value.loc[:, value.dtypes == object].to_numpy().flat if isinstance(value, pd.DataFrame) else (
-            value.to_numpy() if value.dtype == object else ())
+        objects = (
+            value.loc[:, value.dtypes == object].to_numpy().flat  # noqa: E721 - elementwise dtype comparison
+            if isinstance(value, pd.DataFrame)
+            else (value.to_numpy() if value.dtype == object else ())
+        )
         for item in objects:
             _require_plain(item)
     elif isinstance(value, np.ndarray) and value.dtype == object:
@@ -349,31 +440,48 @@ def _require_plain(value: object) -> None:
             _require_plain(item)
 
 
-def _validate_covariance(matrix: pd.DataFrame, axis: pd.Index, name: str, *,
-                         check_psd: bool = True, psd_tolerance: float | None = None) -> None:
-    """Check a supplied completed matrix without assembling or repairing it."""
+def _validate_covariance(
+    matrix: pd.DataFrame, axis: pd.Index, name: str, *, check_psd: bool = True, psd_tolerance: float | None = None
+) -> None:
+    """Validate labels/finiteness and symmetry (rtol=1e-10, atol=1e-12).
+
+    PSD checks allow negative eigenvalues down to -1e-10 * max(1, max(abs(C))),
+    unless the caller supplies an absolute tolerance (1e-8 for correlations).
+    Selected assembled blocks may disable this eigenvalue check. No repair occurs.
+    """
     if not isinstance(matrix, pd.DataFrame) or not matrix.index.equals(axis) or not matrix.columns.equals(axis):
         raise ValueError(f"{name} labels must align in the same order")
     values = matrix.to_numpy(dtype=float)
     if not np.isfinite(values).all() or not np.allclose(values, values.T, rtol=1e-10, atol=1e-12):
         raise ValueError(f"{name} must be finite and symmetric")
-    tolerance = psd_tolerance if psd_tolerance is not None else 1e-10 * max(1., float(np.max(np.abs(values))))
+    tolerance = psd_tolerance if psd_tolerance is not None else 1e-10 * max(1.0, float(np.max(np.abs(values))))
     if check_psd and np.linalg.eigvalsh(values).min() < -tolerance:
         raise ValueError(f"{name} must be positive semidefinite")
 
 
 def _validate_history(history: pd.DataFrame, assets: pd.Index, cutoff: pd.Timestamp, name: str) -> None:
     """Validate history axes and availability without altering missing observations."""
-    if (not history.columns.equals(assets) or not isinstance(history.index, pd.DatetimeIndex)
-            or history.index.hasnans or not history.index.is_unique):
+    if (
+        not history.columns.equals(assets)
+        or not isinstance(history.index, pd.DatetimeIndex)
+        or history.index.hasnans
+        or not history.index.is_unique
+    ):
         raise ValueError(f"{name} labels must align and dates must be unique")
     if not history.empty and history.index.max() > cutoff:
         raise ValueError(f"{name} extends beyond cutoff")
 
 
-@dataclass(frozen=True, init=False)
+@dataclass(frozen=True, init=False, eq=False, repr=False)
 class RollingFactorModel:
-    """Completed FM snapshots; map retrieval cannot mutate the rolling result."""
+    """Completed FM snapshots; map retrieval cannot mutate the rolling result.
+
+    Args:
+        snapshots: Nonempty date-to-snapshot mapping. Each key must equal its snapshot's
+            cutoff; dates are normalized and stored in chronological order.
+
+    Containers compare and hash by identity rather than comparing embedded tables.
+    """
 
     _snapshots: dict[pd.Timestamp, FactorModelSnapshot]
 
@@ -387,7 +495,12 @@ class RollingFactorModel:
         for date, snapshot in normalized.items():
             if not isinstance(snapshot, FactorModelSnapshot) or date != snapshot.cutoff:
                 raise ValueError("rolling keys must equal each FactorModelSnapshot cutoff")
-        object.__setattr__(self, '_snapshots', dict(sorted(normalized.items())))
+        object.__setattr__(self, "_snapshots", dict(sorted(normalized.items())))
+
+    def __repr__(self) -> str:
+        """Describe the fitted calendar without expanding its snapshot tables."""
+        dates = list(self._snapshots)
+        return f"RollingFactorModel(n_snapshots={len(dates)}, first={dates[0].date()}, last={dates[-1].date()})"
 
     @property
     def snapshots(self) -> dict[pd.Timestamp, FactorModelSnapshot]:
@@ -402,16 +515,24 @@ class RollingFactorModel:
     def to_risk_model(self, *, diagonal_reference: bool = False) -> qis.RiskModel:
         """Export selected rolling risk without reassembly."""
         from factormodels.analytics.risk import build_risk_model
+
         return build_risk_model(self, diagonal_reference=diagonal_reference)
 
 
-@dataclass(frozen=True, init=False)
+@dataclass(frozen=True, init=False, eq=False, repr=False)
 class PreparedSnapshotDiagnostics:
     """Explicit dated display table with alpha settings and availability.
 
     Alpha is historical residual attribution in producer-declared annual units,
     not a tactical forecast. Missing history falls back to in-sample alpha when
     available; minimal moments retain missing statistical evidence explicitly.
+
+    Args:
+        table: Prepared asset diagnostic table, copied at construction.
+        cutoff: Information date shared with the completed snapshot.
+        alpha_settings: Recorded historical-alpha method, spans and other preparation settings.
+        alpha_source: Label identifying historical residual, in-sample or unavailable alpha evidence.
+        alpha_available: Whether the prepared table contains usable alpha evidence.
     """
 
     _table: pd.DataFrame
@@ -420,17 +541,24 @@ class PreparedSnapshotDiagnostics:
     alpha_source: str
     alpha_available: bool
 
-    def __init__(self, table: pd.DataFrame, *, cutoff: pd.Timestamp,
-                 alpha_settings: dict, alpha_source: str, alpha_available: bool) -> None:
+    def __init__(
+        self,
+        table: pd.DataFrame,
+        *,
+        cutoff: pd.Timestamp,
+        alpha_settings: dict,
+        alpha_source: str,
+        alpha_available: bool,
+    ) -> None:
         """Own a dated labelled table and its declared preparation settings."""
         if not table.index.is_unique or pd.isna(pd.Timestamp(cutoff)):
             raise ValueError("prepared diagnostics require unique assets and a valid cutoff")
         _require_plain(alpha_settings)
-        object.__setattr__(self, '_table', table.copy(deep=True))
-        object.__setattr__(self, '_alpha_settings', deepcopy(alpha_settings))
-        object.__setattr__(self, 'cutoff', pd.Timestamp(cutoff))
-        object.__setattr__(self, 'alpha_source', alpha_source)
-        object.__setattr__(self, 'alpha_available', alpha_available)
+        object.__setattr__(self, "_table", table.copy(deep=True))
+        object.__setattr__(self, "_alpha_settings", deepcopy(alpha_settings))
+        object.__setattr__(self, "cutoff", pd.Timestamp(cutoff))
+        object.__setattr__(self, "alpha_source", alpha_source)
+        object.__setattr__(self, "alpha_available", alpha_available)
 
     @property
     def table(self) -> pd.DataFrame:
@@ -449,5 +577,4 @@ class PreparedSnapshotDiagnostics:
         return self.table
 
 
-__all__ = ['DatedFactorCovariance', 'FactorModelSnapshot', 'RollingFactorModel',
-           'PreparedSnapshotDiagnostics']
+__all__ = ["DatedFactorCovariance", "FactorModelSnapshot", "RollingFactorModel", "PreparedSnapshotDiagnostics"]

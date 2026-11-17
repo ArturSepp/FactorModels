@@ -1,5 +1,7 @@
 """Factor-only clustering anchors must never enter regression or portfolio outputs."""
 
+from dataclasses import fields, replace
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -12,7 +14,7 @@ from factorlasso import (
     compute_rolling_smoothed_clusters,
     get_linkage_array,
 )
-from factormodels.estimation._pipeline import _FactorCovarPipeline as FactorCovarEstimator
+from factormodels import FactorCovarEstimator
 
 
 def _inputs():
@@ -45,7 +47,8 @@ def test_anchor_fit_matches_independent_augmented_partition(model_type):
     """Match a separate clustering pass and fit only original response columns."""
     factors, returns = _inputs()
     estimator = _estimator()
-    estimator.lasso_model = estimator.lasso_model.copy(kwargs={'model_type': model_type})
+    estimator = replace(estimator, lasso_model=estimator.lasso_model.copy(
+        kwargs={'model_type': model_type}))
     y = returns['ME']
     x = qis.to_returns(factors, is_log_returns=True, is_first_zero=False,
                        drop_first=False, freq=None)
@@ -57,13 +60,13 @@ def test_anchor_fit_matches_independent_augmented_partition(model_type):
     expected = estimator.lasso_model.copy().fit(
         x=x, y=y, external_clusters=partition.clusters[date].reindex(y.columns),
     )
-    actual = estimator.fit_current_factor_covars(factors, returns, estimation_date=date)
-    pd.testing.assert_frame_equal(actual.y_betas, expected.estimated_betas, check_exact=True)
+    actual = estimator.fit_current(factors, returns, cutoff=date)
+    pd.testing.assert_frame_equal(actual.loadings, expected.estimated_betas, check_exact=True)
     pd.testing.assert_frame_equal(actual.derived_signs, expected.derived_signs_, check_exact=True)
-    assert actual.y_betas.index.equals(y.columns)
-    assert actual.y_betas.columns.equals(x.columns)
+    assert actual.loadings.index.equals(y.columns)
+    assert actual.loadings.columns.equals(x.columns)
     assert actual.residuals.columns.equals(y.columns)
-    assert actual.get_y_covar().index.equals(y.columns)
+    assert actual.asset_covariance.index.equals(y.columns)
     restricted = get_linkage_array(actual.linkages, 'ME')
     full_distances = squareform(cophenet(partition.linkages[date]))[:6, :6]
     np.testing.assert_array_equal(squareform(cophenet(restricted)), full_distances)
@@ -80,14 +83,14 @@ def test_default_path_is_exactly_unchanged_and_flag_survives_copy():
     factors, returns = _inputs()
     explicit = _estimator(False)
     default = FactorCovarEstimator(**{
-        key: value for key, value in explicit.to_dict().items()
-        if key != 'include_factors_in_clustering'
+        field.name: getattr(explicit, field.name) for field in fields(explicit)
+        if field.name != 'include_factors_in_clustering'
     })
-    expected = default.fit_current_factor_covars(factors, returns)
-    actual = explicit.fit_current_factor_covars(factors, returns)
-    pd.testing.assert_frame_equal(actual.y_betas, expected.y_betas, check_exact=True)
+    expected = default.fit_current(factors, returns, cutoff=factors.index[-1])
+    actual = explicit.fit_current(factors, returns, cutoff=factors.index[-1])
+    pd.testing.assert_frame_equal(actual.loadings, expected.loadings, check_exact=True)
     pd.testing.assert_series_equal(actual.clusters, expected.clusters, check_exact=True)
-    assert _estimator().copy().to_dict()['include_factors_in_clustering'] is True
+    assert replace(_estimator()).include_factors_in_clustering is True
 
 
 @pytest.mark.parametrize('smoother', [
@@ -103,21 +106,21 @@ def test_rolling_anchors_are_causal_and_match_current(smoother):
     estimator = _estimator(**kwargs)
     start, end = factors.index[-5], factors.index[-2]
     period = qis.TimePeriod(start, end + pd.Timedelta(days=1))
-    actual = estimator.fit_rolling_factor_covars(factors, returns, period)
+    actual = estimator.fit_rolling(factors, returns, time_period=period)
     changed_factors = factors.copy()
     changed_factors.loc[changed_factors.index > end] *= 3
     changed_returns = {'ME': returns['ME'].copy()}
     changed_returns['ME'].loc[changed_returns['ME'].index > end] += 0.5
-    repeated = _estimator(**kwargs).fit_rolling_factor_covars(
-        changed_factors, changed_returns, period,
+    repeated = _estimator(**kwargs).fit_rolling(
+        changed_factors, changed_returns, time_period=period,
     )
-    for date, expected in actual.data.items():
-        pd.testing.assert_frame_equal(expected.y_betas, repeated.data[date].y_betas,
+    for date, expected in actual.snapshots.items():
+        pd.testing.assert_frame_equal(expected.loadings, repeated.snapshots[date].loadings,
                                       check_exact=True)
-        pd.testing.assert_series_equal(expected.clusters, repeated.data[date].clusters)
+        pd.testing.assert_series_equal(expected.clusters, repeated.snapshots[date].clusters)
     if smoother == ClusterSmootherType.NONE:
-        current = estimator.fit_current_factor_covars(factors, returns, estimation_date=end)
-        pd.testing.assert_frame_equal(current.y_betas, actual.data[end].y_betas, check_exact=True)
+        current = estimator.fit_current(factors, returns, cutoff=end)
+        pd.testing.assert_frame_equal(current.loadings, actual.snapshots[end].loadings, check_exact=True)
 
 
 def test_linkage_restriction_preserves_cophenetic_distances_and_leaf_order():
@@ -149,11 +152,11 @@ def test_short_history_assets_do_not_pollute_reporting_leaves(transform):
     factors, returns = _inputs()
     returns['ME'].loc[returns['ME'].index[:-5], 'A0'] = np.nan
     with pytest.warns(UserWarning, match='warmup_period'):
-        fitted = _estimator(cluster_correlation_transform=transform).fit_current_factor_covars(
-            factors, returns,
+        fitted = _estimator(cluster_correlation_transform=transform).fit_current(
+            factors, returns, cutoff=factors.index[-1],
         )
     assert 'A0' not in fitted.clusters.index
-    assert (fitted.y_betas.loc['A0'] == 0).all()
+    assert (fitted.loadings.loc['A0'] == 0).all()
     tree = get_linkage_array(fitted.linkages, 'ME')
     assert len(tree) + 1 == len(fitted.clusters)
 
@@ -163,14 +166,14 @@ def test_reference_input_guards_and_warmup_none():
     from factormodels.estimation._clustering import _restrict_linkage
 
     factors, returns = _inputs()
-    actual = _estimator(warmup_period=None).fit_current_factor_covars(factors, returns)
+    actual = _estimator(warmup_period=None).fit_current(factors, returns, cutoff=factors.index[-1])
     assert len(actual.clusters) == 6
     repeated = pd.concat([factors, factors.iloc[:, :1]], axis=1)
     with pytest.raises(ValueError, match='unique'):
-        _estimator().fit_current_factor_covars(repeated, returns)
+        _estimator().fit_current(repeated, returns, cutoff=factors.index[-1])
     collisions = {'ME': returns['ME'].rename(columns={'A0': '__factor_anchor__:0'})}
     with pytest.raises(ValueError, match='reserved'):
-        _estimator().fit_current_factor_covars(factors, collisions)
+        _estimator().fit_current(factors, collisions, cutoff=factors.index[-1])
     with pytest.raises(ValueError, match='missing fitted'):
         _restrict_linkage(np.empty((0, 4)), pd.Index(['A']), pd.Index(['B']))
 
@@ -194,7 +197,7 @@ def test_monthly_and_quarterly_anchors_use_their_own_return_grids_and_spans():
     y = returns['ME']
     returns = {'ME': y.iloc[:, :3], 'QE': y.iloc[:, 3:].resample('QE').sum(min_count=1)}
     estimator = _estimator(span_freq_dict={'ME': 36, 'QE': 12})
-    actual = estimator.fit_current_factor_covars(factors, returns)
+    actual = estimator.fit_current(factors, returns, cutoff=factors.index[-1])
     for freq, responses in returns.items():
         prices = factors.reindex(responses.index, method='ffill').ffill()
         x = qis.to_returns(prices, is_log_returns=True, is_first_zero=False,
@@ -205,20 +208,21 @@ def test_monthly_and_quarterly_anchors_use_their_own_return_grids_and_spans():
         discovered = compute_rolling_smoothed_clusters(panel, [date], model)
         expected = model.fit(x=x, y=responses,
                              external_clusters=discovered.clusters[date].reindex(responses.columns))
-        pd.testing.assert_frame_equal(actual.y_betas.loc[responses.columns],
+        pd.testing.assert_frame_equal(actual.loadings.loc[responses.columns],
                                       expected.estimated_betas, check_exact=True)
         assert len(get_linkage_array(actual.linkages, freq)) == len(responses.columns) - 1
 
 
-def test_inferred_current_date_excludes_later_factor_prices():
-    """Inferring the valuation date from asset returns also bounds the factor covariance."""
+def test_explicit_cutoff_excludes_later_factor_prices():
+    """The explicit valuation cutoff bounds the factor covariance despite later prices."""
     factors, returns = _inputs()
     future = factors.iloc[[-1]].copy() * 3.0
     future.index = pd.DatetimeIndex([factors.index[-1] + pd.offsets.MonthEnd()])
-    expected = _estimator().fit_current_factor_covars(factors, returns)
-    actual = _estimator().fit_current_factor_covars(pd.concat([factors, future]), returns)
-    pd.testing.assert_frame_equal(actual.x_covar, expected.x_covar, check_exact=True)
-    pd.testing.assert_frame_equal(actual.y_betas, expected.y_betas, check_exact=True)
+    expected = _estimator().fit_current(factors, returns, cutoff=factors.index[-1])
+    actual = _estimator().fit_current(
+        pd.concat([factors, future]), returns, cutoff=factors.index[-1])
+    pd.testing.assert_frame_equal(actual.factor_covariance, expected.factor_covariance, check_exact=True)
+    pd.testing.assert_frame_equal(actual.loadings, expected.loadings, check_exact=True)
 
 
 @pytest.mark.parametrize('smoother', list(ClusterSmootherType))
@@ -232,31 +236,31 @@ def test_monthly_only_preserves_quarterly_fit_and_monthly_anchor_fit(smoother):
         settings['recluster_freq'] = 'QE'
     baseline = _estimator(False, **settings)
     anchored = _estimator(True, **settings)
-    selected = _estimator(True, **settings).copy(factor_clustering_freqs=['ME'])
-    assert selected.copy().to_dict()['factor_clustering_freqs'] == ['ME']
+    selected = replace(_estimator(True, **settings), factor_clustering_freqs=['ME'])
+    assert replace(selected).factor_clustering_freqs == ['ME']
     period = qis.TimePeriod(factors.index[-4], factors.index[-1] + pd.Timedelta(days=1))
-    paths = [est.fit_rolling_factor_covars(factors, returns, period).data
+    paths = [est.fit_rolling(factors, returns, time_period=period).snapshots
              for est in [baseline, anchored, selected]]
-    current = [est.fit_current_factor_covars(factors, returns)
+    current = [est.fit_current(factors, returns, cutoff=factors.index[-1])
                for est in [baseline, anchored, selected]]
     comparisons = [tuple(path[date] for path in paths) for date in paths[0]] + [current]
     for original, all_factors, monthly_only in comparisons:
         for freq, expected in [('ME', all_factors), ('QE', original)]:
             assets = returns[freq].columns
-            pd.testing.assert_frame_equal(monthly_only.y_betas.loc[assets],
-                                          expected.y_betas.loc[assets], check_exact=True)
+            pd.testing.assert_frame_equal(monthly_only.loadings.loc[assets],
+                                          expected.loadings.loc[assets], check_exact=True)
             pd.testing.assert_frame_equal(monthly_only.derived_signs.loc[assets],
                                           expected.derived_signs.loc[assets], check_exact=True)
             pd.testing.assert_series_equal(monthly_only.clusters.reindex(assets),
                                            expected.clusters.reindex(assets), check_exact=True)
             np.testing.assert_array_equal(get_linkage_array(monthly_only.linkages, freq),
                                           get_linkage_array(expected.linkages, freq))
-            pd.testing.assert_frame_equal(monthly_only.get_y_covar().loc[assets, assets],
-                                          expected.get_y_covar().loc[assets, assets], check_exact=True)
+            pd.testing.assert_frame_equal(monthly_only.asset_covariance.loc[assets, assets],
+                                          expected.asset_covariance.loc[assets, assets], check_exact=True)
 
 
 @pytest.mark.parametrize('invalid', ['ME', [], [None], ['']])
 def test_frequency_selector_rejects_ambiguous_values(invalid):
     """Cadence selection must be an explicit non-empty sequence of names."""
     with pytest.raises(ValueError, match='factor_clustering_freqs'):
-        _estimator().copy(factor_clustering_freqs=invalid)
+        replace(_estimator(), factor_clustering_freqs=invalid)

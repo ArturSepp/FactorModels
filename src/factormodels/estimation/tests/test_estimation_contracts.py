@@ -1,4 +1,4 @@
-"""Acceptance checks for the completed current/rolling estimation product."""
+"""Independent numerical contracts for completed current/rolling estimation."""
 from dataclasses import replace
 
 import numpy as np

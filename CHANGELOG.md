@@ -6,10 +6,42 @@ The first public release is 0.1.0; earlier entries record unpublished developmen
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/): a behaviour
 change leads each release, then `Added`, `Changed`, `Fixed`, `Removed`.
 
+## [Unreleased] — 0.5.1.dev0
+
+### Fixed
+
+- Completed model, diagnostic, dated covariance and equity-risk containers use identity
+  equality and hashing. Comparing distinct equal-valued tables no longer raises pandas'
+  ambiguous-truth error. Representations omit full numerical tables.
+- `RiskFactors.validate_columns` accepts one-shot iterables without consuming them repeatedly.
+- Volatility-targeted construction omits rebalance labels beyond the last supplied price.
+  Historical weights and NAV are preserved; returned weights no longer include unusable
+  trailing rows. Valid non-trading period-end labels remain available for execution.
+- `Factor.initial_volatility` correctly declares its nullable return type.
+
+### Changed
+
+- Refresh the reviewed OP consumer and public handbook handoffs. Keep external link-health
+  checks in their owning documentation workflows.
+- Render the complete root API with parameter documentation and expand the construction
+  methodology. Cite the accepted CMA paper as forthcoming in JPM (2027).
+- Examples expose named `LocalTests` cases while retaining existing integer calls.
+- Enforce E/W style rules alongside the existing annotation and import boundaries.
+
+### Removed
+
+- Retire migration replay tools and unused private estimator compatibility methods. Keep
+  independent numerical contracts in the shipped component tests and protect private papers
+  in both the Git index and built distributions.
+
 ## [0.5.0] - 2026-11-08
 
 ### Added
 
+- Add `EquityPayoffRiskSpec`, `EquityPayoffRiskSnapshot`, `build_funded_currency_exposure`,
+  `compute_payoff_factor_returns`, `assemble_equity_payoff_risk`, `EquityFxRiskSpec`,
+  `EquityFxRiskSnapshot`, `build_currency_exposure` and `augment_equity_fx_model`.
+  `FactorCovarEstimator.asset_return_type` declares log returns or single-cadence SIMPLE payoffs.
 - Add research-only SIMPLE equity payoff risk with arithmetic basket
   factors, cash-aware opening currency exposure, and every factor/residual/FX
   cross block retained. Separate fixed-exposure forecasts from dated historical

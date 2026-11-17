@@ -75,19 +75,34 @@ def get_output_path() -> str:
 
 
 def resolve_resource_path(path: str | Path) -> Path:
-    """Resolve a supplied input name below the resource root, retaining absolute paths."""
+    """Resolve a supplied input name below the resource root, retaining absolute paths.
+
+    Args:
+        path: Relative resource/output name resolved against the configured root, or an absolute path
+            retained as supplied.
+    """
     target = Path(path).expanduser()
     return (target if target.is_absolute() else Path(get_resource_path()) / target).resolve()
 
 
 def resolve_output_path(path: str | Path) -> Path:
-    """Resolve a supplied output name below the output root, retaining absolute paths."""
+    """Resolve a supplied output name below the output root, retaining absolute paths.
+
+    Args:
+        path: Relative resource/output name resolved against the configured root, or an absolute path
+            retained as supplied.
+    """
     target = Path(path).expanduser()
     return (target if target.is_absolute() else _configured_path("OUTPUT_PATH") / target).resolve()
 
 
 def create_output_directory(directory: str | Path) -> Path:
-    """Create a new configured output directory and parents, refusing existing output."""
+    """Create a new configured output directory and parents, refusing existing output.
+
+    Args:
+        directory: New output directory, relative to the configured output root or absolute; existing paths
+            are refused.
+    """
     target = resolve_output_path(directory)
     target.mkdir(parents=True, exist_ok=False)
     return target

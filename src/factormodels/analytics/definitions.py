@@ -54,7 +54,6 @@ Conditioning: Definitions validate identities and policy metadata without fittin
 Ownership: FM analytics owns declarations; construction consumes them and applications choose their recipes.
 """
 from __future__ import annotations
-from qis import FactorGroupSpec
 
 # packages
 from dataclasses import dataclass
@@ -63,7 +62,7 @@ from numbers import Integral
 from types import MappingProxyType
 from typing import Dict, Iterable, List, Mapping, Optional, Sequence, Tuple, Type
 import pandas as pd
-from qis import ReturnTypes
+from qis import FactorGroupSpec, ReturnTypes
 
 
 __all__ = [
@@ -80,7 +79,7 @@ class RiskFactors(str, Enum):
 
     Concrete factor sets subclass this and define their members. Shared behavior (name listing,
     column validation) lives here so multiple factor sets stay consistent. The qis container
-    (``qis.market_data.FactorsData``) accepts any such subclass via its ``factors`` parameter. A
+    (``qis.FactorsData``) accepts any such subclass via its ``factors`` parameter. A
     ``str``-Enum may be subclassed only while it has no members, so this class defines none.
 
     Members hash equal to their string values, so a dict keyed by members also accepts the value
@@ -98,7 +97,8 @@ class RiskFactors(str, Enum):
     @classmethod
     def validate_columns(cls, columns: Iterable[str], require_all: bool = True) -> None:
         """Check that ``columns`` cover the factor set; raise if any are missing."""
-        missing = [v for v in cls.values() if v not in set(columns)]
+        available = set(columns)
+        missing = [v for v in cls.values() if v not in available]
         if require_all and missing:
             raise ValueError(f"{cls.__name__}: missing factor columns {missing!r}")
 
@@ -114,9 +114,11 @@ class FactorFamily:
     research entry points do, to rebuild a factor at a different target — but not the sign or the
     gate: a factor whose betas obey a different rule is a factor of a different kind.
 
-    Attributes:
+    Args:
         name: Family identifier, e.g. 'Equity'. Recorded in the provenance snapshot.
-        vol_target: Annualised decimal vol every factor of this family is held at.
+        vol_target: Annualised decimal volatility target, or None for an unscaled family.
+            INHERIT from a target-free family is unscaled; VolTargetPolicy.NONE states
+            that choice directly at the factor level.
         long_only_sign: Sign constraint the family's betas carry: +1.0 forces a non-negative
             loading for a sign-constrained instrument, -1.0 non-positive, None no explicit sign.
             With automatic signs enabled, None defers to cluster sign selection and its zero gate.
@@ -158,7 +160,7 @@ class Factor:
     not in the declaration, so ``short_side_weights=(-0.5,)`` is a long position by accident and is
     rejected.
 
-    Attributes:
+    Args:
         name: The factor's name, and the column it occupies in a built panel.
         family: The family it inherits its vol target and beta rules from.
         long_side_tickers: Constituents held long, matching columns of the base price panel.
@@ -300,7 +302,7 @@ class Factor:
         return self.vol_target if self.vol_target is not None else self.family.vol_target
 
     @property
-    def initial_volatility(self) -> float:
+    def initial_volatility(self) -> Optional[float]:
         """Statistical EWMA seed, independent of whether construction targets volatility."""
         return self.vol_target if self.vol_target is not None else self.family.vol_target
 
@@ -410,7 +412,7 @@ class FactorModelSpec:
     vols or baskets coexist without either being the ambient default. A model is passed as this
     object. ``name`` is stored as provenance; it is not accepted as a runtime model selector.
 
-    Attributes:
+    Args:
         name: Model identifier, recorded in the configuration snapshot of any cut built under it.
         factors: The factor-set enum, a ``RiskFactors`` subclass. Its member order is the column
             order of the built panel.
@@ -541,7 +543,6 @@ class FactorModelSpec:
         or covariance. A simple total bump x assigns x/n to each member before
         log1p. Exposure sums and split-bump sensitivities are distinct outputs.
         """
-        from qis import FactorGroupSpec
         groups = {}
         for name, members in self.resolved_factor_families().items():
             key = "family:" + name

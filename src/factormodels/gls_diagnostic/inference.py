@@ -9,6 +9,7 @@ Cash and admitted alpha are subtracted once. No loading estimation, covariance
 repair or annualisation is performed. First-stage estimation uncertainty is excluded.
 Geometry follows Aitken (1935), doi:10.1017/S0370164600014346.
 """
+
 from __future__ import annotations
 from collections.abc import Sequence
 from numpy.typing import ArrayLike
@@ -22,15 +23,16 @@ from factormodels.gls_diagnostic.geometry import compute_gls_geometry
 from factormodels.gls_diagnostic._validation import _scalar, _vector
 
 __all__ = [
-    'GlsPremiaResult',
-    'infer_factor_premia',
+    "GlsPremiaResult",
+    "infer_factor_premia",
 ]
+
 
 @dataclass(frozen=True)
 class GlsPremiaResult:
     """Labelled inference, exact forecast reconciliation and explicit assumptions.
 
-    Attributes:
+    Args:
         premia (Series):
             Minimum-norm factor coordinates; only uniquely identified at full rank.
         assets (DataFrame):
@@ -56,14 +58,27 @@ class GlsPremiaResult:
     summary: dict
 
 
-def infer_factor_premia(B: ArrayLike, Omega: ArrayLike, total_returns: ArrayLike, *, cash_rate: float | np.integer | np.floating, alpha: ArrayLike | None=None, alpha_weight: float | np.integer | np.floating=0.,
-                       confidence_level: float | np.integer | np.floating=.95, rcond: float | np.integer | np.floating | None=None, lower_returns: ArrayLike | None=None, upper_returns: ArrayLike | None=None,
-                       cash_bounds: Sequence[float] | np.ndarray | pd.Series | None=None) -> GlsPremiaResult:
+def infer_factor_premia(
+    B: ArrayLike,
+    Omega: ArrayLike,
+    total_returns: ArrayLike,
+    *,
+    cash_rate: float | np.integer | np.floating,
+    alpha: ArrayLike | None = None,
+    alpha_weight: float | np.integer | np.floating = 0.0,
+    confidence_level: float | np.integer | np.floating = 0.95,
+    rcond: float | np.integer | np.floating | None = None,
+    lower_returns: ArrayLike | None = None,
+    upper_returns: ArrayLike | None = None,
+    cash_bounds: Sequence[float] | np.ndarray | pd.Series | None = None,
+) -> GlsPremiaResult:
     """Infer factor premia from provider CMAs conditional on a fitted risk model.
 
     Args:
-        B, Omega (array-like):
-            Estimated loadings and residual-return covariance, in matching asset order.
+        B (array-like):
+            Asset-by-factor loadings as in :func:`compute_gls_geometry`.
+        Omega (array-like):
+            Positive residual variances or SPD residual covariance in the same asset order.
         total_returns (array-like of shape (n_assets,)):
             Provider arithmetic total-return forecasts in decimal units and one currency.
         cash_rate (float):
@@ -78,8 +93,10 @@ def infer_factor_premia(B: ArrayLike, Omega: ArrayLike, total_returns: ArrayLike
             Pointwise conditional Student-t coverage under the additional working model.
         rcond (float or None, default None):
             SVD rank cutoff passed to :func:`compute_gls_geometry`.
-        lower_returns, upper_returns (array-like or None, default None):
-            Optional paired total-return box endpoints in the same asset order and units.
+        lower_returns (array-like or None, default None):
+            Optional lower total-return box endpoints in asset order; supply with upper_returns.
+        upper_returns (array-like or None, default None):
+            Matching upper endpoints, in the same total-return convention and units.
         cash_bounds (pair of float or None, default None):
             One shared cash interval for the box. None keeps cash fixed. These sensitivity
             boxes are neither factor quantiles nor statistical confidence intervals.
@@ -120,18 +137,22 @@ def infer_factor_premia(B: ArrayLike, Omega: ArrayLike, total_returns: ArrayLike
     sse = float(white_residual @ white_residual)
     rank, df = geometry.rank, n - geometry.rank
     unique = rank == k
-    status = ("unavailable_rank_deficient" if not unique else
-              "unavailable_residual_df" if df <= 0 else
-              "unavailable_zero_residual_scale"
-              if sse <= max(float(white_target @ white_target), 1e-300) * 1e-24 else
-              "conditional_working_model")
+    status = (
+        "unavailable_rank_deficient"
+        if not unique
+        else "unavailable_residual_df"
+        if df <= 0
+        else "unavailable_zero_residual_scale"
+        if sse <= max(float(white_target @ white_target), 1e-300) * 1e-24
+        else "conditional_working_model"
+    )
     covariance = np.full((k, k), np.nan)
     se, lower, upper = (np.full(k, np.nan) for _ in range(3))
     scale = critical = None
     inverse_gram = geometry.white_pinv @ geometry.white_pinv.T
     if status == "conditional_working_model":
         scale = sse / df
-        critical = float(t.isf((1. - confidence) / 2., df))
+        critical = float(t.isf((1.0 - confidence) / 2.0, df))
         covariance = scale * inverse_gram
         se = np.sqrt(np.diag(covariance))
         lower, upper = estimate - critical * se, estimate + critical * se
@@ -139,19 +160,27 @@ def infer_factor_premia(B: ArrayLike, Omega: ArrayLike, total_returns: ArrayLike
             raise ValueError("Conditional GLS intervals overflow; check units and identification")
     q = np.linalg.solve(geometry.chol.T, geometry.white_pinv.T)
     vif = np.sum(geometry.white**2, axis=0) * np.diag(inverse_gram)
-    table = pd.DataFrame(dict(estimate=estimate if unique else np.full(k, np.nan),
-                             standard_error=se, lower=lower, upper=upper, status=status,
-                             variance_inflation=vif if unique else np.full(k, np.nan),
-                             gross_weight=np.abs(q).sum(axis=0) if unique else np.full(k, np.nan)),
-                         index=names)
+    table = pd.DataFrame(
+        dict(
+            estimate=estimate if unique else np.full(k, np.nan),
+            standard_error=se,
+            lower=lower,
+            upper=upper,
+            status=status,
+            variance_inflation=vif if unique else np.full(k, np.nan),
+            gross_weight=np.abs(q).sum(axis=0) if unique else np.full(k, np.nan),
+        ),
+        index=names,
+    )
     bounds = pd.DataFrame(columns=["lower", "upper", "status"], index=names)
     if (lower_returns is None) != (upper_returns is None):
         raise ValueError("lower_returns and upper_returns must be supplied together")
     if cash_bounds is not None and lower_returns is None:
         raise ValueError("cash_bounds requires return box endpoints")
     if lower_returns is not None:
-        lo, hi = (_vector(v, B, name) for v, name in (
-            (lower_returns, "lower_returns"), (upper_returns, "upper_returns")))
+        lo, hi = (
+            _vector(v, B, name) for v, name in ((lower_returns, "lower_returns"), (upper_returns, "upper_returns"))
+        )
         if np.any(lo > hi):
             raise ValueError("lower_returns must not exceed upper_returns")
         cash_lo = cash_hi = cash
@@ -166,26 +195,56 @@ def infer_factor_premia(B: ArrayLike, Omega: ArrayLike, total_returns: ArrayLike
         high = positive.T @ hi + negative.T @ lo - q.T @ credited
         low += np.minimum(funding * cash_lo, funding * cash_hi)
         high += np.maximum(funding * cash_lo, funding * cash_hi)
-        bounds = pd.DataFrame(dict(lower=low if unique else np.full(k, np.nan),
-                                   upper=high if unique else np.full(k, np.nan),
-                                   status="sensitivity_box" if unique else status), index=names)
-    assets = pd.DataFrame(dict(total_return=total, cash=cash, alpha=admission,
-                               credited_alpha=credited, gls_target=target,
-                               fitted=geometry.beta @ estimate, residual=residual), index=ids)
-    summary = dict(method="conditional_gls_student_t", confidence_level=confidence,
-                   scope="pointwise", status=status, n_assets=n, n_factors=k, rank=rank,
-                   residual_df=df, weighted_residual_sse=sse, scale_squared=scale,
-                   critical_value=critical, relative_cutoff=geometry.relative_cutoff,
-                   alpha_weight=weight, cash_rate=cash,
-                   coordinate_convention="unique" if unique else "minimum_norm_nonidentified",
-                   assumptions="y = B lambda + e; e ~ N(0, tau^2 Omega). B, Omega, cash, "
-                   "alpha and factor definitions are fixed. Forecast-error covariance is "
-                   "assumed proportional to residual return covariance. No intercept.",
-                   excluded_uncertainty="First-stage loadings, residual-risk and alpha estimation; "
-                   "cash and factor definitions; forecast-error covariance misspecification.",
-                   interpretation="Conditional pointwise intervals, not simultaneous coverage, "
-                   "provider accuracy, adviser dispersion or realized-return prediction.")
-    return GlsPremiaResult(pd.Series(estimate, index=names, name="premium"), assets, table,
-                           pd.DataFrame(covariance, index=names, columns=names),
-                           pd.DataFrame(q if unique else np.full_like(q, np.nan),
-                                        index=ids, columns=names), bounds, summary)
+        bounds = pd.DataFrame(
+            dict(
+                lower=low if unique else np.full(k, np.nan),
+                upper=high if unique else np.full(k, np.nan),
+                status="sensitivity_box" if unique else status,
+            ),
+            index=names,
+        )
+    assets = pd.DataFrame(
+        dict(
+            total_return=total,
+            cash=cash,
+            alpha=admission,
+            credited_alpha=credited,
+            gls_target=target,
+            fitted=geometry.beta @ estimate,
+            residual=residual,
+        ),
+        index=ids,
+    )
+    summary = dict(
+        method="conditional_gls_student_t",
+        confidence_level=confidence,
+        scope="pointwise",
+        status=status,
+        n_assets=n,
+        n_factors=k,
+        rank=rank,
+        residual_df=df,
+        weighted_residual_sse=sse,
+        scale_squared=scale,
+        critical_value=critical,
+        relative_cutoff=geometry.relative_cutoff,
+        alpha_weight=weight,
+        cash_rate=cash,
+        coordinate_convention="unique" if unique else "minimum_norm_nonidentified",
+        assumptions="y = B lambda + e; e ~ N(0, tau^2 Omega). B, Omega, cash, "
+        "alpha and factor definitions are fixed. Forecast-error covariance is "
+        "assumed proportional to residual return covariance. No intercept.",
+        excluded_uncertainty="First-stage loadings, residual-risk and alpha estimation; "
+        "cash and factor definitions; forecast-error covariance misspecification.",
+        interpretation="Conditional pointwise intervals, not simultaneous coverage, "
+        "provider accuracy, adviser dispersion or realized-return prediction.",
+    )
+    return GlsPremiaResult(
+        pd.Series(estimate, index=names, name="premium"),
+        assets,
+        table,
+        pd.DataFrame(covariance, index=names, columns=names),
+        pd.DataFrame(q if unique else np.full_like(q, np.nan), index=ids, columns=names),
+        bounds,
+        summary,
+    )
