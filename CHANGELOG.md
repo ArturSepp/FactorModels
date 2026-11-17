@@ -6,7 +6,7 @@ The first public release is 0.1.0; earlier entries record unpublished developmen
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/): a behaviour
 change leads each release, then `Added`, `Changed`, `Fixed`, `Removed`.
 
-## [Unreleased] — 0.5.1.dev0
+## [0.5.1] - 2026-11-17
 
 ### Fixed
 
