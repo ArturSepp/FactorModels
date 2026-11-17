@@ -8,7 +8,7 @@ myst:
 
 # Python API reference
 
-*Author: [Artur Sepp](https://github.com/ArturSepp)*
+*Author: [Artur Sepp](https://github.com/ArturSepp) / First recorded: [2026-11-17](https://github.com/ArturSepp/FactorModels/commit/1ac323d126aa7c9ea90938da44ce583afc69cea1)*
 
 Implemented in [FactorModels](https://github.com/ArturSepp/FactorModels).
 Software citation: [CITATION.cff](https://github.com/ArturSepp/FactorModels/blob/main/CITATION.cff).
