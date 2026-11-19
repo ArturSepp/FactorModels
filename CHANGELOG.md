@@ -6,6 +6,46 @@ The first public release is 0.1.0; earlier entries record unpublished developmen
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/): a behaviour
 change leads each release, then `Added`, `Changed`, `Fixed`, `Removed`.
 
+## [0.6.0] - 2026-11-19
+
+Completed results support native selection, composition, persistence and lineage
+without reconstructing fitted FactorLasso containers in downstream applications.
+
+### Added
+
+- `prepare_cluster_lineage` and `prepare_cluster_fingerprints` prepare descriptive
+  statistical reports and plain fingerprint fields from native completed results.
+  They preserve FL's existing algorithms and raw residual-risk convention;
+  applications no longer need fitted FL containers for lineage research.
+
+- `write_model_archive` and `read_model_archive` share a lossless, checksummed
+  native-result archive across independent consumers. The schema preserves typed
+  fields and categorical vocabularies without pickle, fitting or risk assembly.
+- `FactorModelSnapshot.rename_assets` explicitly relabels all fitted axes and
+  retained tree identities without recomputing risk or changing leaf order.
+
+- `prepare_cluster_labels` returns plain descriptive lineage labels for completed
+  FM results using FL's existing MCF classification and matching defaults.
+
+- Select completed assets in caller order with `select_assets`, retaining exact
+  covariance submatrices, original dendrogram identities and full-fit residual
+  cluster targets. `RollingFactorModel.at_or_before` resolves causal dated access.
+- Compose compatible orthogonal snapshots with `compose_snapshots`, preserving
+  cross-block factor covariance. Applications explicitly supply cash loadings,
+  synthetic memberships and the retained main linkage source.
+- Prepare explicit research/stress residual policies with `prepare_residual_variant`,
+  using FL assembly and retained targets. Historical orthogonal burn-in is opt-in;
+  a missing residual correlation after the first available estimate remains an error.
+- Encode/decode complete results with `model_to_payload` and `model_from_payload`.
+  The strict versioned plain-field schema retains numerical tables and evidence;
+  application file formats and workbook policies remain outside FM.
+
+### Fixed
+
+- Retain original clustering tree leaves for warm-up assets with unavailable
+  memberships when the producer supplies their cadence. Selection keeps their
+  identities without inventing assignments or inferring missing historical evidence.
+
 ## [0.5.1] - 2026-11-17
 
 ### Fixed

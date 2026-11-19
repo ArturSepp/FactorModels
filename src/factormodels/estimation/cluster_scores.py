@@ -24,11 +24,34 @@ from factorlasso import (
 )
 
 from factormodels.analytics.models import RollingFactorModel
+from factormodels.estimation.cluster_lineage import prepare_cluster_lineage
 
 __all__ = [
     'extract_rolling_clusters',
     'prepare_cluster_scores',
+    'prepare_cluster_labels',
 ]
+
+
+def prepare_cluster_labels(model: RollingFactorModel) -> pd.DataFrame:
+    """Prepare FL's descriptive factor-based lineage labels as a plain table.
+
+    Statistical matching, classification and factor labels remain owned by FL.
+    Labels use the supplied full history and are descriptive reporting evidence,
+    not causal trading signals. For causal signal memberships use
+    ``extract_rolling_clusters`` instead. No FL container or report is returned.
+
+    Args:
+        model: Completed native rolling model with fitted cluster memberships,
+            factor covariance, loadings and raw residual variances.
+
+    Returns:
+        Independent dates-by-assets factor-label panel, preserving FL's exact
+        ordering and missing labels. FL's MCF defaults and dependency errors apply.
+    """
+    if not isinstance(model, RollingFactorModel):
+        raise TypeError('model must be a completed RollingFactorModel')
+    return prepare_cluster_lineage(model).to_label_panel().copy(deep=True)
 
 
 def extract_rolling_clusters(

@@ -68,6 +68,10 @@ from factormodels.estimation._results import (
     snapshots_from_factorlasso, snapshot_from_moments,
     estimate_historical_alpha, prepare_snapshot_diagnostics,
 )
+from factormodels.estimation.composition import compose_snapshots
+from factormodels.estimation.residual_variants import prepare_residual_variant
+from factormodels.analytics.model_payloads import model_to_payload, model_from_payload
+from factormodels.analytics.model_archives import write_model_archive, read_model_archive
 
 from factormodels.analytics.risk import (
     build_risk_model,
@@ -116,7 +120,10 @@ from factormodels.gls_diagnostic import (
     sample_universe_dispersion,
 )
 from factormodels.analytics.portfolio_context import prepare_portfolio_context
-from factormodels.estimation.cluster_scores import extract_rolling_clusters, prepare_cluster_scores
+from factormodels.estimation.cluster_scores import (
+    extract_rolling_clusters, prepare_cluster_scores, prepare_cluster_labels,
+)
+from factormodels.estimation.cluster_lineage import prepare_cluster_lineage, prepare_cluster_fingerprints
 from factormodels.utils import (
     get_paths, get_resource_path, get_output_path,
     resolve_resource_path, resolve_output_path, create_output_directory,
@@ -142,6 +149,12 @@ __all__ = [
     "snapshot_from_moments",
     "estimate_historical_alpha",
     "prepare_snapshot_diagnostics",
+    "compose_snapshots",
+    "prepare_residual_variant",
+    "model_to_payload",
+    "model_from_payload",
+    "write_model_archive",
+    "read_model_archive",
     "get_paths",
     "resolve_resource_path",
     "resolve_output_path",
@@ -165,6 +178,9 @@ __all__ = [
     "prepare_portfolio_context",
     "extract_rolling_clusters",
     "prepare_cluster_scores",
+    "prepare_cluster_labels",
+    "prepare_cluster_lineage",
+    "prepare_cluster_fingerprints",
 
     "GlsGeometry",
     "GlsPremiaResult",

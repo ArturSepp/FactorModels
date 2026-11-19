@@ -28,6 +28,8 @@ from factormodels.analytics.models import (
 )
 from factormodels.analytics.risk import build_risk_model
 from factormodels.analytics.portfolio_context import prepare_portfolio_context
+from factormodels.analytics.model_payloads import model_to_payload, model_from_payload
+from factormodels.analytics.model_archives import write_model_archive, read_model_archive
 __all__ = [
     'DEFAULT_VOL_WARMUP_PERIOD',
     'RiskFactors',
@@ -52,4 +54,8 @@ __all__ = [
     'PreparedSnapshotDiagnostics',
     'build_risk_model',
     'prepare_portfolio_context',
+    'model_to_payload',
+    'model_from_payload',
+    'write_model_archive',
+    'read_model_archive',
 ]

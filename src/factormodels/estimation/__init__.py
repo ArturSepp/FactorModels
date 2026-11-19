@@ -5,7 +5,12 @@ from factormodels.estimation._results import (
     estimate_historical_alpha, prepare_snapshot_diagnostics,
 )
 
-from factormodels.estimation.cluster_scores import extract_rolling_clusters, prepare_cluster_scores
+from factormodels.estimation.cluster_scores import (
+    extract_rolling_clusters, prepare_cluster_scores, prepare_cluster_labels,
+)
+from factormodels.estimation.composition import compose_snapshots
+from factormodels.estimation.residual_variants import prepare_residual_variant
+from factormodels.estimation.cluster_lineage import prepare_cluster_lineage, prepare_cluster_fingerprints
 
 __all__ = [
     "FactorCovarEstimator",
@@ -15,4 +20,9 @@ __all__ = [
     "prepare_snapshot_diagnostics",
     "extract_rolling_clusters",
     "prepare_cluster_scores",
+    "prepare_cluster_labels",
+    "prepare_cluster_lineage",
+    "prepare_cluster_fingerprints",
+    "compose_snapshots",
+    "prepare_residual_variant",
 ]

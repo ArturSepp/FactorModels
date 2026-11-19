@@ -127,6 +127,16 @@ intercept in isolation. See the [complete mean bridge](gls_factor_premia.md).
 ## `factormodels.estimation`
 
 - `FactorCovarEstimator`
+- `compose_snapshots`
+- `prepare_residual_variant`
+
+Version 0.6.0 adds explicit preparation of native completed results, including
+asset selection, composition, lossless archives and cluster lineage. Consumers
+using these operations require FactorModels 0.6.0 or later.
+Composition currently supports compatible orthogonal blocks; a caller supplies
+cash loading overrides, output memberships and the retained linkage source.
+Residual variants use FL's canonical assembly and retained full-fit targets.
+See [selection and composition in the completed model guide](completed_model.md).
 
 ## `factormodels.analytics.models`
 
@@ -138,6 +148,35 @@ intercept in isolation. See the [complete mean bridge](gls_factor_premia.md).
 copies of the fitted tables. The existing `.asset_covariance` and
 `.residual_covariance` retain the selected residual policy. These accessors perform
 no estimation.
+
+`snapshot.select_assets(assets)` and `rolling.select_assets(assets)` preserve
+the caller's order and exact covariance submatrices. `rolling.at_or_before(date)`
+returns the latest available fit with its original cutoff. Neither method refits.
+`snapshot.rename_assets(mapping)` explicitly relabels the fitted asset axes,
+including retained tree identities and targets, without changing their order or
+numerical values. It rejects collisions with identities in the original fit.
+
+## `factormodels.analytics.model_payloads`
+
+- `model_to_payload`
+- `model_from_payload`
+
+These root exports provide the strict schema-1 plain-field contract for native
+snapshots and rolling results. The payload retains pandas/NumPy fields; applications
+choose a lossless file encoding. Missing fields and unsupported versions fail.
+
+## `factormodels.analytics.model_archives`
+
+- `write_model_archive`
+- `read_model_archive`
+
+These root exports provide one portable file encoding for the native payload.
+The writer atomically creates a typed JSON/NumPy ZIP and returns its SHA-256;
+the reader requires that digest and reconstructs the complete result without
+fitting or covariance assembly. Both snapshots and rolling models preserve
+axes, dtypes, missing masks, categorical vocabularies and nested plain metadata.
+The archive uses no pickle or dynamic class imports. Applications own paths,
+workbook layouts and their artifact transactions.
 
 ## Repository teaching inputs
 
@@ -194,9 +233,19 @@ It contains no optimiser object and performs no portfolio solve.
 
 - `extract_rolling_clusters`
 - `prepare_cluster_scores`
+- `prepare_cluster_labels`
+- `prepare_cluster_lineage`
+- `prepare_cluster_fingerprints`
 
 Completed mappings and pooled score panels can be consumed independently of the
 fitted model. Scoring preserves the supplied point-in-time cluster schedule.
+Lineage labels are descriptive full-history FL outputs returned as a plain
+dates-by-assets table; they are not causal trading signals.
+`prepare_cluster_lineage` exposes the full FL statistical report, including
+membership panels and classification, without retaining fitted FL containers.
+`prepare_cluster_fingerprints` returns owned plain fields for research matching
+sweeps. Both preserve FL's raw residual-variance convention for descriptive
+fingerprints independently of the selected portfolio covariance policy.
 
 ## Opportunity and alpha uncertainty
 

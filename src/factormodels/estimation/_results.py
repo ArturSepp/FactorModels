@@ -27,6 +27,7 @@ from factorlasso import (
 from factormodels.analytics.models import (
     FactorModelSnapshot, RollingFactorModel, PreparedSnapshotDiagnostics,
 )
+from factormodels.estimation._result_evidence import residual_target_evidence, clustering_leaf_evidence
 
 __all__ = ['snapshots_from_factorlasso', 'snapshot_from_moments',
            'estimate_historical_alpha', 'prepare_snapshot_diagnostics']
@@ -61,6 +62,9 @@ def _materialize(
         frequency=corr.frequency, span=corr.span, observation_date=corr.observation_date,
         estimation_date=corr.estimation_date, schema_version=corr.schema_version,
     )
+    cluster_maps = None if data.clusters is None else get_clusters_by_freq(data.clusters)
+    linkage_maps = None if data.linkages is None else get_linkages_by_freq(data.linkages)
+    targets, target_assets = residual_target_evidence(data)
     return FactorModelSnapshot(
         loadings=data.y_betas, factor_covariance=data.x_covar,
         fit_statistics=data.y_variances, fit_diagnostics=diagnostics,
@@ -74,9 +78,12 @@ def _materialize(
         residual_correlation_metadata=corr_metadata,
         clusters=data.clusters, linkages=data.linkages, cutoffs=data.cutoffs,
         derived_signs=data.derived_signs,
-        clusters_by_frequency=None if data.clusters is None else get_clusters_by_freq(data.clusters),
-        linkages_by_frequency=None if data.linkages is None else get_linkages_by_freq(data.linkages),
+        clusters_by_frequency=cluster_maps,
+        linkages_by_frequency=linkage_maps,
         cutoffs_by_frequency=None if data.cutoffs is None else get_cutoffs_by_freq(data.cutoffs),
+        clustering_source_assets=clustering_leaf_evidence(
+            cluster_maps, linkage_maps, memberships=data.clusters, residual_metadata=data.residual_metadata),
+        residual_cluster_targets=targets, residual_target_source_assets=target_assets,
     )
 
 

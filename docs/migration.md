@@ -44,6 +44,20 @@ input loading, currency preparation and persistence at the caller boundary.
 Preserve historical six-file inputs and use their recorded environment when
 reproducing old runs; this removal does not rewrite those files.
 
+## 0.6.0: native result operations
+
+Existing completed-result APIs remain available. Ordered asset selection,
+causal dated access, orthogonal block composition and explicit residual variants
+now operate on native FM results. Applications can share the versioned plain-field
+payload contract while retaining their own file paths and formats. See the
+[completed model guide](completed_model.md) and
+[offline example](../examples/native_results.py).
+
+This library addition does not automatically migrate an application's fitted
+state or saved files. Old FL-shaped files require an explicit, evidenced conversion
+in their owning application. Preserve historical originals; do not silently load
+them as a native model or invent missing cutoff, units or clustering evidence.
+
 <a id="unreleased-0-3-0-completed-result-migration"></a>
 
 ## 0.3.0 completed-result migration
@@ -113,6 +127,25 @@ scores to downstream alpha/optimisation workflows. OP has no FactorModels or Fac
 factor extra, root FactorLasso aliases or legacy `covar_data` constructor.
 
 ## Consumer verification and adoption
+
+Applications carrying completed FM models should keep `FactorModelSnapshot` or
+`RollingFactorModel` throughout their pipeline. Replace raw FL field access with
+`loadings`, `factor_covariance`, `fit_statistics`, `cutoff`, `snapshots` and
+`covariances`; use `select_assets`, `rename_assets` and `at_or_before` for explicit
+selection. These operations preserve stored fitted moments and do not refit.
+Use `prepare_residual_variant` when a historical consumer explicitly needs an
+orthogonal reference rather than the selected production covariance. A raw-field
+rename alone does not establish policy parity.
+
+Use FM's schema payload or `write_model_archive` / `read_model_archive` for complete
+reloads. Workbook/CSV tables cannot reconstruct every residual, tree, cadence or
+provenance field. Migrate historical data explicitly under its original environment
+to a new artifact, declaring missing coordinates and original leaf identities;
+retain the original bytes and receipt. A native loader must reject unsupported or
+incomplete artifacts rather than silently fit again or recreate an FL container.
+`prepare_cluster_lineage` and `prepare_cluster_fingerprints` cover descriptive
+research consumers; FL retains statistical ownership inside their implementation.
+These native selection, archive and lineage APIs require **0.6.0 or later**.
 
 Saved-fit research reproduction loads the recorded loadings, factor covariance,
 residual statistics and forecasts. Changing the package owner does not authorise

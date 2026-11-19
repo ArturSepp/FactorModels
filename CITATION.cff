@@ -9,8 +9,8 @@ authors:
     given-names: Artur
     orcid: "https://orcid.org/0000-0002-7038-1748"
 license: MIT
-version: 0.5.1
-date-released: 2026-11-17
+version: 0.6.0
+date-released: "2026-11-19"
 keywords:
   - MATF
   - multi-asset

@@ -16,12 +16,14 @@ from __future__ import annotations
 
 from copy import deepcopy
 from dataclasses import dataclass, fields, is_dataclass
-from typing import Mapping
+from typing import Mapping, Sequence
 
 import numpy as np
 import pandas as pd
 import qis
 from qis import ReturnTypes
+
+from factormodels.analytics._selection import select_snapshot_fields, rename_snapshot_fields
 
 
 _RESIDUAL_TYPES = ("orthogonal", "empirical", "exposure_cluster", "residual_cluster")
@@ -134,6 +136,12 @@ class FactorModelSnapshot:
         clusters_by_frequency: Optional memberships keyed by response cadence.
         linkages_by_frequency: Optional linkages keyed by response cadence.
         cutoffs_by_frequency: Optional cut distances keyed by response cadence.
+        clustering_source_assets: Original ordered leaf identities by cadence. These
+            remain unchanged on selection; absent identities are not inferred for old trees.
+        residual_cluster_targets: Prepared full-fit block correlations, restricted to
+            the current asset axis without recomputing their original-universe means.
+        residual_target_source_assets: Original target universe when known; None marks
+            unavailable lineage, for example an already-filtered historical FL input.
 
     Containers compare and hash by identity. Compare individual tables with pandas testing
     utilities when numerical equality is required.
@@ -173,6 +181,9 @@ class FactorModelSnapshot:
         clusters_by_frequency: dict | None = None,
         linkages_by_frequency: dict | None = None,
         cutoffs_by_frequency: dict | None = None,
+        clustering_source_assets: dict[str, pd.Index] | None = None,
+        residual_cluster_targets: dict[str, pd.DataFrame] | None = None,
+        residual_target_source_assets: pd.Index | None = None,
     ) -> None:
         """Validate completed labels, dimensions, dates and selected policy."""
         date = pd.Timestamp(cutoff)
@@ -234,6 +245,24 @@ class FactorModelSnapshot:
             _validate_history(info["residual_returns"], b.index, observation, "common residual history")
             if not info["asset_metadata"].index.equals(b.index):
                 raise ValueError("residual correlation asset metadata must align")
+        for frequency, identities in (clustering_source_assets or {}).items():
+            if not isinstance(identities, pd.Index) or not identities.is_unique:
+                raise ValueError("clustering_source_assets must contain unique ordered pandas indices")
+            tree = (linkages_by_frequency or {}).get(frequency)
+            if tree is not None and len(tree) != max(0, len(identities) - 1):
+                raise ValueError("original leaf identities must match the retained linkage size")
+        for target, matrix in (residual_cluster_targets or {}).items():
+            if target not in ("exposure_cluster", "residual_cluster"):
+                raise ValueError("unknown residual cluster target")
+            _validate_covariance(matrix, b.index, "residual cluster target", check_psd=False)
+            if not np.allclose(np.diag(matrix), 1., rtol=0, atol=1e-12):
+                raise ValueError("residual cluster targets must have unit diagonal")
+        if residual_target_source_assets is not None and (
+            not isinstance(residual_target_source_assets, pd.Index)
+            or not residual_target_source_assets.is_unique
+            or not b.index.isin(residual_target_source_assets).all()
+        ):
+            raise ValueError("residual target source assets must cover the selected universe")
         values = dict(
             loadings=b,
             factor_covariance=f,
@@ -253,6 +282,9 @@ class FactorModelSnapshot:
             clusters_by_frequency=clusters_by_frequency,
             linkages_by_frequency=linkages_by_frequency,
             cutoffs_by_frequency=cutoffs_by_frequency,
+            clustering_source_assets=clustering_source_assets,
+            residual_cluster_targets=residual_cluster_targets,
+            residual_target_source_assets=residual_target_source_assets,
             factor_return_types=_return_types(b.columns, factor_return_types),
             factor_groups=factor_groups,
             provenance=provenance or {},
@@ -382,6 +414,21 @@ class FactorModelSnapshot:
         return deepcopy(self._fields["factor_return_types"])
 
     @property
+    def clustering_source_assets(self) -> dict[str, pd.Index] | None:
+        """Return original ordered leaf identities, never a re-cut selected tree."""
+        return deepcopy(self._fields["clustering_source_assets"])
+
+    @property
+    def residual_cluster_targets(self) -> dict[str, pd.DataFrame] | None:
+        """Return retained original-universe block targets on the current asset axis."""
+        return deepcopy(self._fields["residual_cluster_targets"])
+
+    @property
+    def residual_target_source_assets(self) -> pd.Index | None:
+        """Return the target's original universe, or None when historical lineage is unknown."""
+        return deepcopy(self._fields["residual_target_source_assets"])
+
+    @property
     def factor_groups(self) -> dict | None:
         """Return an independent copy of completed factor groups."""
         return deepcopy(self._fields["factor_groups"])
@@ -410,6 +457,39 @@ class FactorModelSnapshot:
             object.__setattr__(updated, name, getattr(self, name))
         object.__setattr__(updated, "_fields", {**self._fields, "provenance": deepcopy(dict(provenance))})
         return updated
+
+    def select_assets(self, assets: Sequence[str]) -> FactorModelSnapshot:
+        """Select assets in caller order without recomputing any fitted risk.
+
+        All selected covariances are exact principal submatrices. Original trees,
+        cutoffs and target universes remain evidence about the full fit. Unknown,
+        duplicate or empty selections fail; renaming is intentionally unsupported.
+        Historical trees without original leaf identities cannot be selected.
+        """
+        return FactorModelSnapshot(
+            **select_snapshot_fields(self._fields, assets), cutoff=self.cutoff,
+            residual_type=self.residual_type, residual_var_weight=self.residual_var_weight,
+            residual_corr_weight=self.residual_corr_weight,
+        )
+
+    def rename_assets(self, mapping: Mapping[str, str]) -> FactorModelSnapshot:
+        """Relabel completed asset axes without changing order or numerical evidence.
+
+        Args:
+            mapping: Existing asset identifiers mapped to unique nonempty labels.
+                Unspecified assets retain their names. Labels cannot collide with
+                another identity in the retained original tree or target universe.
+
+        Returns:
+            Independent result with aligned renamed axes and an explicit rename
+            record. Tree positions, stored targets and fitted numerical values
+            are unchanged; historical composition provenance remains original.
+        """
+        return FactorModelSnapshot(
+            **rename_snapshot_fields(self._fields, mapping), cutoff=self.cutoff,
+            residual_type=self.residual_type, residual_var_weight=self.residual_var_weight,
+            residual_corr_weight=self.residual_corr_weight,
+        )
 
 
 def _require_plain(value: object) -> None:
@@ -517,6 +597,29 @@ class RollingFactorModel:
         from factormodels.analytics.risk import build_risk_model
 
         return build_risk_model(self, diagonal_reference=diagonal_reference)
+
+    def select_assets(self, assets: Sequence[str]) -> RollingFactorModel:
+        """Select the same ordered, fully covered asset universe at every fitted date."""
+        if isinstance(assets, (str, bytes, Mapping)):
+            raise TypeError("assets must be an ordered sequence")
+        names = list(assets)
+        return RollingFactorModel({date: snapshot.select_assets(names)
+                                   for date, snapshot in self._snapshots.items()})
+
+    def at_or_before(self, date: pd.Timestamp | str) -> FactorModelSnapshot:
+        """Return the latest available fit without relabelling its information cutoff.
+
+        A request before the first fit, or an invalid date, raises ValueError.
+        The returned snapshot retains the normal copy-protected field accessors.
+        """
+        cutoff = pd.Timestamp(date)
+        if pd.isna(cutoff):
+            raise ValueError("date must be valid")
+        dates = pd.DatetimeIndex(self._snapshots)
+        position = dates.searchsorted(cutoff, side="right") - 1
+        if position < 0:
+            raise ValueError("no fitted snapshot is available at or before the requested date")
+        return self._snapshots[dates[position]]
 
 
 @dataclass(frozen=True, init=False, eq=False, repr=False)

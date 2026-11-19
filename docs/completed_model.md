@@ -60,6 +60,8 @@ or before the cutoff, not an observation on the exact cutoff date.
 | `snapshot.residuals`, `snapshot.residual_metadata` | Native residual history and per-asset cadence, beta span, annualisation and stored/raw scale |
 | `snapshot.residual_correlation`, `snapshot.residual_correlation_metadata` | Plain dimensionless correlation plus common residual returns, metadata, frequency/span and separate observation/estimation dates |
 | `snapshot.clusters`, `.linkages`, `.cutoffs`, `.derived_signs` | Available fit diagnostics; per-frequency cluster/linkage/cutoff views are materialized too |
+| `snapshot.clustering_source_assets` | Original ordered dendrogram leaf identities by cadence; retained when selecting a smaller universe |
+| `snapshot.residual_cluster_targets`, `.residual_target_source_assets` | Full-fit block correlations on the current asset axis, and the original target universe when known |
 | `snapshot.cutoff`, `snapshot.provenance` | Information cutoff, latest observations, conventions and producer settings; retain caller-specific recipe, currency, units and source evidence separately |
 
 Factor and asset labels and their ordering are substantive. Monthly covariance is
@@ -114,14 +116,108 @@ for supplied moments. Both prepare risk through FL before returning FM-owned fie
 The raw diagonal reference is distinct from `to_risk_model(diagonal_reference=True)`,
 whose decomposition uses the diagonal of selected R and retains full selected Sigma.
 
-Input loading and persistence belong to the caller. There is no package input
-serializer or promised fitted checkpoint serializer. Export individual result tables with pandas `to_csv` or
-another caller-chosen format and retain units, date, recipe and source provenance
-beside them. The example's `persist_example` writes inspectable model tables and
+Input loading and artifact publication belong to the caller. From **0.6.0**,
+`model_to_payload(model)` and `model_from_payload(payload)` provide a
+strict schema-1 contract for the completed state. It contains independent copies
+of every pandas/NumPy field, axes, cutoff, selected policy, original clustering
+evidence and provenance. Loading validates the constructor contract without
+fitting, covariance assembly, dynamic class imports or fallback to FL containers.
+Missing/extra fields, unsupported schema versions and duplicate rolling dates fail.
+The payload is a mapping of typed fields, not a JSON string or workbook serializer.
+The application must preserve index types/names, ordering, dtypes, missing-value
+masks and nested metadata in its chosen lossless encoding.
+
+`digest = write_model_archive(path, model)` and
+`read_model_archive(path, expected_sha256=digest)` provide FM's
+shared lossless archive encoding. The ZIP contains typed JSON and NumPy arrays;
+the reader verifies the required whole-file digest before decoding. It uses
+neither pickle nor dynamic Python class imports.
+Keep the complete archive as the reload source. Excel/CSV tables are reporting
+views and can round numbers or lose index metadata. Applications own file naming,
+the trusted digest, multi-artifact publication and any accompanying workbook.
+See the [archive API](api.md) for the supported
+types and validation contract.
+
+Export individual result tables with pandas `to_csv` for inspection and retain
+units, date, recipe and source provenance beside them. The example's
+`persist_example` writes inspectable model tables and
 `result_metadata.json` with conventions/provenance. Eligible models additionally
 produce forecast tables, GLS/CMA results and a PDF. Other models retain their full
 tables and an explicit unavailable-report reason. Those output CSVs are not a
 fitted-object reload format.
+
+## Native selection and composition
+
+The [offline native-result example](../examples/native_results.py) uses supplied
+moments to verify selection, causal date access, composition and payload reload.
+It does not fetch data or call an optimiser:
+
+```console
+python examples/native_results.py
+```
+
+`snapshot.select_assets(["asset_b", "asset_a"])` slices every asset-indexed field
+in that order. Selected covariance, residual covariance and the raw diagonal
+reference are exact principal submatrices; none is recomputed. Empty, duplicate
+or unknown assets fail. Explicit `rename_assets(mapping)` relabels asset axes and
+retained clustering/target identities without recomputing risk; it rejects unknown
+keys and duplicate resulting names. The corresponding rolling
+method requires coverage at every fitted date. `rolling.at_or_before(date)`
+returns the latest fit no later than the requested date, without changing its
+cutoff; requesting a date before the first fit fails.
+
+Trees and cutoffs remain evidence about the original fitted universe. Selection
+retains their original leaf identities and never re-cuts a tree. Historical
+filtered FL inputs may lack those identities; their target values can still be
+materialized, but further tree-bearing native selection requires the missing
+identity evidence rather than guessing it from the smaller universe.
+
+`compose_snapshots(blocks, assets=order, loadings=overrides, clusters=memberships,
+linkage_source=0)` combines disjoint orthogonal blocks through FL's covariance
+assembly. Blocks must share the cutoff, exact factor order/covariance, native
+coordinates, declared currency/units and residual variance weight. Common factor
+exposure creates covariance between blocks; concatenating block-diagonal asset
+covariances is incorrect. Loadings and memberships are complete explicit caller
+inputs: FM supplies no cash-zeroing rule or synthetic cash label. The selected
+main tree keeps its original leaf universe; all block provenance and clustering
+evidence remain recorded. Blocks with prepared correlated-residual evidence are
+rejected until a cross-block residual model is explicitly supported. Supplied
+moments do not acquire invented alpha, R-squared or residual histories.
+
+## Explicit residual variants
+
+Ordinary consumers use the fitted result's selected covariance directly.
+`prepare_residual_variant(model, residual_type="orthogonal")` is an explicit
+research/stress operation returning another completed result. Variance and
+correlation weights are arguments, not mutations of the original result.
+FL remains the owner of covariance assembly. Fit statistics, diagnostic columns,
+native residual cadence/scaling and the raw unit-weight diagonal reference retain
+their original meanings.
+
+Where correlation is available, materialization retains FL's full-universe
+exposure/residual cluster targets before selection. Subsetting and schema reload
+preserve those targets; requesting an unavailable retained target fails instead
+of estimating a new target on fewer assets. An already-filtered historical FL
+input can retain valid target values while its original asset identities remain
+explicitly unknown.
+
+`allow_orthogonal_burn_in=True` is an explicit replay declaration for missing
+correlation before its first available estimate. A later missing estimate fails.
+The result records both the target policy and whether a dated snapshot used this
+fallback. Fresh fitting has no new fallback. `to_risk_model(diagonal_reference=True)`
+still preserves selected total risk; it does not replace a genuinely orthogonal
+variant requested by a stress calculation.
+
+## Native lineage and descriptive statistics
+
+`prepare_cluster_lineage(rolling)` prepares FL's statistical lineage report from
+native snapshots. `prepare_cluster_fingerprints(snapshot)` returns owned plain
+fingerprint fields for matching experiments. Both preserve raw residual-variance
+statistics independently of the selected portfolio covariance policy. Neither
+operation refits the model or returns FL fitted containers to the application.
+Their full-history matching is descriptive; trading signals use the causal
+memberships available at each fitted cutoff. Keep that distinction when plotting
+stable labels alongside a backtest.
 
 ## Interpretation and limitations
 

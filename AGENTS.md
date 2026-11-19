@@ -17,6 +17,19 @@ authorisation and independent reference evidence.
 
 ## Environment and outputs
 
+The user authorized Stage 8 publication and activation on 2026-11-19. Publish the
+qualified FM 0.6.0 release and verify its installed downstream cohort; retain the
+Stage 7 environments and artifacts as historical controls. Release builds and
+consumer installations use separate external workspaces/environments, without
+unrelated dependency upgrades.
+
+For the authorized Stage 7 native-result qualification (2026-11-19), the fresh
+`C:\Python\FactorModelsNativeArtifacts312\Scripts\python.exe` supplies FM tests,
+lint and documentation tools with the frozen numerical dependencies. Documentation
+tools have a separately resolved compatible dependency set; private ROSAA runtime
+environments and all historical controls remain unchanged. This exception is for
+local verification, not publication or production activation.
+
 Use the portable source, lint, test, build and documentation commands in
 [CONTRIBUTING.md](CONTRIBUTING.md). Work from an external checkout for builds and
 keep environments, caches, reports and temporary output outside synchronised
