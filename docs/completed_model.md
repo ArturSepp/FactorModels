@@ -129,8 +129,11 @@ masks and nested metadata in its chosen lossless encoding.
 
 `digest = write_model_archive(path, model)` and
 `read_model_archive(path, expected_sha256=digest)` provide FM's
-shared lossless archive encoding. The ZIP contains typed JSON and NumPy arrays;
-the reader verifies the required whole-file digest before decoding. It uses
+shared lossless archive encoding. Writes default to schema 1. Once every consumer
+supports schema 2, use `write_model_archive(path, model, schema=2)` to store each
+homogeneous numeric frame as a block and share the axes of mixed-type frames.
+Both archive formats carry the same version 1 fitted-model payload. The ZIP contains
+typed JSON and NumPy arrays. The reader verifies the required whole-file digest before decoding. It uses
 neither pickle nor dynamic Python class imports.
 Keep the complete archive as the reload source. Excel/CSV tables are reporting
 views and can round numbers or lose index metadata. Applications own file naming,

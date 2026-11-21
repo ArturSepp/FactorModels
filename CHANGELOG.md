@@ -6,6 +6,17 @@ The first public release is 0.1.0; earlier entries record unpublished developmen
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/): a behaviour
 change leads each release, then `Added`, `Changed`, `Fixed`, `Removed`.
 
+## [0.6.1] - 2026-11-21
+
+`read_model_archive` accepts archive schemas 1 and 2. Existing calls to
+`write_model_archive(path, model)` produce schema 1 archives readable by FM 0.6.0.
+
+### Added
+
+- Pass `schema=2` to store homogeneous numeric frames as single arrays and
+  write the axes once per frame. Deploy a compatible reader to every consumer
+  before opting in. The fitted-model payload remains at version 1.
+
 ## [0.6.0] - 2026-11-19
 
 Completed results support native selection, composition, persistence and lineage

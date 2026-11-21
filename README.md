@@ -644,7 +644,7 @@ the model and its applications, and the estimator it builds on:
   author  = {Sepp, Artur},
   title   = {factormodels: Factor construction, GLS premia, capital market assumptions and factor covariance estimation},
   year    = {2026},
-  version = {0.6.0},
+  version = {0.6.1},
   url     = {https://github.com/ArturSepp/FactorModels},
 }
 

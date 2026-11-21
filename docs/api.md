@@ -170,9 +170,10 @@ choose a lossless file encoding. Missing fields and unsupported versions fail.
 - `write_model_archive`
 - `read_model_archive`
 
-These root exports provide one portable file encoding for the native payload.
-The writer atomically creates a typed JSON/NumPy ZIP and returns its SHA-256;
-the reader requires that digest and reconstructs the complete result without
+The writer atomically creates a typed JSON/NumPy ZIP and returns its SHA-256.
+`write_model_archive(path, model)` defaults to archive schema 1 for compatibility
+with FM 0.6.0. Pass the keyword-only `schema=2` to compact the stored frames.
+The reader detects either schema, verifies the supplied digest and reconstructs the complete result without
 fitting or covariance assembly. Both snapshots and rolling models preserve
 axes, dtypes, missing masks, categorical vocabularies and nested plain metadata.
 The archive uses no pickle or dynamic class imports. Applications own paths,
